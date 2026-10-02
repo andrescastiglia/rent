@@ -41,6 +41,8 @@ export interface Tenant {
 }
 
 export interface CreateTenantInput {
+  companyId?: string;
+  password?: string;
   firstName: string;
   lastName: string;
   email: string;

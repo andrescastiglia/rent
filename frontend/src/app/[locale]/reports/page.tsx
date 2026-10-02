@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Loader2, FileText } from "lucide-react";
 import { dashboardApi, BatchReportRun } from "@/lib/api/dashboard";
 import { useAuth } from "@/contexts/auth-context";
+import { Button, StatePanel } from "@/components/ui";
 
 type ReportsTableProps = {
   items: BatchReportRun[];
@@ -126,6 +127,7 @@ function ReportsTable({
           </button>
           <button
             type="button"
+            data-guide="report-next"
             onClick={onNextPage}
             disabled={page >= totalPages}
             className="px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 disabled:opacity-50"
@@ -148,6 +150,7 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [error, setError] = useState(false);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
@@ -157,6 +160,7 @@ export default function ReportsPage() {
   const loadReports = useCallback(async () => {
     try {
       setLoading(true);
+      setError(false);
       const response = await dashboardApi.getReports(page, PAGE_SIZE);
       const sorted = [...response.data].sort(
         (a, b) =>
@@ -166,8 +170,7 @@ export default function ReportsPage() {
       setTotal(response.total);
     } catch (error) {
       console.error("Failed to load reports", error);
-      setItems([]);
-      setTotal(0);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -205,13 +208,33 @@ export default function ReportsPage() {
           {t("title")}
         </h1>
         <p className="mt-1 text-gray-500 dark:text-gray-400">{t("subtitle")}</p>
+        <Button
+          id="reports-refresh"
+          variant="secondary"
+          disabled={loading}
+          onClick={() => void loadReports()}
+        >
+          {t("refresh")}
+        </Button>
       </div>
 
-      {loading ? (
+      {error && (
+        <StatePanel
+          error
+          title={t("readError")}
+          action={
+            <Button variant="secondary" onClick={() => void loadReports()}>
+              {t("retry")}
+            </Button>
+          }
+        />
+      )}
+      {loading && (
         <div className="flex justify-center items-center h-64">
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
-      ) : (
+      )}
+      {!loading && !error && (
         <ReportsTable
           items={items}
           page={page}

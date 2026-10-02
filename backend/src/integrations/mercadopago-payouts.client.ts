@@ -33,14 +33,14 @@ export const bankAccountSchema = z.object({
 const payoutSchema = z
   .object({
     externalReference: reference,
-    idempotencyKey: z.string().uuid(),
+    idempotencyKey: z.uuid(),
     // Monetary decimal string is converted only after enforcing a cent-exact range.
     amount: z
       .string()
       .regex(/^\d{1,11}\.\d{2}$/)
       .refine((v) => Number(v) >= 1 && Number(v) <= 10000000000),
     currency: z.literal('ARS'),
-    recipientEmail: z.string().email().optional(),
+    recipientEmail: z.email().optional(),
     bankAccount: bankAccountSchema.optional(),
   })
   .refine(
@@ -66,7 +66,7 @@ const transactionSchema = z.object({
   external_reference: reference,
   status: z.string(),
   status_detail: z.string().optional(),
-  last_update_date: z.string().datetime({ offset: true }),
+  last_update_date: z.iso.datetime({ offset: true }),
   amount: z.object({ currency: z.string(), value: z.number() }),
 });
 export type PayoutTransaction = z.infer<typeof transactionSchema>;

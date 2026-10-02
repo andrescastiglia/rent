@@ -73,10 +73,7 @@ export class ScheduledBillingService {
       invoicesSkipped: 0,
       errors: [] as Array<{ leaseId: string; error: string }>,
       totals: [] as Array<{ currencyCode: string; amount: string }>,
-      nextCursor:
-        candidates.length === limit
-          ? candidates[candidates.length - 1].id
-          : null,
+      nextCursor: candidates.length === limit ? candidates.at(-1)!.id : null,
     };
     const totals = new Map<string, bigint>();
     for (const candidate of candidates) {

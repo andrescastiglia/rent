@@ -1,4 +1,5 @@
 import {
+  Headers,
   Controller,
   Get,
   Post,
@@ -12,6 +13,8 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
+import { ApiHeader } from '@nestjs/swagger';
+
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { PropertiesService } from './properties.service';
@@ -29,15 +32,28 @@ import { UserRole } from '../users/entities/user.entity';
 export class PropertiesController {
   constructor(private readonly propertiesService: PropertiesService) {}
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
-  create(@Body() createPropertyDto: CreatePropertyDto, @Request() req: any) {
-    return this.propertiesService.create(createPropertyDto, {
-      id: req.user.id,
-      role: req.user.role,
-      roles: req.user.roles,
-      companyId: req.user.companyId,
-    });
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  create(
+    @Body() createPropertyDto: CreatePropertyDto,
+    @Request() req: any,
+    @Headers('idempotency-key') executionKey?: string,
+  ) {
+    return this.propertiesService.create(
+      createPropertyDto,
+      {
+        id: req.user.id,
+        role: req.user.role,
+        roles: req.user.roles,
+        companyId: req.user.companyId,
+      },
+      executionKey,
+    );
   }
 
   @Get()
@@ -50,20 +66,40 @@ export class PropertiesController {
     return this.propertiesService.findOneScoped(id, req.user);
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Patch(':id')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
   update(
     @Param('id') id: string,
     @Body() updatePropertyDto: UpdatePropertyDto,
     @Request() req: any,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.propertiesService.update(id, updatePropertyDto, req.user);
+    return this.propertiesService.update(
+      id,
+      updatePropertyDto,
+      req.user,
+      executionKey,
+    );
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.OWNER)
-  async remove(@Param('id') id: string, @Request() req: any) {
-    await this.propertiesService.remove(id, req.user);
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async remove(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Headers('idempotency-key') executionKey?: string,
+  ) {
+    await this.propertiesService.remove(id, req.user, executionKey);
     return { message: 'Property deleted successfully' };
   }
 

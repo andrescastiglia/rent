@@ -31,6 +31,7 @@ const ownerSummarySchema = z.object({
 });
 import { apiClient } from "../api";
 import { getToken } from "../auth";
+import type { PageResult } from "../pagination";
 
 // Mock data for development/testing
 const MOCK_OWNERS: Owner[] = [
@@ -141,6 +142,49 @@ const mapSettlement = (raw: any): OwnerSettlementSummary => ({
 });
 
 export const ownersApi = {
+  getPage: async (
+    filters: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      sortOrder?: "ASC" | "DESC";
+    } = {},
+  ): Promise<PageResult<Owner>> => {
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 20;
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      const search = filters.search?.trim().toLocaleLowerCase() ?? "";
+      const data = MOCK_OWNERS.filter((owner) =>
+        `${owner.firstName} ${owner.lastName} ${owner.email ?? ""} ${owner.phone ?? ""} ${owner.taxId ?? ""}`
+          .toLocaleLowerCase()
+          .includes(search),
+      );
+      data.sort((left, right) =>
+        `${left.firstName} ${left.lastName}`.localeCompare(
+          `${right.firstName} ${right.lastName}`,
+        ),
+      );
+      if (filters.sortOrder === "DESC") data.reverse();
+      return {
+        data: data.slice((page - 1) * limit, page * limit),
+        total: data.length,
+        page,
+        limit,
+      };
+    }
+    const query = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    if (filters.search?.trim()) query.set("search", filters.search.trim());
+    if (filters.sortOrder) query.set("sortOrder", filters.sortOrder);
+    const result = await apiClient.get<PageResult<BackendOwner>>(
+      `/owners/page?${query}`,
+      getToken() ?? undefined,
+    );
+    return { ...result, data: result.data.map(mapOwner) };
+  },
   getAll: async (): Promise<Owner[]> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);

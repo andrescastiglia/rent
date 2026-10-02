@@ -97,6 +97,7 @@ export interface Lease {
 }
 
 export interface CreateLeaseInput {
+  companyId?: string;
   propertyId: string;
   tenantId?: string;
   buyerId?: string;

@@ -30,7 +30,7 @@ export const getDatabaseConfig = (
       DATABASE_SSL_MODE: configService.get<string>('DATABASE_SSL_MODE'),
       DATABASE_SSL_CA_FILE: configService.get<string>('DATABASE_SSL_CA_FILE'),
       DATABASE_URL: databaseUrl,
-    }),
+    })?.ssl,
     logging: !isProduction && !isTest,
   };
 };

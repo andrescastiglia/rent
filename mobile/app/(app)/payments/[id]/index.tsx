@@ -1,6 +1,7 @@
+import { Text, View } from '@/components/themed-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { paymentsApi } from '@/api/payments';
@@ -59,13 +60,21 @@ export default function PaymentDetailScreen() {
   const payment = query.data;
 
   return (
-    <Screen scrollViewTestID="paymentDetail.scroll">
+    <Screen
+      scrollViewTestID="paymentDetail.scroll"
+      guidanceReady={!query.isLoading}
+      guidanceBlocked={
+        Boolean(query.error) ||
+        downloadMutation.isPending ||
+        confirmMutation.isPending
+      }
+    >
       <H1>{t('payments.paymentDetails')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
       {query.error ? (
         <Text style={styles.error}>{query.error.message}</Text>
       ) : null}
-      {!query.isLoading && !payment ? (
+      {!query.isLoading && !query.error && !payment ? (
         <Text>{t('payments.notFound')}</Text>
       ) : null}
 

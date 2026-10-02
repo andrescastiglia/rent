@@ -46,7 +46,10 @@ export class PaymentEffectsService {
       lock: { mode: 'pessimistic_write' },
     });
     if (!locked) throw new Error('Payment is unavailable');
-    if (locked.status === PaymentStatus.CANCELLED) return;
+    if (
+      [PaymentStatus.CANCELLED, PaymentStatus.REFUNDED].includes(locked.status)
+    )
+      return;
     if (locked.status !== PaymentStatus.COMPLETED)
       throw new Error('Payment is not completed');
     const payment = await repository.findOneOrFail({

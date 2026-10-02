@@ -19,12 +19,14 @@ import {
   PropertyType,
 } from '../src/properties/entities/property.entity';
 import { assertNoPendingBillingAmendment } from '../src/leases/amendment-application';
+import { buildMutationReview } from '../src/common/helpers/mutation-review';
 import { InvoicesService } from '../src/payments/invoices.service';
 import {
   configureE2eApp,
   createActiveTestUser,
   createTestCompany,
   loginTestUser,
+  purgeFinancialCorrections,
 } from './e2e-helpers';
 
 describe('Automatic lease amendments (PostgreSQL)', () => {
@@ -133,6 +135,7 @@ describe('Automatic lease amendments (PostgreSQL)', () => {
     )[0].day;
   });
   async function clear() {
+    await purgeFinancialCorrections(db, companyId);
     for (const table of [
       'pending_actions',
       'domain_operation_receipts',
@@ -548,6 +551,100 @@ describe('Automatic lease amendments (PostgreSQL)', () => {
       ]);
     }
   });
+  it('recovers the HTTP draft creation after its state changed without storing transport metadata', async () => {
+    const payload = {
+      leaseId,
+      companyId: foreignId,
+      effectiveDate: today,
+      changeType: Change.RENT_INCREASE,
+      description: 'HTTP recoverable draft',
+      newValues: { monthlyRent: '1200.00' },
+      idempotencyKey: randomUUID(),
+    };
+    const send = () =>
+      request(app.getHttpServer())
+        .post('/amendments')
+        .auth(token, { type: 'bearer' })
+        .send(payload)
+        .expect(201);
+    const first = (await send()).body;
+    await service.submit(first.id, actor);
+    expect((await send()).body).toEqual(first);
+    expect(first).toMatchObject({ status: 'draft', companyId });
+    expect(first).not.toHaveProperty('idempotencyKey');
+    expect(await db.getRepository(LeaseAmendment).countBy({ leaseId })).toBe(1);
+  });
+  it.each(['submit', 'approve', 'reject'] as const)(
+    'recovers an HTTP %s decision using its observed version',
+    async (action) => {
+      const amendment = await create();
+      if (action !== 'submit') await service.submit(amendment.id, actor);
+      const current = await getAmendment(amendment.id);
+      const payload = {
+        idempotencyKey: randomUUID(),
+        expectedUpdatedAt: current.updatedAt.toISOString(),
+      };
+      const send = () =>
+        request(app.getHttpServer())
+          .patch(`/amendments/${amendment.id}/${action}`)
+          .auth(token, { type: 'bearer' })
+          .send(payload)
+          .expect(200);
+      const first = (await send()).body;
+      expect((await send()).body).toEqual(first);
+      const states = {
+        submit: 'pending_approval',
+        approve: 'approved',
+        reject: 'rejected',
+      };
+      expect(first.status).toBe(states[action]);
+      await request(app.getHttpServer())
+        .patch(`/amendments/${amendment.id}/${action}`)
+        .auth(token, { type: 'bearer' })
+        .send({ ...payload, expectedUpdatedAt: '2000-01-01T00:00:00.000Z' })
+        .expect(409);
+    },
+  );
+  it('rejects a stale HTTP approval until the user reads the current amendment', async () => {
+    const amendment = await create();
+    const expectedUpdatedAt = amendment.updatedAt.toISOString();
+    await service.submit(amendment.id, actor);
+    const payload = { idempotencyKey: randomUUID(), expectedUpdatedAt };
+    await request(app.getHttpServer())
+      .patch(`/amendments/${amendment.id}/approve`)
+      .auth(token, { type: 'bearer' })
+      .send(payload)
+      .expect(409);
+    expect((await getAmendment(amendment.id)).status).toBe('pending_approval');
+    const current = await getAmendment(amendment.id);
+    await request(app.getHttpServer())
+      .patch(`/amendments/${amendment.id}/approve`)
+      .auth(token, { type: 'bearer' })
+      .send({ ...payload, expectedUpdatedAt: current.updatedAt.toISOString() })
+      .expect(200);
+  });
+  it('validates HTTP recovery keys and denies tenant creation', async () => {
+    const payload = {
+      leaseId,
+      companyId,
+      effectiveDate: today,
+      changeType: Change.RENT_INCREASE,
+      description: 'No duplicate draft',
+      newValues: { monthlyRent: 1200 },
+      idempotencyKey: 'not-a-uuid',
+    };
+    await request(app.getHttpServer())
+      .post('/amendments')
+      .auth(token, { type: 'bearer' })
+      .send(payload)
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/amendments')
+      .auth(tenantToken, { type: 'bearer' })
+      .send({ ...payload, idempotencyKey: randomUUID() })
+      .expect(403);
+    expect(await db.getRepository(LeaseAmendment).countBy({ leaseId })).toBe(0);
+  });
   const reviewRequest = async (
     id: string,
     action: 'cancel' | 'schedule' = 'cancel',
@@ -897,7 +994,7 @@ describe('Automatic lease amendments (PostgreSQL)', () => {
               )
             : value;
       const [action] = await db.query(
-        `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at) VALUES($1,$2,$3,'update','lease','Amendment recovery',$4::jsonb,$5,now()+interval '15 minutes') RETURNING id,execution_key`,
+        `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,review,expires_at) VALUES($1,$2,$3,'update','lease','Amendment recovery',$4::jsonb,$5,$6::jsonb,now()+interval '15 minutes') RETURNING id,execution_key,review`,
         [
           companyId,
           requesterId,
@@ -906,6 +1003,15 @@ describe('Automatic lease amendments (PostgreSQL)', () => {
           createHash('sha256')
             .update(JSON.stringify(sort(payload)))
             .digest('hex'),
+          JSON.stringify(
+            await buildMutationReview(
+              db.manager,
+              companyId,
+              toolName,
+              payload,
+              new Date(Date.now() + 15 * 60_000).toISOString(),
+            ),
+          ),
         ],
       );
       const reauthToken = (
@@ -947,6 +1053,7 @@ describe('Automatic lease amendments (PostgreSQL)', () => {
           userId: actor.id,
           role: UserRole.ADMIN,
           idempotencyKey: action.execution_key,
+          mutationReview: action.review,
         };
         expect(
           await Promise.all([

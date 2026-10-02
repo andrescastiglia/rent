@@ -1,9 +1,10 @@
+import { Text, View } from '@/components/themed-native';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
@@ -11,12 +12,18 @@ import { leasesApi } from '@/api/leases';
 import { paymentsApi, tenantAccountsApi } from '@/api/payments';
 import { tenantsApi } from '@/api/tenants';
 import { Screen } from '@/components/screen';
+import { parseMoneyInput } from '@/utils/money';
 import { AppButton, ChoiceGroup, DateField, Field, H1 } from '@/components/ui';
 import type { CreatePaymentInput, PaymentMethod } from '@/types/payment';
 
 const schema = z.object({
   leaseId: z.string().min(1, 'Selecciona un contrato'),
-  amount: z.string().min(1, 'El monto es obligatorio'),
+  amount: z
+    .string()
+    .refine(
+      (value) => parseMoneyInput(value) !== null,
+      'El monto debe ser positivo y tener hasta dos decimales',
+    ),
   paymentDate: z.string().min(10, 'La fecha es obligatoria'),
   method: z.enum([
     'cash',
@@ -109,8 +116,8 @@ export default function NewTenantPaymentScreen() {
         throw new Error(t('tenants.paymentRegistration.noAccount'));
       }
 
-      const amount = Number(values.amount);
-      if (!Number.isFinite(amount) || amount <= 0) {
+      const amount = parseMoneyInput(values.amount);
+      if (amount === null) {
         throw new Error(t('tenants.errors.invalidPaymentAmount'));
       }
 
@@ -142,7 +149,16 @@ export default function NewTenantPaymentScreen() {
     `${tenantQuery.data?.firstName ?? ''} ${tenantQuery.data?.lastName ?? ''}`.trim();
 
   return (
-    <Screen>
+    <Screen
+      guidanceReady={!leasesQuery.isFetching && !tenantQuery.isFetching}
+      guidanceBlocked={
+        leasesQuery.isError ||
+        tenantQuery.isError ||
+        mutation.isPending ||
+        mutation.isError ||
+        Object.keys(formState.errors).length > 0
+      }
+    >
       <H1>{t('tenants.paymentRegistration.title')}</H1>
       {tenantName ? <Text style={styles.subtitle}>{tenantName}</Text> : null}
       {tenantQuery.data?.email ? (
@@ -238,10 +254,10 @@ export default function NewTenantPaymentScreen() {
         )}
       />
 
-      {Object.values(formState.errors).map((item) => {
+      {Object.entries(formState.errors).map(([fieldName, item]) => {
         if (!item?.message) return null;
         return (
-          <Text key={item.message} style={styles.error}>
+          <Text key={fieldName} style={styles.error}>
             {item.message}
           </Text>
         );

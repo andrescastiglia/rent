@@ -25,7 +25,7 @@ type ExistingChunk = {
 };
 
 const asDate = (value: unknown): Date =>
-  value instanceof Date ? new Date(value.getTime()) : new Date(String(value));
+  value instanceof Date ? new Date(value) : new Date(String(value));
 
 export class RagBackfillService {
   private readonly dataSource: DataSource;
@@ -118,7 +118,7 @@ export class RagBackfillService {
         },
       );
 
-      checkpoint = sources[sources.length - 1]?.id;
+      checkpoint = sources.at(-1)?.id;
       result.lastCheckpoint = checkpoint;
       if (!options.dryRun && checkpoint) {
         await this.saveCheckpoint(
@@ -172,8 +172,7 @@ export class RagBackfillService {
       const current = byKey.get(chunk.chunkKey);
       return (
         options.force ||
-        !current ||
-        current.content_hash !== chunk.contentHash ||
+        current?.content_hash !== chunk.contentHash ||
         current.embedding_model !== model ||
         current.embedding_version !== RAG_EMBEDDING_VERSION ||
         !current.has_embedding ||
@@ -330,18 +329,19 @@ export class RagBackfillService {
     companyId: string,
     entityId: string,
   ): Promise<RagSourceEntity | undefined> {
-    const rows =
-      sourceType === "property"
-        ? await this.loadPropertyById(companyId, entityId)
-        : sourceType === "document"
-          ? await this.loadDocumentById(companyId, entityId)
-          : await this.loadAdditionalSources(
-              sourceType,
-              companyId,
-              undefined,
-              1,
-              entityId,
-            );
+    let rows: RagSourceEntity[];
+    if (sourceType === "property")
+      rows = await this.loadPropertyById(companyId, entityId);
+    else if (sourceType === "document")
+      rows = await this.loadDocumentById(companyId, entityId);
+    else
+      rows = await this.loadAdditionalSources(
+        sourceType,
+        companyId,
+        undefined,
+        1,
+        entityId,
+      );
     return rows[0];
   }
 

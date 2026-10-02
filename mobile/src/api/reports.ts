@@ -1,10 +1,10 @@
-import { apiClient } from '@/api/client';
+import { fetchAllPages } from '@/api/pagination';
 import { IS_MOCK_MODE } from '@/api/env';
 
 export type BatchReportRun = {
   id: string;
   reportType: 'monthly_summary' | 'settlement';
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'partial_failure';
   ownerName: string;
   period: string | null;
   recordsTotal: number;
@@ -14,13 +14,6 @@ export type BatchReportRun = {
   createdAt: string;
   completedAt: string | null;
   errorMessage: string | null;
-};
-
-type ReportRunsResponse = {
-  data: BatchReportRun[];
-  total: number;
-  page: number;
-  limit: number;
 };
 
 const MOCK_REPORTS: BatchReportRun[] = [
@@ -43,10 +36,8 @@ const MOCK_REPORTS: BatchReportRun[] = [
 export const reportsApi = {
   async getRecent(): Promise<BatchReportRun[]> {
     if (IS_MOCK_MODE) return MOCK_REPORTS;
-    const response = await apiClient.get<ReportRunsResponse>(
-      '/dashboard/reports?page=1&limit=50',
-    );
-    return [...response.data].sort(
+    const reports = await fetchAllPages<BatchReportRun>('/dashboard/reports');
+    return [...reports].sort(
       (left, right) =>
         new Date(right.createdAt).getTime() -
         new Date(left.createdAt).getTime(),

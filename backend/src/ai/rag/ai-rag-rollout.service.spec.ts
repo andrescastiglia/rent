@@ -4,6 +4,7 @@ import { AiRagRolloutService } from './ai-rag-rollout.service';
 describe('AiRagRolloutService', () => {
   const originalMode = process.env.AI_RETRIEVAL_MODE;
   const originalCompanies = process.env.AI_RAG_ENABLED_COMPANY_IDS;
+  const originalExternalReads = process.env.AI_RAG_EXTERNAL_READ_ENABLED;
   const conversation = {
     id: '33333333-3333-4333-8333-333333333333',
     messages: [],
@@ -59,12 +60,40 @@ describe('AiRagRolloutService', () => {
   });
 
   afterAll(() => {
+    if (originalExternalReads === undefined)
+      delete process.env.AI_RAG_EXTERNAL_READ_ENABLED;
+    else process.env.AI_RAG_EXTERNAL_READ_ENABLED = originalExternalReads;
     if (originalMode === undefined) delete process.env.AI_RETRIEVAL_MODE;
     else process.env.AI_RETRIEVAL_MODE = originalMode;
     if (originalCompanies === undefined)
       delete process.env.AI_RAG_ENABLED_COMPANY_IDS;
     else process.env.AI_RAG_ENABLED_COMPANY_IDS = originalCompanies;
   });
+
+  it.each([UserRole.OWNER, UserRole.TENANT, UserRole.BUYER])(
+    'keeps %s evidence reads behind the measured external-role rollout gate',
+    async (role) => {
+      dataSource.query.mockResolvedValue([]);
+      process.env.AI_RETRIEVAL_MODE = 'HYBRID';
+      process.env.AI_RAG_EXTERNAL_READ_ENABLED = 'false';
+      await service.respond({
+        ...params,
+        context: { ...params.context, role },
+      });
+      expect(rag.respond).not.toHaveBeenCalled();
+      legacy.respond.mockClear();
+      process.env.AI_RAG_EXTERNAL_READ_ENABLED = 'true';
+      await service.respond({
+        ...params,
+        context: { ...params.context, role },
+      });
+      expect(rag.respond).toHaveBeenCalledWith(
+        expect.objectContaining({ context: expect.objectContaining({ role }) }),
+      );
+      expect(legacy.respond).not.toHaveBeenCalled();
+      delete process.env.AI_RAG_EXTERNAL_READ_ENABLED;
+    },
+  );
 
   it('fails closed to TOOLS when company is not allowlisted', async () => {
     process.env.AI_RETRIEVAL_MODE = 'RAG_READ';

@@ -104,14 +104,14 @@ export class RagOutboxWorkerService {
     result.compacted = events.length - groups.length;
 
     for (const group of groups) {
-      const latest = group[group.length - 1];
+      const latest = group.at(-1)!;
       try {
         const sync = await this.processEntity(latest);
         await this.markProcessed(group.map(({ id }) => id));
         result.processed += group.length;
         result.embedded += sync.embedded;
         result.tokens += sync.tokens;
-        if (sync.skipped) result.skipped += 1;
+        result.skipped += Number(Boolean(sync.skipped));
         batchMetrics.recordOutboxRecords(
           latest.entity_type,
           "processed",
@@ -230,7 +230,7 @@ export class RagOutboxWorkerService {
       group.push(event);
       groups.set(key, group);
     }
-    return [...groups.values()].map((group) =>
+    return [...groups.values()].map((group) => {
       group.sort((left, right) => {
         const sourceDelta =
           new Date(left.source_updated_at).getTime() -
@@ -240,8 +240,9 @@ export class RagOutboxWorkerService {
           new Date(left.created_at).getTime() -
           new Date(right.created_at).getTime()
         );
-      }),
-    );
+      });
+      return group;
+    });
   }
 
   private async processEntity(event: ClaimedOutboxEvent): Promise<{

@@ -20,7 +20,7 @@ async function isVisible(testId: string, timeout: number): Promise<boolean> {
 }
 
 export async function loginAsAdmin(): Promise<void> {
-  if (await isVisible('tab.properties', 10000)) {
+  if (await isVisible('tab.home', 10000)) {
     return;
   }
 
@@ -28,7 +28,7 @@ export async function loginAsAdmin(): Promise<void> {
     // React Native/Hermes can terminate during a cold start on the CI emulator.
     // Re-establish the Detox instrumentation before retrying the login flow.
     await relaunchFreshApp();
-    if (await isVisible('tab.properties', 10000)) {
+    if (await isVisible('tab.home', 10000)) {
       return;
     }
   }
@@ -45,10 +45,10 @@ export async function loginAsAdmin(): Promise<void> {
   await sleep(1500);
   await relaunchFreshApp();
 
-  if (!(await isVisible('tab.properties', 20000))) {
+  if (!(await isVisible('tab.home', 20000))) {
     await relaunchFreshApp();
   }
-  await waitFor(element(by.id('tab.properties')))
+  await waitFor(element(by.id('tab.home')))
     .toBeVisible()
     .withTimeout(20000);
 }
@@ -107,4 +107,12 @@ export async function dismissNativeAlertIfVisible(): Promise<void> {
       return;
     }
   }
+}
+
+export async function openModule(module: string): Promise<void> {
+  await element(by.id('tab.more')).tap();
+  await waitFor(element(by.id(`more.${module}`)))
+    .toBeVisible()
+    .withTimeout(15000);
+  await element(by.id(`more.${module}`)).tap();
 }

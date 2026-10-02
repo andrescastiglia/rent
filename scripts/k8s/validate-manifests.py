@@ -7,6 +7,8 @@ for item in items:by_kind.setdefault(item['kind'],[]).append(item)
 runtime=next(c['data'] for c in by_kind['ConfigMap'] if c['metadata']['name']=='rent-runtime')
 assert 'APP_URL' not in runtime, 'Public payment return URLs must retain production configuration'
 assert runtime['PGSSLMODE']=='verify-full' and runtime['PGSSLROOTCERT']=='/run/postgres/ca.crt'
+for flag in ['BFA_ENABLED','MERCADOLIBRE_ENABLED','MERCADOPAGO_PAYOUTS_ENABLED']:
+    assert runtime[flag]=='false', 'External providers require a separate validated activation'
 pv=by_kind['PersistentVolume'][0]
 assert pv['spec']['persistentVolumeReclaimPolicy']=='Retain'
 assert pv['spec']['local']['path']=='/srv/k3s/rent/postgresql'
@@ -17,6 +19,8 @@ assert len(by_kind['CronJob'])==13
 names={c['metadata']['name'] for c in by_kind['CronJob']}
 assert len(names)==13 and 'rag-purge-audit' in names
 for job in by_kind['CronJob']:
+    if job['metadata']['name'] in {'billing','sync-indices','process-settlements'}:
+        assert job['spec']['suspend'] is True, 'Financial schedules require explicit data validation before activation'
     assert job['spec']['timeZone']=='Etc/UTC'
     assert job['spec']['concurrencyPolicy']=='Forbid'
     assert job['spec']['jobTemplate']['spec']['backoffLimit']==0

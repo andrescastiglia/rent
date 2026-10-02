@@ -12,10 +12,12 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  Headers,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Authenticated } from '../common/decorators/authenticated.decorator';
+import { SelfServiceAction } from '../common/decorators/self-service-action.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { MaintenanceService } from './maintenance.service';
 import { MaintenanceTicket } from './entities/maintenance-ticket.entity';
@@ -43,7 +45,7 @@ export class MaintenanceController {
   constructor(private readonly maintenanceService: MaintenanceService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER)
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER, UserRole.TENANT)
   async findAll(
     @Request() req: AuthenticatedRequest,
     @Query() filters: MaintenanceTicketFiltersDto,
@@ -61,12 +63,14 @@ export class MaintenanceController {
   }
 
   @Post()
+  @SelfServiceAction('maintenance.request')
   @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.TENANT, UserRole.OWNER)
   async create(
     @Body() dto: CreateMaintenanceTicketDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ): Promise<MaintenanceTicket> {
-    return this.maintenanceService.create(req.user, dto);
+    return this.maintenanceService.create(req.user, dto, executionKey);
   }
 
   @Patch(':id')
@@ -75,8 +79,9 @@ export class MaintenanceController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateMaintenanceTicketDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ): Promise<MaintenanceTicket> {
-    return this.maintenanceService.update(id, req.user, dto);
+    return this.maintenanceService.update(id, req.user, dto, executionKey);
   }
 
   @Delete(':id')
@@ -85,8 +90,9 @@ export class MaintenanceController {
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ): Promise<void> {
-    return this.maintenanceService.remove(id, req.user);
+    return this.maintenanceService.remove(id, req.user, executionKey);
   }
 
   @Get(':id/comments')
@@ -104,17 +110,24 @@ export class MaintenanceController {
   }
 
   @Post(':id/comments')
+  @SelfServiceAction('maintenance.comment')
   @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.TENANT, UserRole.OWNER)
   async addComment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateCommentDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ): Promise<MaintenanceTicketComment> {
     const canCreateInternalComment = isAdminOrStaff(req.user);
     const safeDto = {
       ...dto,
       isInternal: canCreateInternalComment ? dto.isInternal : false,
     };
-    return this.maintenanceService.addComment(id, req.user, safeDto);
+    return this.maintenanceService.addComment(
+      id,
+      req.user,
+      safeDto,
+      executionKey,
+    );
   }
 }

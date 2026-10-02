@@ -8,6 +8,7 @@ import {
   Post,
   Request,
   UseGuards,
+  Headers,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -39,8 +40,14 @@ export class PropertyVisitsController {
     @Param('propertyId', ParseUUIDPipe) propertyId: string,
     @Body() dto: CreatePropertyVisitDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.propertyVisitsService.create(propertyId, dto, req.user);
+    return this.propertyVisitsService.create(
+      propertyId,
+      dto,
+      req.user,
+      executionKey,
+    );
   }
 
   @Get()
@@ -59,12 +66,14 @@ export class PropertyVisitsController {
     @Param('visitId', ParseUUIDPipe) visitId: string,
     @Body() dto: UpdatePropertyVisitResultDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
     return this.propertyVisitsService.updateResult(
       propertyId,
       visitId,
       dto,
       req.user,
+      executionKey,
     );
   }
 
@@ -74,11 +83,13 @@ export class PropertyVisitsController {
     @Param('propertyId', ParseUUIDPipe) propertyId: string,
     @Body() dto: CreatePropertyMaintenanceTaskDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
     return this.propertyVisitsService.createMaintenanceTask(
       propertyId,
       dto,
       req.user,
+      executionKey,
     );
   }
 

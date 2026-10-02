@@ -1,3 +1,4 @@
+import { DomainMutationScope } from '../common/helpers/domain-mutation-scope';
 import {
   Injectable,
   NotFoundException,
@@ -5,8 +6,9 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'node:crypto';
 import { User, UserRole } from '../users/entities/user.entity';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
@@ -55,25 +57,60 @@ export interface TenantSummary {
 
 @Injectable()
 export class TenantsService {
+  private readonly scope = new DomainMutationScope((execute) =>
+    this._usersRepository.manager.transaction(execute),
+  );
+  private get tenantsRepository(): Repository<Tenant> {
+    return this.scope.repository(Tenant, this._tenantsRepository);
+  }
+  private get tenantActivitiesRepository(): Repository<TenantActivity> {
+    return this.scope.repository(
+      TenantActivity,
+      this._tenantActivitiesRepository,
+    );
+  }
+  private get usersRepository(): Repository<User> {
+    return this.scope.repository(User, this._usersRepository);
+  }
+  private get leasesRepository(): Repository<Lease> {
+    return this.scope.repository(Lease, this._leasesRepository);
+  }
+  private get invoicesRepository(): Repository<Invoice> {
+    return this.scope.repository(Invoice, this._invoicesRepository);
+  }
+  private get tenantAccountsRepository(): Repository<TenantAccount> {
+    return this.scope.repository(TenantAccount, this._tenantAccountsRepository);
+  }
+
   constructor(
     @InjectRepository(Tenant)
-    private readonly tenantsRepository: Repository<Tenant>,
+    private readonly _tenantsRepository: Repository<Tenant>,
     @InjectRepository(TenantActivity)
-    private readonly tenantActivitiesRepository: Repository<TenantActivity>,
+    private readonly _tenantActivitiesRepository: Repository<TenantActivity>,
     @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
+    private readonly _usersRepository: Repository<User>,
     @InjectRepository(Lease)
-    private readonly leasesRepository: Repository<Lease>,
+    private readonly _leasesRepository: Repository<Lease>,
     @InjectRepository(Invoice)
-    private readonly invoicesRepository: Repository<Invoice>,
+    private readonly _invoicesRepository: Repository<Invoice>,
     @InjectRepository(TenantAccount)
-    private readonly tenantAccountsRepository: Repository<TenantAccount>,
+    private readonly _tenantAccountsRepository: Repository<TenantAccount>,
   ) {}
 
   async create(
     createTenantDto: CreateTenantDto,
     context: UserContext,
+    executionKey?: string,
   ): Promise<User> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        context.companyId,
+        executionKey,
+        'TenantsService.create',
+        { ...createTenantDto, actorId: context.id },
+        () => this.create(createTenantDto, context),
+      );
+
     this.assertCanManageTenants(context);
     // Check if DNI already exists
     const existingTenant = await this.usersRepository
@@ -90,14 +127,67 @@ export class TenantsService {
     }
 
     // Check if email already exists
-    const normalizedEmail = createTenantDto.email.trim().toLowerCase();
-    const existingUser = await this.usersRepository.findOne({
-      where: { email: normalizedEmail, deletedAt: IsNull() },
-    });
+    const normalizedEmail = createTenantDto.email?.trim().toLowerCase() || null;
+    const existingUser = await this.resolveTenantPerson(
+      normalizedEmail,
+      context.companyId,
+    );
+    const savedUser = await this.saveTenantPerson(
+      createTenantDto,
+      context,
+      normalizedEmail,
+      existingUser,
+    );
+
+    const profileFields = this.tenantProfileFields(createTenantDto);
+    const tenantRows = await this.usersRepository.query(
+      `INSERT INTO tenants (
+        user_id, company_id, dni, emergency_contact_name,
+        emergency_contact_phone, contact_consent,
+        contact_consent_recorded_at, preferred_contact_channel
+        ${profileFields.length ? ', ' + profileFields.map(([column]) => column).join(', ') : ''}
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8${profileFields.map((_, index) => ', $' + (index + 9)).join('')}) RETURNING id`,
+      [
+        savedUser.id,
+        context.companyId,
+        createTenantDto.dni,
+        createTenantDto.emergencyContactName ??
+          createTenantDto.emergencyContact,
+        createTenantDto.emergencyContactPhone ?? createTenantDto.emergencyPhone,
+        createTenantDto.contactConsent ?? false,
+        createTenantDto.contactConsent ? new Date() : null,
+        createTenantDto.preferredContactChannel ?? 'whatsapp',
+        ...profileFields.map(([, value]) => value),
+      ],
+    );
+
+    return this.tenantResponse(savedUser, {
+      ...createTenantDto,
+      id: tenantRows?.[0]?.id,
+      emergencyContactName:
+        createTenantDto.emergencyContactName ??
+        createTenantDto.emergencyContact,
+      emergencyContactPhone:
+        createTenantDto.emergencyContactPhone ?? createTenantDto.emergencyPhone,
+      contactConsent: createTenantDto.contactConsent ?? false,
+      preferredContactChannel:
+        createTenantDto.preferredContactChannel ?? 'whatsapp',
+    } as unknown as Tenant);
+  }
+
+  private async resolveTenantPerson(
+    email: string | null,
+    companyId: string,
+  ): Promise<User | null> {
+    const existingUser = email
+      ? await this.usersRepository.findOne({
+          where: { email, deletedAt: IsNull() },
+        })
+      : null;
 
     if (
       existingUser?.companyId !== undefined &&
-      existingUser.companyId !== context.companyId
+      existingUser.companyId !== companyId
     ) {
       throw new ConflictException('A user with this email already exists');
     }
@@ -105,7 +195,7 @@ export class TenantsService {
       const existingTenantProfile = await this.tenantsRepository.findOne({
         where: {
           userId: existingUser.id,
-          companyId: context.companyId,
+          companyId,
           deletedAt: IsNull(),
         },
       });
@@ -113,13 +203,24 @@ export class TenantsService {
         throw new ConflictException('This person is already a tenant');
       }
     }
+    return existingUser;
+  }
 
+  private async saveTenantPerson(
+    createTenantDto: CreateTenantDto,
+    context: UserContext,
+    normalizedEmail: string | null,
+    existingUser: User | null,
+  ): Promise<User> {
     // Hash password
     const salt = await bcrypt.genSalt();
-    const passwordHash = await bcrypt.hash(createTenantDto.password, salt);
+    const passwordHash = await bcrypt.hash(
+      createTenantDto.password || randomBytes(32).toString('hex'),
+      salt,
+    );
 
     // Create user with tenant role
-    const savedUser = existingUser
+    return existingUser
       ? await this.usersRepository.save({
           ...existingUser,
           roles: Array.from(
@@ -130,7 +231,7 @@ export class TenantsService {
               UserRole.TENANT,
             ]),
           ),
-          ...(!existingUser.isActive
+          ...(createTenantDto.password && !existingUser.isActive
             ? {
                 passwordHash,
                 isActive: true,
@@ -148,31 +249,12 @@ export class TenantsService {
             phone: createTenantDto.phone,
             role: UserRole.TENANT,
             roles: [UserRole.TENANT],
-            isActive: true,
-            accessRequested: true,
+            isActive: Boolean(normalizedEmail && createTenantDto.password),
+            accessRequested: Boolean(
+              normalizedEmail && createTenantDto.password,
+            ),
           }),
         );
-
-    // Create tenant record (using raw query since we don't have Tenant entity in TypeORM)
-    await this.usersRepository.query(
-      `INSERT INTO tenants (
-        user_id, company_id, dni, emergency_contact_name,
-        emergency_contact_phone, contact_consent,
-        contact_consent_recorded_at, preferred_contact_channel
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [
-        savedUser.id,
-        context.companyId,
-        createTenantDto.dni,
-        createTenantDto.emergencyContact,
-        createTenantDto.emergencyPhone,
-        createTenantDto.contactConsent ?? false,
-        createTenantDto.contactConsent ? new Date() : null,
-        createTenantDto.preferredContactChannel ?? 'whatsapp',
-      ],
-    );
-
-    return savedUser;
   }
 
   async findAll(
@@ -243,9 +325,23 @@ export class TenantsService {
     query.skip((page - 1) * limit).take(limit);
 
     const [data, total] = await query.getManyAndCount();
+    const profiles = data.length
+      ? await this.tenantsRepository.find({
+          where: {
+            userId: In(data.map((person) => person.id)),
+            companyId: user.companyId,
+            deletedAt: IsNull(),
+          },
+        })
+      : [];
+    const byUser = new Map(
+      (profiles ?? []).map((profile) => [profile.userId, profile]),
+    );
 
     return {
-      data,
+      data: data.map((person) =>
+        this.tenantResponse(person, byUser.get(person.id)),
+      ),
       total,
       page,
       limit,
@@ -273,19 +369,24 @@ export class TenantsService {
         deletedAt: IsNull(),
       },
     });
-    Object.assign(user, {
-      contactConsent: tenant?.contactConsent ?? false,
-      preferredContactChannel: tenant?.preferredContactChannel ?? 'whatsapp',
-    });
-
-    return user;
+    return this.tenantResponse(user, tenant ?? undefined);
   }
 
   async update(
     id: string,
     updateTenantDto: UpdateTenantDto,
     context: UserContext,
+    executionKey?: string,
   ): Promise<User> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        context.companyId,
+        executionKey,
+        'TenantsService.update',
+        { id, ...updateTenantDto, actorId: context.id },
+        () => this.update(id, updateTenantDto, context),
+      );
+
     this.assertCanManageTenants(context);
     const user = await this.findOne(id, context);
 
@@ -293,12 +394,23 @@ export class TenantsService {
     if (updateTenantDto.firstName) user.firstName = updateTenantDto.firstName;
     if (updateTenantDto.lastName) user.lastName = updateTenantDto.lastName;
     if (updateTenantDto.phone) user.phone = updateTenantDto.phone;
+    if (updateTenantDto.email !== undefined) {
+      const email = updateTenantDto.email?.trim().toLowerCase() || null;
+      const duplicate = email
+        ? await this.usersRepository.findOne({
+            where: { email, deletedAt: IsNull() },
+          })
+        : null;
+      if (duplicate && duplicate.id !== user.id)
+        throw new ConflictException('A user with this email already exists');
+      user.email = email;
+    }
 
     await this.usersRepository.save(user);
 
     await this.updateTenantProfile(id, updateTenantDto, context.companyId);
 
-    return user;
+    return this.findOne(id, context);
   }
 
   private async updateTenantProfile(
@@ -308,9 +420,16 @@ export class TenantsService {
   ): Promise<void> {
     const fields: Array<[string, unknown]> = [
       ['dni', dto.dni],
-      ['emergency_contact_name', dto.emergencyContact],
-      ['emergency_contact_phone', dto.emergencyPhone],
+      [
+        'emergency_contact_name',
+        dto.emergencyContactName ?? dto.emergencyContact,
+      ],
+      [
+        'emergency_contact_phone',
+        dto.emergencyContactPhone ?? dto.emergencyPhone,
+      ],
       ['preferred_contact_channel', dto.preferredContactChannel],
+      ...this.tenantProfileFields(dto),
     ];
     if (dto.contactConsent !== undefined) {
       fields.push(
@@ -330,12 +449,67 @@ export class TenantsService {
     await this.usersRepository.query(
       `UPDATE tenants SET ${updates.join(', ')}
         WHERE user_id = $${values.length - 1}
-          AND company_id = $${values.length}`,
+          AND company_id = $${values.length} AND deleted_at IS NULL`,
       values,
     );
   }
 
-  async remove(id: string, context: UserContext): Promise<void> {
+  private tenantProfileFields(
+    dto: Partial<Omit<CreateTenantDto, 'password'>>,
+  ): Array<[string, unknown]> {
+    return [
+      ['cuil', dto.cuil],
+      ['date_of_birth', dto.dateOfBirth],
+      ['nationality', dto.nationality],
+      ['occupation', dto.occupation],
+      ['employer', dto.employer],
+      ['monthly_income', dto.monthlyIncome],
+      ['employment_status', dto.employmentStatus],
+      ['emergency_contact_relationship', dto.emergencyContactRelationship],
+      ['credit_score', dto.creditScore],
+      ['notes', dto.notes],
+    ].filter(([, value]) => value !== undefined) as Array<[string, unknown]>;
+  }
+
+  private tenantResponse(user: User, tenant?: Tenant): User {
+    const response = { ...user };
+    delete (response as Partial<User>).passwordHash;
+    const profile = tenant ?? ({} as Tenant);
+    Object.assign(response, {
+      tenantEntityId: profile.id,
+      dni: profile.dni,
+      cuil: profile.cuil,
+      dateOfBirth: profile.dateOfBirth,
+      nationality: profile.nationality,
+      occupation: profile.occupation,
+      employer: profile.employer,
+      monthlyIncome: profile.monthlyIncome,
+      employmentStatus: profile.employmentStatus,
+      emergencyContactName: profile.emergencyContactName,
+      emergencyContactPhone: profile.emergencyContactPhone,
+      emergencyContactRelationship: profile.emergencyContactRelationship,
+      creditScore: profile.creditScore,
+      notes: profile.notes,
+      contactConsent: profile.contactConsent ?? false,
+      preferredContactChannel: profile.preferredContactChannel ?? 'whatsapp',
+    });
+    return response;
+  }
+
+  async remove(
+    id: string,
+    context: UserContext,
+    executionKey?: string,
+  ): Promise<void> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        context.companyId,
+        executionKey,
+        'TenantsService.remove',
+        { id, actorId: context.id },
+        () => this.remove(id, context),
+      );
+
     this.assertCanManageTenants(context);
     const user = await this.findOne(id, context);
     const tenant = await this.findTenantByUserId(id, context.companyId);
@@ -499,7 +673,17 @@ export class TenantsService {
     tenantUserId: string,
     dto: CreateTenantActivityDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<TenantActivity> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        user.companyId,
+        executionKey,
+        'TenantsService.createActivity',
+        { id: tenantUserId, ...dto, actorId: user.id },
+        () => this.createActivity(tenantUserId, dto, user),
+      );
+
     const tenant = await this.findTenantByUserIdScoped(tenantUserId, user);
 
     const activity = this.tenantActivitiesRepository.create({
@@ -530,7 +714,17 @@ export class TenantsService {
     activityId: string,
     dto: UpdateTenantActivityDto,
     context: UserContext,
+    executionKey?: string,
   ): Promise<TenantActivity> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        context.companyId,
+        executionKey,
+        'TenantsService.updateActivity',
+        { id: tenantUserId, activityId, ...dto, actorId: context.id },
+        () => this.updateActivity(tenantUserId, activityId, dto, context),
+      );
+
     const tenant = await this.findTenantByUserIdScoped(tenantUserId, context);
 
     const activity = await this.tenantActivitiesRepository.findOne({

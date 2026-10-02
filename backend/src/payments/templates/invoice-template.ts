@@ -233,8 +233,9 @@ export function generateInvoicePdf(
 
       // Estado
       y += 20;
+      const translatedStatus = i18n.t('invoice.' + invoice.status, { lang });
       doc.text(
-        `${i18n.t('invoice.status', { lang })}: ${i18n.t(`invoice.${invoice.status}`, { lang })}`,
+        `${i18n.t('invoice.status', { lang })}: ${translatedStatus}`,
         col1,
         y,
       );

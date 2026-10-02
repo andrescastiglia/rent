@@ -33,7 +33,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
 
   return (
     <Link href={`/${locale}/properties/${property.id}`} className="block group">
-      <div className="bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-300 group-hover:-translate-y-1 group-hover:shadow-lg border border-gray-100">
+      <div className="ui-surface overflow-hidden transition-shadow group-hover:shadow-md">
         <div className="relative h-48 bg-gray-200">
           {property.images.length > 0 ? (
             <Image
@@ -59,11 +59,11 @@ export function PropertyCard({ property }: PropertyCardProps) {
         </div>
 
         <div className="p-4">
-          <h3 className="text-lg font-bold text-gray-900 mb-1 truncate">
+          <h3 className="mb-1 truncate text-lg font-semibold text-foreground">
             {property.name}
           </h3>
 
-          <div className="flex items-center text-gray-500 text-sm mb-3">
+          <div className="mb-3 flex items-center text-sm text-muted">
             <MapPin size={14} className="mr-1" />
             <span className="truncate">
               {property.address.street} {property.address.number},{" "}
@@ -80,7 +80,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
           {(showsRent || showsSale) && (
             <div className="mb-3 space-y-1">
               {showsRent ? (
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-muted">
                   <span className="font-medium">{t("fields.rentPrice")}:</span>{" "}
                   {property.rentPrice === undefined
                     ? "-"
@@ -88,7 +88,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
                 </p>
               ) : null}
               {showsSale ? (
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-muted">
                   <span className="font-medium">{t("fields.salePrice")}:</span>{" "}
                   {salePriceLabel}
                 </p>

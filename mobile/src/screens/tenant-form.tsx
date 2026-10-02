@@ -1,7 +1,9 @@
+import { Text, View } from '@/components/themed-native';
+import { useGuidanceBlocker } from '@/components/guidance';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
@@ -10,7 +12,6 @@ import type {
   CreateTenantInput,
   EmploymentStatus,
   Tenant,
-  TenantStatus,
   UpdateTenantInput,
 } from '@/types/tenant';
 
@@ -23,12 +24,6 @@ const schema = z.object({
   cuil: z.string().optional(),
   dateOfBirth: z.string().optional(),
   nationality: z.string().optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'PROSPECT']),
-  addressStreet: z.string().optional(),
-  addressNumber: z.string().optional(),
-  addressCity: z.string().optional(),
-  addressState: z.string().optional(),
-  addressZipCode: z.string().optional(),
   occupation: z.string().optional(),
   employer: z.string().optional(),
   monthlyIncome: z.string().optional(),
@@ -51,12 +46,6 @@ type TenantFormProps = Readonly<{
   submitLabel: string;
   testIDPrefix?: string;
 }>;
-
-const statusOptions: Array<{ label: string; value: TenantStatus }> = [
-  { label: 'Activo', value: 'ACTIVE' },
-  { label: 'Inactivo', value: 'INACTIVE' },
-  { label: 'Prospecto', value: 'PROSPECT' },
-];
 
 const employmentStatusOptions: Array<{
   label: string;
@@ -88,12 +77,6 @@ export function TenantForm({
       cuil: initial?.cuil ?? '',
       dateOfBirth: initial?.dateOfBirth?.slice(0, 10) ?? '',
       nationality: initial?.nationality ?? '',
-      status: initial?.status ?? 'ACTIVE',
-      addressStreet: initial?.address?.street ?? '',
-      addressNumber: initial?.address?.number ?? '',
-      addressCity: initial?.address?.city ?? '',
-      addressState: initial?.address?.state ?? '',
-      addressZipCode: initial?.address?.zipCode ?? '',
       occupation: initial?.occupation ?? '',
       employer: initial?.employer ?? '',
       monthlyIncome: initial?.monthlyIncome?.toString() ?? '',
@@ -112,8 +95,14 @@ export function TenantForm({
     defaultValues: defaults,
   });
 
+  useGuidanceBlocker(
+    `${testIDPrefix}.validation`,
+    Object.keys(formState.errors).length > 0,
+  );
+
   const submit = handleSubmit(async (values) => {
     const payload: CreateTenantInput = {
+      status: initial?.status ?? 'INACTIVE',
       firstName: values.firstName,
       lastName: values.lastName,
       email: values.email,
@@ -122,21 +111,6 @@ export function TenantForm({
       cuil: values.cuil || undefined,
       dateOfBirth: values.dateOfBirth || undefined,
       nationality: values.nationality || undefined,
-      status: values.status,
-      address:
-        values.addressStreet ||
-        values.addressNumber ||
-        values.addressCity ||
-        values.addressState ||
-        values.addressZipCode
-          ? {
-              street: values.addressStreet || '',
-              number: values.addressNumber || '',
-              city: values.addressCity || '',
-              state: values.addressState || '',
-              zipCode: values.addressZipCode || '',
-            }
-          : undefined,
       occupation: values.occupation || undefined,
       employer: values.employer || undefined,
       monthlyIncome: values.monthlyIncome
@@ -258,82 +232,6 @@ export function TenantForm({
       />
       <Controller
         control={control}
-        name="status"
-        render={({ field }) => (
-          <ChoiceGroup
-            label={t('tenants.fields.status')}
-            value={field.value}
-            onChange={field.onChange}
-            options={statusOptions.map((option) => ({
-              value: option.value,
-              label: t(`tenants.status.${option.value}`),
-            }))}
-            testID={`${testIDPrefix}.status`}
-          />
-        )}
-      />
-      <Controller
-        control={control}
-        name="addressStreet"
-        render={({ field }) => (
-          <Field
-            label={t('tenants.fields.street')}
-            value={field.value ?? ''}
-            onChangeText={field.onChange}
-            testID={`${testIDPrefix}.addressStreet`}
-          />
-        )}
-      />
-      <Controller
-        control={control}
-        name="addressNumber"
-        render={({ field }) => (
-          <Field
-            label={t('tenants.fields.number')}
-            value={field.value ?? ''}
-            onChangeText={field.onChange}
-            testID={`${testIDPrefix}.addressNumber`}
-          />
-        )}
-      />
-      <Controller
-        control={control}
-        name="addressCity"
-        render={({ field }) => (
-          <Field
-            label={t('tenants.fields.city')}
-            value={field.value ?? ''}
-            onChangeText={field.onChange}
-            testID={`${testIDPrefix}.addressCity`}
-          />
-        )}
-      />
-      <Controller
-        control={control}
-        name="addressState"
-        render={({ field }) => (
-          <Field
-            label={t('tenants.fields.state')}
-            value={field.value ?? ''}
-            onChangeText={field.onChange}
-            testID={`${testIDPrefix}.addressState`}
-          />
-        )}
-      />
-      <Controller
-        control={control}
-        name="addressZipCode"
-        render={({ field }) => (
-          <Field
-            label={t('tenants.fields.zipCode')}
-            value={field.value ?? ''}
-            onChangeText={field.onChange}
-            testID={`${testIDPrefix}.addressZipCode`}
-          />
-        )}
-      />
-      <Controller
-        control={control}
         name="occupation"
         render={({ field }) => (
           <Field
@@ -447,10 +345,10 @@ export function TenantForm({
         )}
       />
 
-      {Object.values(formState.errors).map((item) => {
+      {Object.entries(formState.errors).map(([fieldName, item]) => {
         if (!item?.message) return null;
         return (
-          <Text key={item.message} style={styles.error}>
+          <Text key={fieldName} style={styles.error}>
             {item.message}
           </Text>
         );
@@ -458,7 +356,9 @@ export function TenantForm({
 
       <AppButton
         title={submitLabel}
-        onPress={submit}
+        onPress={() => {
+          void submit().catch(() => undefined);
+        }}
         loading={submitting}
         disabled={submitting}
         testID={`${testIDPrefix}.submit`}

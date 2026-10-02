@@ -89,6 +89,7 @@ export default function EditInterestedPage() {
   const [profile, setProfile] = useState<InterestedProfile | null>(null);
   const [form, setForm] = useState<CreateInterestedProfileInput>(emptyForm);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const operations = useMemo(
@@ -112,6 +113,7 @@ export default function EditInterestedPage() {
 
   const loadProfile = useCallback(async (id: string) => {
     setLoading(true);
+    setLoadError(false);
     try {
       const summary = await interestedApi.getSummary(id);
       setProfile(summary.profile);
@@ -119,6 +121,7 @@ export default function EditInterestedPage() {
     } catch (error) {
       console.error("Failed to load interested profile", error);
       setProfile(null);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -189,8 +192,17 @@ export default function EditInterestedPage() {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          {t("noResults")}
+          {t(loadError ? "errors.load" : "noResults")}
         </h1>
+        {loadError && interestedId && (
+          <button
+            type="button"
+            onClick={() => void loadProfile(interestedId)}
+            className="mt-4 min-h-11 px-4 text-blue-600 underline"
+          >
+            {tc("retry")}
+          </button>
+        )}
         <Link
           href={`/${locale}/interested`}
           className="text-blue-600 hover:underline mt-4 inline-block"
@@ -224,6 +236,7 @@ export default function EditInterestedPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <input
             type="text"
+            aria-label={t("fields.firstName")}
             placeholder={t("fields.firstName")}
             value={form.firstName ?? ""}
             onChange={(e) =>
@@ -233,6 +246,7 @@ export default function EditInterestedPage() {
           />
           <input
             type="text"
+            aria-label={t("fields.lastName")}
             placeholder={t("fields.lastName")}
             value={form.lastName ?? ""}
             onChange={(e) =>
@@ -242,6 +256,7 @@ export default function EditInterestedPage() {
           />
           <input
             type="text"
+            aria-label={t("fields.phone")}
             placeholder={t("fields.phone")}
             value={form.phone ?? ""}
             onChange={(e) =>
@@ -251,6 +266,7 @@ export default function EditInterestedPage() {
           />
           <input
             type="email"
+            aria-label={t("fields.email")}
             placeholder={t("fields.email")}
             value={form.email ?? ""}
             onChange={(e) =>
@@ -284,6 +300,7 @@ export default function EditInterestedPage() {
           </div>
 
           <select
+            aria-label={t("fields.propertyType")}
             value={form.propertyTypePreference}
             onChange={(e) =>
               setForm((prev) => ({
@@ -307,6 +324,7 @@ export default function EditInterestedPage() {
           <input
             type="number"
             min={1}
+            aria-label={t("fields.peopleCount")}
             placeholder={t("fields.peopleCount")}
             value={form.peopleCount ?? ""}
             onChange={(e) =>
@@ -323,6 +341,7 @@ export default function EditInterestedPage() {
             type="number"
             min={0}
             step="0.01"
+            aria-label={t("fields.minAmount")}
             placeholder={t("fields.minAmount")}
             value={form.minAmount ?? ""}
             onChange={(e) =>
@@ -337,6 +356,7 @@ export default function EditInterestedPage() {
             type="number"
             min={0}
             step="0.01"
+            aria-label={t("fields.maxAmount")}
             placeholder={t("fields.maxAmount")}
             value={form.maxAmount ?? ""}
             onChange={(e) =>
@@ -366,6 +386,7 @@ export default function EditInterestedPage() {
           />
           <input
             type="text"
+            aria-label={t("fields.preferredCity")}
             placeholder={t("fields.preferredCity")}
             value={form.preferredCity ?? ""}
             onChange={(e) =>
@@ -375,6 +396,7 @@ export default function EditInterestedPage() {
           />
           <input
             type="text"
+            aria-label={t("fields.desiredFeatures")}
             placeholder={t("fields.desiredFeatures")}
             value={(form.desiredFeatures ?? []).join(", ")}
             onChange={(e) =>
@@ -419,6 +441,7 @@ export default function EditInterestedPage() {
           </label>
 
           <textarea
+            aria-label={t("fields.notes")}
             placeholder={t("fields.notes")}
             value={form.notes ?? ""}
             onChange={(e) =>

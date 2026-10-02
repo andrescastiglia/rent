@@ -8,6 +8,8 @@ import { SaleReceipt } from './entities/sale-receipt.entity';
 import { Buyer } from '../buyers/entities/buyer.entity';
 import { Property } from '../properties/entities/property.entity';
 import { Lease } from '../leases/entities/lease.entity';
+import { UserRole } from '../users/entities/user.entity';
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   ForbiddenException,
@@ -39,16 +41,24 @@ describe('SalesService', () => {
   });
 
   beforeEach(async () => {
-    query = jest.fn().mockResolvedValue([]);
+    query = jest
+      .fn()
+      .mockImplementation(async (sql: string) =>
+        sql.includes('RETURNING last_number') ? [{ last_number: 1 }] : [],
+      );
     contractsRepository = createMockRepository();
     dataSource = {
       transaction: jest.fn(async (callback) =>
         callback({
+          queryRunner: { isTransactionActive: true },
           query,
           getRepository: (entity: unknown) => {
             if (entity === Lease) return contractsRepository;
             if (entity === SaleAgreement) return agreementsRepository;
             if (entity === SaleReceipt) return receiptsRepository;
+            if (entity === SaleFolder) return foldersRepository;
+            if (entity === Buyer) return buyersRepository;
+            if (entity === Property) return propertiesRepository;
             throw new Error('Unexpected transactional repository');
           },
         }),
@@ -213,6 +223,7 @@ describe('SalesService', () => {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([{ id: 'a1' }]),
     };
     agreementsRepository.createQueryBuilder!.mockReturnValue(qb);
@@ -377,5 +388,242 @@ describe('SalesService', () => {
     await expect(service.getReceipt('r2', { companyId: 'c1' })).resolves.toBe(
       receipt,
     );
+  });
+  const scheduleAgreement = (paidAmount = '100.01') => ({
+    id: 'agreement',
+    companyId: 'co1',
+    startDate: '2026-01-29',
+    dueDay: 31,
+    installmentAmount: '100.00',
+    installmentCount: 3,
+    totalAmount: '299.99',
+    paidAmount,
+    currency: 'USD',
+    buyer: { userId: 'buyer-user' },
+  });
+  it('paginates exact installments, clamps February and uses the final residual', async () => {
+    agreementsRepository.findOne!.mockResolvedValue(scheduleAgreement());
+    const first = await service.getSchedule(
+      'agreement',
+      { companyId: 'co1' },
+      1,
+      2,
+      '2026-02-01',
+    );
+    expect(first).toMatchObject({
+      total: 3,
+      page: 1,
+      limit: 2,
+      currency: 'USD',
+      paidAmount: 100.01,
+      balance: 199.98,
+      overdueAmount: 0,
+    });
+    expect(first.data).toEqual([
+      expect.objectContaining({
+        installmentNumber: 1,
+        dueDate: '2026-01-31',
+        amount: 100,
+        paidAmount: 100,
+        balance: 0,
+        status: 'paid',
+      }),
+      expect.objectContaining({
+        installmentNumber: 2,
+        dueDate: '2026-02-28',
+        amount: 100,
+        paidAmount: 0.01,
+        balance: 99.99,
+        status: 'partial',
+      }),
+    ]);
+    const final = await service.getSchedule(
+      'agreement',
+      { companyId: 'co1' },
+      2,
+      2,
+      '2026-04-01',
+    );
+    expect(final.data).toEqual([
+      expect.objectContaining({
+        installmentNumber: 3,
+        dueDate: '2026-03-31',
+        amount: 99.99,
+        status: 'overdue',
+      }),
+    ]);
+    expect(final.overdueAmount).toBe(199.98);
+  });
+  it('reports prepayment credit, no overdue and all installments paid', async () => {
+    agreementsRepository.findOne!.mockResolvedValue(
+      scheduleAgreement('300.00'),
+    );
+    const result = await service.getSchedule(
+      'agreement',
+      { companyId: 'co1' },
+      1,
+      20,
+      '2026-01-29',
+    );
+    expect(result).toMatchObject({
+      balance: -0.01,
+      credit: 0.01,
+      overdueAmount: 0,
+    });
+    expect(result.data.every((item) => item.status === 'paid')).toBe(true);
+  });
+  it('keeps the first due date at the contract start and future unpaid installments pending', async () => {
+    agreementsRepository.findOne!.mockResolvedValue({
+      ...scheduleAgreement('0.00'),
+      dueDay: 10,
+    });
+    const result = await service.getSchedule(
+      'agreement',
+      { companyId: 'co1' },
+      1,
+      20,
+      '2026-01-28',
+    );
+    expect(result.data[0]).toMatchObject({
+      dueDate: '2026-01-29',
+      status: 'pending',
+    });
+    expect(result.overdueAmount).toBe(0);
+  });
+  it.each([
+    [0, 20],
+    [1, 101],
+    [1.5, 20],
+    [Number.MAX_VALUE, 20],
+  ])('rejects schedule page %s limit %s', async (page, limit) => {
+    await expect(
+      service.getSchedule('agreement', { companyId: 'co1' }, page, limit),
+    ).rejects.toThrow('pagination');
+    expect(agreementsRepository.findOne).not.toHaveBeenCalled();
+  });
+  it('requires review for an incompatible historical schedule or date', async () => {
+    agreementsRepository.findOne!.mockResolvedValue({
+      ...scheduleAgreement(),
+      installmentCount: 4,
+    });
+    await expect(
+      service.getSchedule(
+        'agreement',
+        { companyId: 'co1' },
+        1,
+        20,
+        '2026-02-01',
+      ),
+    ).rejects.toThrow('requires review');
+    agreementsRepository.findOne!.mockResolvedValue(scheduleAgreement());
+    await expect(
+      service.getSchedule(
+        'agreement',
+        { companyId: 'co1' },
+        1,
+        20,
+        '2026-02-30',
+      ),
+    ).rejects.toThrow('requires review');
+  });
+  it('allows buyers to read only their own agreement and receipt', async () => {
+    agreementsRepository.findOne!.mockResolvedValue(scheduleAgreement());
+    const own = { companyId: 'co1', id: 'buyer-user', role: UserRole.BUYER };
+    await expect(
+      service.getSchedule('agreement', own, 1, 20, '2026-02-01'),
+    ).resolves.toMatchObject({ total: 3 });
+    await expect(
+      service.getSchedule(
+        'agreement',
+        { ...own, id: 'other-buyer' },
+        1,
+        20,
+        '2026-02-01',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    receiptsRepository.findOne!.mockResolvedValue({
+      id: 'receipt',
+      agreement: scheduleAgreement(),
+    });
+    await expect(service.getReceipt('receipt', own)).resolves.toMatchObject({
+      id: 'receipt',
+    });
+    await expect(
+      service.getReceipt('receipt', { ...own, id: 'other-buyer' }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('cancels a receipt once with exact cents and an immutable correction while retaining its historical balance', async () => {
+    const agreement = scheduleAgreement();
+    const receipt = {
+      id: 'receipt',
+      agreementId: 'agreement',
+      amount: '0.01',
+      currency: 'USD',
+      balanceAfter: '199.98',
+    };
+    agreementsRepository.findOne!.mockResolvedValue(agreement);
+    agreementsRepository.save!.mockImplementation(async (value) => value);
+    receiptsRepository.findOne!.mockResolvedValue(receipt);
+    receiptsRepository.save!.mockImplementation(async (value) => value);
+    const result = await service.cancelReceipt(
+      'receipt',
+      { reason: 'Corrección de cobro' },
+      { companyId: 'co1', id: 'admin', role: UserRole.ADMIN },
+      randomUUID(),
+    );
+    expect(Number(agreement.paidAmount)).toBe(100);
+    expect(Number(result.balanceAfter)).toBe(199.98);
+    expect(result.cancelledAt).toBeInstanceOf(Date);
+    const audit = query.mock.calls.find(([sql]) =>
+      sql.includes('INSERT INTO sale_receipt_cancellations'),
+    );
+    expect(audit?.[1]?.slice(-4)).toEqual([0.01, 'USD', 100.01, 100]);
+    query.mockClear();
+    await service.cancelReceipt(
+      'receipt',
+      { reason: 'Corrección de cobro' },
+      { companyId: 'co1', id: 'admin', role: UserRole.ADMIN },
+      randomUUID(),
+    );
+    expect(
+      query.mock.calls.filter(([sql]) =>
+        sql.includes('INSERT INTO sale_receipt_cancellations'),
+      ),
+    ).toHaveLength(0);
+  });
+  it('rejects unauthorized, unaudited and inconsistent receipt cancellations', async () => {
+    const dto = { reason: 'Corrección de cobro' };
+    await expect(
+      service.cancelReceipt('r', dto, {}, randomUUID()),
+    ).rejects.toThrow('Company scope');
+    await expect(
+      service.cancelReceipt(
+        'r',
+        dto,
+        { companyId: 'co1', role: UserRole.BUYER },
+        randomUUID(),
+      ),
+    ).rejects.toThrow('Buyers cannot');
+    await expect(
+      service.cancelReceipt(
+        'r',
+        { reason: 'bad' },
+        { companyId: 'co1' },
+        randomUUID(),
+      ),
+    ).rejects.toThrow('requires a reason');
+    await expect(
+      service.cancelReceipt('r', dto, { companyId: 'co1' }),
+    ).rejects.toThrow('Idempotency-Key');
+    agreementsRepository.findOne!.mockResolvedValue(scheduleAgreement('0.01'));
+    receiptsRepository.findOne!.mockResolvedValue({
+      id: 'r',
+      agreementId: 'agreement',
+      amount: '0.02',
+    });
+    await expect(
+      service.cancelReceipt('r', dto, { companyId: 'co1' }, randomUUID()),
+    ).rejects.toThrow('accounting review');
+    expect(receiptsRepository.save).not.toHaveBeenCalled();
   });
 });

@@ -179,7 +179,9 @@ describe('Settlement read schema and company boundaries (e2e)', () => {
     expect(foreign.body).toEqual([]);
   });
   it('returns 404 for cross-company details in both directions', async () => {
-    await get(`/settlements/${settlementIds[2]}`).expect(404);
+    expect(
+      (await get(`/settlements/${settlementIds[2]}`).expect(404)).status,
+    ).toBe(404);
     await get(`/settlements/${settlementIds[0]}`, foreignToken).expect(404);
   });
   it('forces owners to their linked profile despite requested filters', async () => {
@@ -328,7 +330,7 @@ describe('Settlement read schema and company boundaries (e2e)', () => {
       'periodStart=2026-10&periodEnd=2026-09',
       'status=unknown',
     ]) {
-      await get(`/settlements?${query}`).expect(400);
+      expect((await get(`/settlements?${query}`).expect(400)).status).toBe(400);
       await get(`/settlements/summary?${query}`).expect(400);
     }
     for (const limit of ['0', '501', '1.5', 'invalid'])

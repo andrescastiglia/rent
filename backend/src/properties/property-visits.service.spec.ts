@@ -93,6 +93,23 @@ describe('PropertyVisitsService', () => {
     interestedActivitiesRepository = module.get(
       getRepositoryToken(InterestedActivity),
     );
+    const repositories = new Map<unknown, unknown>([
+      [Property, propertiesRepository],
+      [PropertyVisit, visitsRepository],
+      [PropertyVisitNotification, notificationsRepository],
+      [OwnerActivity, ownerActivitiesRepository],
+      [InterestedProfile, interestedRepository],
+      [InterestedActivity, interestedActivitiesRepository],
+    ]);
+    const manager = {
+      getRepository: (entity: unknown) => repositories.get(entity),
+      query: jest.fn().mockResolvedValue([]),
+    };
+    Object.assign(propertiesRepository, {
+      manager: {
+        transaction: (work: (m: unknown) => unknown) => work(manager),
+      },
+    });
   });
 
   it('should register a visit and send notifications', async () => {
@@ -134,7 +151,7 @@ describe('PropertyVisitsService', () => {
         offerAmount: 1000,
         offerCurrency: 'ARS',
       },
-      { id: 'agent-1', role: 'agent', companyId: 'company-1' },
+      { id: 'agent-1', role: 'admin', companyId: 'company-1' },
     );
 
     expect(result.notifications).toBeDefined();
@@ -158,6 +175,7 @@ describe('PropertyVisitsService', () => {
           ],
         }),
       }),
+      expect.any(Object),
     );
 
     const savedNotifications = notificationsRepository.save!.mock.calls[1][0];
@@ -211,7 +229,7 @@ describe('PropertyVisitsService', () => {
         hasOffer: true,
         offerAmount: 2500,
       },
-      { id: 'agent-1', role: 'agent', companyId: 'company-1' },
+      { id: 'agent-1', role: 'admin', companyId: 'company-1' },
     );
 
     expect(result.visitedAt.toISOString()).toBe('2025-01-10T09:30:00.000Z');
@@ -248,7 +266,7 @@ describe('PropertyVisitsService', () => {
         notes: 'Coordinar con plomero',
         scheduledAt: '2025-02-10T12:00:00Z',
       },
-      { id: 'agent-1', role: 'agent', companyId: 'company-1' },
+      { id: 'agent-1', role: 'admin', companyId: 'company-1' },
     );
 
     expect(result.kind).toBe(PropertyVisitKind.MAINTENANCE);
@@ -280,7 +298,7 @@ describe('PropertyVisitsService', () => {
 
       const result = await service.findAll('prop-1', {
         id: 'agent-1',
-        role: 'agent',
+        role: 'admin',
         companyId: 'company-1',
       });
 
@@ -305,7 +323,7 @@ describe('PropertyVisitsService', () => {
 
       const result = await service.findMaintenanceTasks('prop-1', {
         id: 'agent-1',
-        role: 'agent',
+        role: 'admin',
         companyId: 'company-1',
       });
 
@@ -336,7 +354,7 @@ describe('PropertyVisitsService', () => {
         service.create(
           'prop-1',
           { visitedAt: 'not-a-date', interestedName: 'Ana' },
-          { id: 'u1', role: 'agent', companyId: 'company-1' },
+          { id: 'u1', role: 'admin', companyId: 'company-1' },
         ),
       ).rejects.toThrow('Invalid visit date');
     });
@@ -346,7 +364,7 @@ describe('PropertyVisitsService', () => {
         service.create(
           'prop-1',
           { interestedName: 'Ana', hasOffer: true },
-          { id: 'u1', role: 'agent', companyId: 'company-1' },
+          { id: 'u1', role: 'admin', companyId: 'company-1' },
         ),
       ).rejects.toThrow('Offer amount is required when hasOffer');
     });
@@ -356,7 +374,7 @@ describe('PropertyVisitsService', () => {
         service.create(
           'prop-1',
           { visitedAt: '2025-01-05T10:00:00Z' },
-          { id: 'u1', role: 'agent', companyId: 'company-1' },
+          { id: 'u1', role: 'admin', companyId: 'company-1' },
         ),
       ).rejects.toThrow('Interested name or interested profile is required');
     });
@@ -366,7 +384,7 @@ describe('PropertyVisitsService', () => {
         service.createMaintenanceTask(
           'prop-1',
           { title: '   ', scheduledAt: '2025-01-05T10:00:00Z' } as any,
-          { id: 'u1', role: 'agent', companyId: 'company-1' },
+          { id: 'u1', role: 'admin', companyId: 'company-1' },
         ),
       ).rejects.toThrow('Maintenance task title is required');
     });
@@ -379,7 +397,7 @@ describe('PropertyVisitsService', () => {
       await expect(
         service.findAll('prop-999', {
           id: 'u1',
-          role: 'agent',
+          role: 'admin',
           companyId: 'company-1',
         }),
       ).rejects.toThrow('Property with ID prop-999 not found');
@@ -391,7 +409,7 @@ describe('PropertyVisitsService', () => {
       await expect(
         service.findAll('prop-1', {
           id: 'u1',
-          role: 'agent',
+          role: 'admin',
           companyId: 'company-1',
         }),
       ).rejects.toThrow('Property with ID prop-1 not found');
@@ -405,7 +423,7 @@ describe('PropertyVisitsService', () => {
       await expect(
         service.findAll('prop-1', {
           id: 'u1',
-          role: 'agent',
+          role: 'admin',
         } as any),
       ).rejects.toThrow('Company scope required');
       expect(propertiesRepository.findOne).not.toHaveBeenCalled();
@@ -467,7 +485,7 @@ describe('PropertyVisitsService', () => {
       const result = await service.create(
         'prop-1',
         { interestedName: 'Ana', visitedAt: '2025-01-05T10:00:00Z' },
-        { id: 'u1', role: 'agent', companyId: 'company-1' },
+        { id: 'u1', role: 'admin', companyId: 'company-1' },
       );
 
       expect(communicationsService.dispatchEvent).not.toHaveBeenCalled();
@@ -475,7 +493,7 @@ describe('PropertyVisitsService', () => {
       expect(result.notifications).toBeUndefined();
     });
 
-    it('should handle notification dispatch failure gracefully', async () => {
+    it('rejects the domain operation when the durable notification cannot be saved', async () => {
       const propWithWa = {
         ...property,
         ownerWhatsapp: '+5491112345678',
@@ -490,15 +508,14 @@ describe('PropertyVisitsService', () => {
         new Error('WhatsApp API error'),
       );
 
-      await service.create(
-        'prop-1',
-        { interestedName: 'Ana', visitedAt: '2025-01-05T10:00:00Z' },
-        { id: 'u1', role: 'agent', companyId: 'company-1' },
-      );
-
-      const savedNotifications = notificationsRepository.save!.mock.calls[1][0];
-      expect(savedNotifications[0].status).toBe(VisitNotificationStatus.FAILED);
-      expect(savedNotifications[0].error).toBe('WhatsApp API error');
+      await expect(
+        service.create(
+          'prop-1',
+          { interestedName: 'Ana', visitedAt: '2025-01-05T10:00:00Z' },
+          { id: 'u1', role: 'admin', companyId: 'company-1' },
+        ),
+      ).rejects.toThrow('WhatsApp API error');
+      expect(notificationsRepository.save).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -521,7 +538,7 @@ describe('PropertyVisitsService', () => {
       await service.create(
         'prop-1',
         { interestedName: 'Pablo', visitedAt: '2025-01-05T10:00:00Z' },
-        { id: 'u1', role: 'agent', companyId: 'company-1' },
+        { id: 'u1', role: 'admin', companyId: 'company-1' },
       );
 
       expect(ownerActivitiesRepository.save).not.toHaveBeenCalled();
@@ -545,7 +562,7 @@ describe('PropertyVisitsService', () => {
       await service.createMaintenanceTask(
         'prop-1',
         { title: 'Pintar', scheduledAt: '2025-02-01T10:00:00Z' },
-        { id: 'u1', role: 'agent', companyId: 'company-1' },
+        { id: 'u1', role: 'admin', companyId: 'company-1' },
       );
 
       expect(ownerActivitiesRepository.save).not.toHaveBeenCalled();
@@ -589,7 +606,7 @@ describe('PropertyVisitsService', () => {
           interestedProfileId: 'profile-abc',
           visitedAt: '2025-01-05T10:00:00Z',
         },
-        { id: 'u1', role: 'agent', companyId: 'company-1' },
+        { id: 'u1', role: 'admin', companyId: 'company-1' },
       );
 
       expect(ownerActivitiesRepository.create).toHaveBeenCalledWith(
@@ -618,7 +635,7 @@ describe('PropertyVisitsService', () => {
       await service.create(
         'prop-1',
         { interestedName: 'Test' },
-        { id: 'u1', role: 'agent', companyId: 'company-1' },
+        { id: 'u1', role: 'admin', companyId: 'company-1' },
       );
       const after = new Date();
 
@@ -691,6 +708,7 @@ describe('PropertyVisitsService', () => {
 
       expect(communicationsService.dispatchEvent).toHaveBeenCalledWith(
         expect.objectContaining({ consented: false, recipientId: 'profile-1' }),
+        expect.any(Object),
       );
       expect(interestedActivitiesRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -743,6 +761,7 @@ describe('PropertyVisitsService', () => {
           event: 'property_visit_offer',
           recipientRole: 'owner',
         }),
+        expect.any(Object),
       );
       expect(communicationsService.dispatchEvent).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -750,6 +769,7 @@ describe('PropertyVisitsService', () => {
           recipientRole: 'interested',
           consented: true,
         }),
+        expect.any(Object),
       );
       expect(interestedActivitiesRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({

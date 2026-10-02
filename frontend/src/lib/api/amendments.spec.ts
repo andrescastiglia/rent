@@ -1,6 +1,8 @@
 import { amendmentsApi } from "./amendments";
 import { apiClient } from "../api";
-jest.mock("../api", () => ({ apiClient: { get: jest.fn(), post: jest.fn() } }));
+jest.mock("../api", () => ({
+  apiClient: { get: jest.fn(), post: jest.fn(), patch: jest.fn() },
+}));
 jest.mock("../auth", () => ({ getToken: () => "token" }));
 it("scopes requests to the selected contract/amendment and preserves the review recovery key", async () => {
   await amendmentsApi.list("lease/1");
@@ -23,6 +25,30 @@ it("scopes requests to the selected contract/amendment and preserves the review 
   expect(apiClient.post).toHaveBeenCalledWith(
     "/amendments/amendment%2F1/reviews",
     dto,
+    "token",
+  );
+});
+
+it("forwards creation and transition recovery keys and the observed version", async () => {
+  const dto = {
+    companyId: "company",
+    leaseId: "lease",
+    changeType: "early_termination" as const,
+    effectiveDate: "2026-10-01",
+    description: "Termination",
+    newValues: {},
+    idempotencyKey: "key",
+  };
+  await amendmentsApi.create(dto);
+  expect(apiClient.post).toHaveBeenCalledWith("/amendments", dto, "token");
+  const decision = {
+    idempotencyKey: "key",
+    expectedUpdatedAt: "2026-09-29T12:00:00.000Z",
+  };
+  await amendmentsApi.transition("amendment/1", "approve", decision);
+  expect(apiClient.patch).toHaveBeenCalledWith(
+    "/amendments/amendment%2F1/approve",
+    decision,
     "token",
   );
 });

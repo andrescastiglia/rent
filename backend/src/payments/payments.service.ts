@@ -1,3 +1,9 @@
+import { randomUUID } from 'node:crypto';
+import {
+  assertNoUncertainSettlementPayout,
+  compensateTransferredAllocation,
+} from './settlement-compensation';
+import { RefundPaymentDto } from './dto/refund-payment.dto';
 import { allocatePaymentDocumentNumber } from './payment-document-number';
 import {
   calculatePaymentAmount,
@@ -8,6 +14,7 @@ import { reversedInvoiceStatus } from './reversed-invoice-status';
 import { withDomainOperationReceipt } from '../common/helpers/domain-operation-receipt';
 import {
   Injectable,
+  ConflictException,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -363,6 +370,7 @@ export class PaymentsService {
       where: {
         tenantAccountId,
         companyId: payment.companyId,
+        ...(payment.invoiceId ? { id: payment.invoiceId } : {}),
         status: In([
           InvoiceStatus.PENDING,
           InvoiceStatus.SENT,
@@ -391,36 +399,59 @@ export class PaymentsService {
       if (pending <= 0n) continue;
 
       const toApply = remainingAmount < pending ? remainingAmount : pending;
-      const previousInvoiceStatus = invoice.status;
-
-      invoice.amountPaid = paymentNumber(paid + toApply);
-
-      if (paid + toApply >= total) {
-        invoice.status = InvoiceStatus.PAID;
-        if (Number(invoice.lateFee || 0) > 0) {
-          settledWithLateFee.push(invoice);
-        }
-      } else {
-        invoice.status = InvoiceStatus.PARTIAL;
-      }
-
-      await repository.save(invoice);
-      if (allocationsRepository) {
-        await allocationsRepository.save(
-          allocationsRepository.create({
-            companyId: payment.companyId,
-            paymentId: payment.id,
-            invoiceId: invoice.id,
-            amount: paymentNumber(toApply),
-            previousInvoiceStatus,
-            reversedAt: null,
-          }),
-        );
-      }
+      const settledLateFee = await this.applyInvoiceAllocation(
+        payment,
+        invoice,
+        paid,
+        toApply,
+        total,
+        repository,
+        allocationsRepository,
+      );
+      if (settledLateFee) settledWithLateFee.push(invoice);
       remainingAmount -= toApply;
     }
 
     return settledWithLateFee;
+  }
+
+  private async applyInvoiceAllocation(
+    payment: Payment,
+    invoice: Invoice,
+    paid: bigint,
+    toApply: bigint,
+    total: bigint,
+    repository: Repository<Invoice>,
+    allocationsRepository?: Repository<PaymentAllocation>,
+  ) {
+    let settledLateFee = false;
+    const previousInvoiceStatus = invoice.status;
+
+    invoice.amountPaid = paymentNumber(paid + toApply);
+
+    if (paid + toApply >= total) {
+      invoice.status = InvoiceStatus.PAID;
+      if (Number(invoice.lateFee || 0) > 0) {
+        settledLateFee = true;
+      }
+    } else {
+      invoice.status = InvoiceStatus.PARTIAL;
+    }
+
+    await repository.save(invoice);
+    if (allocationsRepository) {
+      await allocationsRepository.save(
+        allocationsRepository.create({
+          companyId: payment.companyId,
+          paymentId: payment.id,
+          invoiceId: invoice.id,
+          amount: paymentNumber(toApply),
+          previousInvoiceStatus,
+          reversedAt: null,
+        }),
+      );
+    }
+    return settledLateFee;
   }
 
   /**
@@ -590,6 +621,7 @@ export class PaymentsService {
       toDate,
       page = 1,
       limit = 10,
+      search,
     } = filters;
 
     const query = this.paymentsRepository
@@ -649,6 +681,19 @@ export class PaymentsService {
       query.andWhere('payment.payment_date <= :toDate', { toDate });
     }
 
+    if (
+      !Number.isInteger(page) ||
+      page < 1 ||
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 100
+    )
+      throw new BadRequestException('Invalid pagination');
+    if (search?.trim())
+      query.andWhere(
+        "(concat_ws(' ', tenantUser.first_name, tenantUser.last_name) ILIKE :search OR concat_ws(' ', property.name, property.address_street, property.address_city, property.address_state) ILIKE :search OR payment.reference_number ILIKE :search OR receipt.receipt_number ILIKE :search)",
+        { search: `%${search.trim()}%` },
+      );
     this.applyVisibilityScope(query, user);
 
     query
@@ -707,41 +752,288 @@ export class PaymentsService {
         'payment.cancel',
         { id },
         async () => {
-          const paymentsRepository = manager.getRepository(Payment);
-          const payment = await this.findPaymentForUpdate(
-            paymentsRepository,
-            id,
-            companyId,
-          );
-
-          if (payment.status === PaymentStatus.CANCELLED) {
-            throw new BadRequestException('Payment is already cancelled');
-          }
-
-          if (payment.status === PaymentStatus.COMPLETED) {
-            if (!payment.allocationsRecorded) {
-              throw new BadRequestException(
-                'Legacy payment lacks allocation history and requires manual reversal',
-              );
-            }
-            await this.tenantAccountsService.addMovementWithManager(manager, {
-              accountId: payment.tenantAccountId,
-              type: MovementType.ADJUSTMENT,
-              amount: Number(payment.amount),
-              referenceType: 'payment',
-              referenceId: payment.id,
-              description: `Anulación pago`,
-              companyId: payment.companyId,
-            });
-            await this.reverseCompletedPayment(manager, payment);
-          }
-
-          await paymentsRepository.update(payment.id, {
-            status: PaymentStatus.CANCELLED,
-          });
+          await this.cancelWithManager(manager, id, companyId);
           return this.findOne(id, companyId, manager);
         },
       ),
+    );
+  }
+
+  async cancelWithManager(
+    manager: EntityManager,
+    id: string,
+    companyId: string,
+  ): Promise<void> {
+    const paymentsRepository = manager.getRepository(Payment);
+    const payment = await this.findPaymentForUpdate(
+      paymentsRepository,
+      id,
+      companyId,
+    );
+
+    if (payment.status === PaymentStatus.CANCELLED) {
+      throw new BadRequestException('Payment is already cancelled');
+    }
+
+    if (payment.status === PaymentStatus.COMPLETED) {
+      if (!payment.allocationsRecorded) {
+        throw new BadRequestException(
+          'Legacy payment lacks allocation history and requires manual reversal',
+        );
+      }
+      await this.tenantAccountsService.addMovementWithManager(manager, {
+        accountId: payment.tenantAccountId,
+        type: MovementType.ADJUSTMENT,
+        amount: paymentNumber(
+          paymentCents(payment.amount) -
+            paymentCents(payment.refundedAmount ?? 0),
+        ),
+        referenceType: 'payment',
+        referenceId: payment.id,
+        description: `Anulación pago`,
+        companyId: payment.companyId,
+      });
+      await this.reverseCompletedPayment(manager, payment);
+    }
+
+    await paymentsRepository.update(payment.id, {
+      status: PaymentStatus.CANCELLED,
+    });
+  }
+
+  async refund(
+    id: string,
+    companyId: string,
+    dto: RefundPaymentDto,
+    actorId?: string,
+    executionKey?: string,
+  ) {
+    if (!executionKey)
+      throw new BadRequestException('Idempotency-Key is required for refunds');
+    return this.dataSource.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        companyId,
+        executionKey,
+        'payment.refund',
+        { id, ...dto },
+        () =>
+          this.refundWithManager(
+            manager,
+            id,
+            companyId,
+            { ...dto, reference: dto.reference ?? executionKey },
+            actorId,
+          ),
+      ),
+    );
+  }
+
+  async refundWithManager(
+    manager: EntityManager,
+    id: string,
+    companyId: string,
+    dto: RefundPaymentDto & { reference: string },
+    actorId?: string,
+  ) {
+    const repository = manager.getRepository(Payment);
+    const payment = await this.findPaymentForUpdate(repository, id, companyId);
+    const [existing] = await manager.query(
+      'SELECT * FROM payment_refunds WHERE company_id=$1 AND payment_id=$2 AND reference=$3',
+      [companyId, id, dto.reference],
+    );
+    if (existing) {
+      if (
+        paymentCents(existing.amount) !== paymentCents(dto.amount) ||
+        existing.reason !== dto.reason
+      )
+        throw new ConflictException(
+          'Refund reference was already used for another correction',
+        );
+      return existing;
+    }
+    if (
+      payment.status !== PaymentStatus.COMPLETED ||
+      !payment.allocationsRecorded
+    )
+      throw new BadRequestException(
+        'Refund requires a completed payment with allocation history',
+      );
+    const amount = paymentCents(dto.amount),
+      previouslyRefunded = paymentCents(payment.refundedAmount ?? 0);
+    const available = paymentCents(payment.amount) - previouslyRefunded;
+    if (amount <= 0n || amount > available || dto.reason.trim().length < 5)
+      throw new BadRequestException(
+        'Refund must be positive and cannot exceed the remaining payment',
+      );
+    const accountId = await this.resolveTenantAccountId(
+      payment,
+      manager.getRepository(Invoice),
+    );
+    await this.assertPaymentCurrency(
+      manager,
+      accountId,
+      companyId,
+      payment.currencyCode,
+    );
+    const refundId = randomUUID();
+    const [refund] = await manager.query(
+      `INSERT INTO payment_refunds
+      (id,company_id,payment_id,amount,currency,reference,reason,document_number,created_by)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [
+        refundId,
+        companyId,
+        id,
+        paymentNumber(amount),
+        payment.currencyCode,
+        dto.reference,
+        dto.reason,
+        `REF-${refundId}`,
+        actorId ?? null,
+      ],
+    );
+    await this.tenantAccountsService.addMovementWithManager(manager, {
+      accountId,
+      companyId,
+      type: MovementType.REFUND,
+      amount: paymentNumber(amount),
+      referenceType: 'payment_refund',
+      referenceId: refundId,
+      description: `Devolución: ${dto.reason}`,
+    });
+    await this.refundAllocations(manager, payment, amount, available, refundId);
+    const cumulative = previouslyRefunded + amount;
+    await repository.update(id, {
+      refundedAmount: paymentNumber(cumulative),
+      ...(cumulative === paymentCents(payment.amount)
+        ? { status: PaymentStatus.REFUNDED }
+        : {}),
+    });
+    if (cumulative === paymentCents(payment.amount)) {
+      const receipts = manager.getRepository(Receipt);
+      const receipt = await receipts.findOne({
+        where: { companyId, paymentId: id },
+      });
+      if (receipt) {
+        receipt.cancelledAt = new Date();
+        await receipts.save(receipt);
+      }
+    }
+    return refund;
+  }
+
+  private async refundAllocations(
+    manager: EntityManager,
+    payment: Payment,
+    amount: bigint,
+    available: bigint,
+    refundId: string,
+  ) {
+    const id = payment.id,
+      companyId = payment.companyId;
+    const allocationRepository = manager.getRepository(PaymentAllocation);
+    const allocations = await allocationRepository.find({
+      where: { companyId, paymentId: id, reversedAt: IsNull() },
+      order: { createdAt: 'DESC', id: 'DESC' },
+      lock: { mode: 'pessimistic_write' },
+    });
+    const allocated = allocations.reduce(
+      (sum, allocation) =>
+        sum +
+        paymentCents(allocation.amount) -
+        paymentCents(allocation.refundedAmount ?? 0),
+      0n,
+    );
+    if (allocated > available)
+      throw new ConflictException(
+        'Allocation history exceeds available payment',
+      );
+    // Return unapplied account credit first, then unwind the most recent allocation.
+    let remaining =
+      amount > available - allocated ? amount - (available - allocated) : 0n;
+    for (const allocation of allocations) {
+      if (remaining <= 0n) break;
+      const active =
+        paymentCents(allocation.amount) -
+        paymentCents(allocation.refundedAmount ?? 0);
+      const reversed = remaining < active ? remaining : active;
+      if (reversed <= 0n) continue;
+      await this.refundAllocation(
+        manager,
+        payment,
+        allocation,
+        reversed,
+        refundId,
+      );
+      remaining -= reversed;
+    }
+    if (remaining !== 0n)
+      throw new ConflictException('Refund could not reconcile all allocations');
+  }
+
+  private async refundAllocation(
+    manager: EntityManager,
+    payment: Payment,
+    allocation: PaymentAllocation,
+    reversed: bigint,
+    refundId: string,
+  ) {
+    const companyId = payment.companyId,
+      id = payment.id;
+    const allocationRepository = manager.getRepository(PaymentAllocation);
+    await assertNoUncertainSettlementPayout(
+      manager,
+      companyId,
+      allocation.invoiceId,
+    );
+    const invoices = manager.getRepository(Invoice);
+    const invoice = await invoices.findOne({
+      where: { id: allocation.invoiceId, companyId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!invoice || paymentCents(invoice.amountPaid) < reversed)
+      throw new ConflictException(
+        'Refund allocation requires accounting review',
+      );
+    const paid = paymentCents(invoice.amountPaid) - reversed;
+    invoice.amountPaid = paymentNumber(paid);
+    let baseline = allocation.previousInvoiceStatus;
+    if (paid === 0n) {
+      const [original] = await manager.query(
+        `SELECT previous_invoice_status FROM payment_allocations
+          WHERE company_id=$1 AND invoice_id=$2 AND previous_invoice_status IN ('pending','sent','overdue')
+          ORDER BY created_at DESC,id DESC LIMIT 1`,
+        [companyId, invoice.id],
+      );
+      baseline = original?.previous_invoice_status ?? baseline;
+    }
+    invoice.status = reversedInvoiceStatus(invoice, paid, baseline);
+    await invoices.save(invoice);
+    allocation.refundedAmount = paymentNumber(
+      paymentCents(allocation.refundedAmount ?? 0) + reversed,
+    );
+    if (
+      paymentCents(allocation.refundedAmount) ===
+      paymentCents(allocation.amount)
+    )
+      allocation.reversedAt = new Date();
+    await allocationRepository.save(allocation);
+    await this.cancelConditionalCredits(manager, payment, [invoice.id], false);
+    await compensateTransferredAllocation(manager, {
+      companyId,
+      invoiceId: invoice.id,
+      paymentId: id,
+      referenceId: refundId,
+      amount: reversed,
+    });
+  }
+
+  async listRefunds(id: string, user: RequestUser) {
+    await this.findOneScoped(id, user);
+    return this.dataSource.query(
+      'SELECT * FROM payment_refunds WHERE company_id=$1 AND payment_id=$2 ORDER BY created_at,id',
+      [user.companyId, id],
     );
   }
 
@@ -882,7 +1174,6 @@ export class PaymentsService {
   ): Promise<void> {
     const allocationsRepository = manager.getRepository(PaymentAllocation);
     const invoicesRepository = manager.getRepository(Invoice);
-    const creditNotesRepository = manager.getRepository(CreditNote);
     const receiptsRepository = manager.getRepository(Receipt);
     const allocations = await allocationsRepository.find({
       where: {
@@ -894,7 +1185,13 @@ export class PaymentsService {
     });
 
     const unsettledInvoiceIds: string[] = [];
+    const corrections: Array<{ invoiceId: string; amount: bigint }> = [];
     for (const allocation of allocations) {
+      await assertNoUncertainSettlementPayout(
+        manager,
+        payment.companyId,
+        allocation.invoiceId,
+      );
       const invoice = await invoicesRepository.findOne({
         where: { id: allocation.invoiceId, companyId: payment.companyId },
         lock: { mode: 'pessimistic_write' },
@@ -905,7 +1202,9 @@ export class PaymentsService {
         );
       }
       const paid = paymentCents(invoice.amountPaid),
-        allocated = paymentCents(allocation.amount);
+        allocated =
+          paymentCents(allocation.amount) -
+          paymentCents(allocation.refundedAmount ?? 0);
       if (allocated <= 0n || allocated > paid)
         throw new BadRequestException(
           'Payment allocation exceeds the recorded paid amount; manual review is required',
@@ -942,17 +1241,49 @@ export class PaymentsService {
       )
         unsettledInvoiceIds.push(invoice.id);
       await invoicesRepository.save(invoice);
+      corrections.push({ invoiceId: invoice.id, amount: allocated });
       allocation.reversedAt = new Date();
       await allocationsRepository.save(allocation);
     }
 
+    await this.cancelConditionalCredits(manager, payment, unsettledInvoiceIds);
+    for (const correction of corrections)
+      await compensateTransferredAllocation(manager, {
+        companyId: payment.companyId,
+        invoiceId: correction.invoiceId,
+        paymentId: payment.id,
+        referenceId: payment.id,
+        amount: correction.amount,
+      });
+
+    const receipt = await receiptsRepository.findOne({
+      where: { paymentId: payment.id, companyId: payment.companyId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (receipt) {
+      receipt.cancelledAt = new Date();
+      await receiptsRepository.save(receipt);
+    }
+  }
+
+  private async cancelConditionalCredits(
+    manager: EntityManager,
+    payment: Payment,
+    unsettledInvoiceIds: string[],
+    includePaymentNotes = true,
+  ) {
+    const creditNotesRepository = manager.getRepository(CreditNote);
     const creditNotes = await creditNotesRepository.find({
       where: [
-        {
-          companyId: payment.companyId,
-          paymentId: payment.id,
-          status: CreditNoteStatus.ISSUED,
-        },
+        ...(includePaymentNotes
+          ? [
+              {
+                companyId: payment.companyId,
+                paymentId: payment.id,
+                status: CreditNoteStatus.ISSUED,
+              },
+            ]
+          : []),
         ...(unsettledInvoiceIds.length
           ? [
               {
@@ -990,15 +1321,6 @@ export class PaymentsService {
       note.cancelledAt = new Date();
       note.cancelledByPaymentId = payment.id;
       await creditNotesRepository.save(note);
-    }
-
-    const receipt = await receiptsRepository.findOne({
-      where: { paymentId: payment.id, companyId: payment.companyId },
-      lock: { mode: 'pessimistic_write' },
-    });
-    if (receipt) {
-      receipt.cancelledAt = new Date();
-      await receiptsRepository.save(receipt);
     }
   }
 

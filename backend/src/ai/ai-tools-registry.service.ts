@@ -651,6 +651,12 @@ export class AiToolsRegistryService {
       if (mode === 'READONLY' && tool.mutability === 'mutable') {
         return false;
       }
+      if (
+        tool.mutability === 'mutable' &&
+        tool.supportsIdempotentRecovery !== true
+      ) {
+        return false;
+      }
       if (tool.mutability === 'readonly' && retiredReadTools.has(tool.name)) {
         return false;
       }

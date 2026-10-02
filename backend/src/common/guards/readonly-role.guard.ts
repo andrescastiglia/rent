@@ -7,6 +7,12 @@ import {
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { UserRole } from '../../users/entities/user.entity';
+import { getUserRoles } from '../helpers/role-scope.helper';
+import {
+  SELF_SERVICE_ACTION_KEY,
+  SELF_SERVICE_ACTIONS,
+  SelfServiceActionName,
+} from '../decorators/self-service-action.decorator';
 
 @Injectable()
 export class ReadonlyRoleGuard implements CanActivate {
@@ -28,7 +34,7 @@ export class ReadonlyRoleGuard implements CanActivate {
       return true;
     }
 
-    const roles = user.roles?.length ? user.roles : [user.role];
+    const roles = getUserRoles(user);
     if (roles.includes(UserRole.ADMIN) || roles.includes(UserRole.STAFF)) {
       return true;
     }
@@ -45,23 +51,21 @@ export class ReadonlyRoleGuard implements CanActivate {
       return true;
     }
 
-    const path = String(request.path ?? request.originalUrl ?? '');
-
-    // Chat requests are POST because they carry a prompt, but owner/tenant
-    // mutations are rejected by the AI orchestrator before tool execution.
-    const isAllowedAiRead =
-      method === 'POST' &&
-      (path.startsWith('/ai/respond') || path.startsWith('/ai/tools/respond'));
-    if (isAllowedAiRead) {
-      return true;
-    }
-
-    // Owner/tenant can still manage own profile data and credentials.
-    const isAllowedProfileMutation =
-      (method === 'PATCH' && path.startsWith('/users/profile/me')) ||
-      (method === 'POST' && path.startsWith('/users/profile/change-password'));
-    if (isAllowedProfileMutation) {
-      return true;
+    // Handler-only metadata prevents a controller-level exception from granting
+    // every mutation or a matching URL prefix from granting an unrelated action.
+    const action = this.reflector.get<SelfServiceActionName>(
+      SELF_SERVICE_ACTION_KEY,
+      context.getHandler(),
+    );
+    if (action && Object.hasOwn(SELF_SERVICE_ACTIONS, action)) {
+      const policy = SELF_SERVICE_ACTIONS[action];
+      const allowedRoles: readonly UserRole[] = policy.roles;
+      if (
+        policy.method === method &&
+        roles.some((role) => allowedRoles.includes(role))
+      ) {
+        return true;
+      }
     }
 
     throw new ForbiddenException('Read-only role cannot modify resources');

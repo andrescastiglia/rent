@@ -1,5 +1,7 @@
+import { Pressable, Text, View } from '@/components/themed-native';
+import { useGuidanceBlocker } from '@/components/guidance';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { StyleSheet, Switch } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { AppButton, ChoiceGroup, Field } from '@/components/ui';
@@ -157,6 +159,8 @@ export function InterestedForm({
     }
     return ['rent'];
   };
+
+  useGuidanceBlocker(`${testIDPrefix}.validation`, Boolean(error));
 
   const submit = async () => {
     if (!form.phone.trim()) {
@@ -351,7 +355,9 @@ export function InterestedForm({
 
       <AppButton
         title={submitLabel}
-        onPress={submit}
+        onPress={() => {
+          void submit().catch(() => undefined);
+        }}
         loading={submitting}
         disabled={submitting}
         testID={`${testIDPrefix}.submit`}

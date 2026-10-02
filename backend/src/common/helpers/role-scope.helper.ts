@@ -6,11 +6,7 @@ export type RoleAware = {
 };
 
 export function getUserRoles(subject: RoleAware): UserRole[] {
-  const candidates = subject.roles?.length
-    ? subject.roles
-    : subject.role
-      ? [subject.role]
-      : [];
+  const candidates = subject.roles?.length ? subject.roles : [subject.role];
   return [...new Set(candidates)].filter((role): role is UserRole =>
     Object.values(UserRole).includes(role as UserRole),
   );

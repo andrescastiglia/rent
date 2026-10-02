@@ -51,8 +51,18 @@ export async function downloadAndSharePdf(
   const destination = `${baseDir}${filename}`;
 
   const result = await FileSystem.downloadAsync(url, destination, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    headers:
+      token && new URL(url).origin === new URL(API_URL).origin
+        ? { Authorization: `Bearer ${token}` }
+        : undefined,
   });
+
+  if (result.status !== 200) {
+    await FileSystem.deleteAsync(result.uri, { idempotent: true }).catch(
+      () => undefined,
+    );
+    throw new Error(`PDF download failed (HTTP ${result.status})`);
+  }
 
   if (IS_E2E_MODE) {
     return result.uri;

@@ -1,13 +1,16 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": ["jest", "node"]
+    "types": ["jest", "node"],
+    "jsx": "react-jsx"
   },
   "include": [
     "src/**/*.spec.ts",
     "src/**/*.spec.tsx",
     "src/**/*.ts",
     "src/**/*.tsx",
-    "expo-env.d.ts"
+    "expo-env.d.ts",
+    "app/**/*.tsx",
+    "tests/**/*.tsx"
   ]
 }

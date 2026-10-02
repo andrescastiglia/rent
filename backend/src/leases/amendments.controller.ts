@@ -16,9 +16,13 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AmendmentsService } from './amendments.service';
-import { CreateAmendmentDto } from './dto/create-amendment.dto';
+import {
+  CreateAmendmentRequestDto,
+  AmendmentTransitionDto,
+} from './dto/amendment-request.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Authenticated } from '../common/decorators/authenticated.decorator';
+import { SelfServiceAction } from '../common/decorators/self-service-action.decorator';
 import { UserRole } from '../users/entities/user.entity';
 
 @UseGuards(AuthGuard('jwt'))
@@ -28,9 +32,11 @@ export class AmendmentsController {
   constructor(private readonly amendmentsService: AmendmentsService) {}
 
   @Post()
+  @SelfServiceAction('amendment.create')
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
-  create(@Body() createAmendmentDto: CreateAmendmentDto, @Request() req: any) {
-    return this.amendmentsService.create(createAmendmentDto, req.user);
+  create(@Body() request: CreateAmendmentRequestDto, @Request() req: any) {
+    const { idempotencyKey, ...dto } = request;
+    return this.amendmentsService.create(dto, req.user, idempotencyKey);
   }
 
   @Get('lease/:leaseId')
@@ -63,20 +69,50 @@ export class AmendmentsController {
   }
 
   @Patch(':id/submit')
+  @SelfServiceAction('amendment.submit')
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
-  submit(@Param('id') id: string, @Request() req: any) {
-    return this.amendmentsService.submit(id, req.user);
+  submit(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
+    @Body() dto: AmendmentTransitionDto = {},
+  ) {
+    return this.amendmentsService.submit(
+      id,
+      req.user,
+      dto.idempotencyKey,
+      dto.expectedUpdatedAt,
+    );
   }
 
   @Patch(':id/approve')
+  @SelfServiceAction('amendment.approve')
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
-  approve(@Param('id') id: string, @Request() req: any) {
-    return this.amendmentsService.approve(id, req.user);
+  approve(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
+    @Body() dto: AmendmentTransitionDto = {},
+  ) {
+    return this.amendmentsService.approve(
+      id,
+      req.user,
+      dto.idempotencyKey,
+      dto.expectedUpdatedAt,
+    );
   }
 
   @Patch(':id/reject')
+  @SelfServiceAction('amendment.reject')
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
-  reject(@Param('id') id: string, @Request() req: any) {
-    return this.amendmentsService.reject(id, req.user);
+  reject(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() req: any,
+    @Body() dto: AmendmentTransitionDto = {},
+  ) {
+    return this.amendmentsService.reject(
+      id,
+      req.user,
+      dto.idempotencyKey,
+      dto.expectedUpdatedAt,
+    );
   }
 }

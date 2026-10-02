@@ -1,4 +1,5 @@
 import { Lease } from "./lease";
+import type { CreatePaymentDto } from "@/generated/openapi";
 
 /**
  * Estado del pago
@@ -194,6 +195,7 @@ export interface PaymentDocumentTemplate {
  * Pago del inquilino
  */
 export interface Payment {
+  refundedAmount?: number;
   id: string;
   companyId?: string;
   tenantAccountId: string;
@@ -258,22 +260,15 @@ export interface AccountBalance {
 /**
  * DTO para crear pago
  */
-export interface CreatePaymentInput {
-  tenantAccountId: string;
+export type CreatePaymentInput = Omit<CreatePaymentDto, "amount"> & {
   amount: number;
-  currencyCode?: string;
-  paymentDate: string;
-  method: PaymentMethod;
-  activityType?: PaymentActivityType;
-  reference?: string;
-  notes?: string;
-  items?: Omit<PaymentItem, "id" | "paymentId">[];
-}
+};
 
 /**
  * Filtros para listar pagos
  */
 export interface PaymentFilters {
+  search?: string;
   tenantId?: string;
   tenantAccountId?: string;
   leaseId?: string;
@@ -291,6 +286,7 @@ export interface PaymentFilters {
  * Filtros para listar facturas
  */
 export interface InvoiceFilters {
+  search?: string;
   leaseId?: string;
   ownerId?: string;
   status?: InvoiceStatus;

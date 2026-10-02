@@ -1,77 +1,85 @@
-import { test, expect, gotoWithRetry, login, localePath } from './fixtures/auth';
-import type { Page } from '@playwright/test';
+import {
+  test,
+  expect,
+  gotoWithRetry,
+  login,
+  localePath,
+} from "./fixtures/auth";
+import type { Page } from "@playwright/test";
 
-test.describe('Invoice Flow', () => {
-    const invoiceLinksSelector = 'a[href*="/invoices/"]:not([href*="/invoices/new"])';
+test.describe("Invoice Flow", () => {
+  const invoiceLinksSelector =
+    'a[href*="/invoices/"]:not([href*="/invoices/new"])';
 
-    const openFirstInvoice = async (page: Page) => {
-        const firstInvoiceLink = page.locator(invoiceLinksSelector).first();
-        await expect(firstInvoiceLink).toBeVisible({ timeout: 30000 });
-        await Promise.all([
-            page.waitForURL(/\/(es|en|pt)\/invoices\/[^/]+$/, { timeout: 30000 }),
-            firstInvoiceLink.click(),
-        ]);
-    };
+  const openFirstInvoice = async (page: Page) => {
+    const firstInvoiceLink = page.locator(invoiceLinksSelector).first();
+    await expect(firstInvoiceLink).toBeVisible({ timeout: 30000 });
+    await Promise.all([
+      page.waitForURL(/\/(es|en|pt)\/invoices\/[^/]+$/, { timeout: 30000 }),
+      firstInvoiceLink.click(),
+    ]);
+  };
 
-    test.beforeEach(async ({ page }) => {
-        await login(page);
-        await gotoWithRetry(page, localePath('/invoices'));
-    });
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await gotoWithRetry(page, localePath("/invoices"));
+  });
 
-    test('should display invoices list page', async ({ page }) => {
-        await expect(page).toHaveURL(/\/es\/invoices/);
-        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    });
+  test("should display invoices list page", async ({ page }) => {
+    await expect(page).toHaveURL(/\/es\/invoices/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  });
 
-    test('should navigate to invoice details', async ({ page }) => {
-        await gotoWithRetry(page, localePath('/invoices'));
-        await openFirstInvoice(page);
-    });
+  test("should navigate to invoice details", async ({ page }) => {
+    await gotoWithRetry(page, localePath("/invoices"));
+    await openFirstInvoice(page);
+    await expect(page).toHaveURL(/\/es\/invoices\/[^/]+$/);
+  });
 
-    test('should display invoice details correctly', async ({ page }) => {
-        await gotoWithRetry(page, localePath('/invoices'));
-        await openFirstInvoice(page);
+  test("should display invoice details correctly", async ({ page }) => {
+    await gotoWithRetry(page, localePath("/invoices"));
+    await openFirstInvoice(page);
 
-        // Should show invoice heading or details (use level 1 heading)
-        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-        await expect(page.getByRole('button', { name: /MercadoPago/i })).toBeVisible();
-    });
+    // Should show invoice heading or details (use level 1 heading)
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /MercadoPago/i }),
+    ).toBeVisible();
+  });
 
-    test('should search invoices', async ({ page }) => {
-        await gotoWithRetry(page, localePath('/invoices'));
+  test("should search invoices", async ({ page }) => {
+    await gotoWithRetry(page, localePath("/invoices"));
 
-        // Type in search box if visible
-        const searchInput = page.locator('input[type="text"]').first();
-        if (await searchInput.isVisible()) {
-            await searchInput.fill('INV');
+    // Type in search box if visible
+    const searchInput = page.locator('input[type="text"]').first();
+    if (await searchInput.isVisible()) {
+      await searchInput.fill("INV");
 
-            // Wait for filter to apply
-            await page.waitForTimeout(500);
+      // Search input should have the value
+      await expect(searchInput).toHaveValue("INV");
+    }
+  });
 
-            // Search input should have the value
-            await expect(searchInput).toHaveValue('INV');
-        }
-    });
+  test("should filter invoices by status", async ({ page }) => {
+    await gotoWithRetry(page, localePath("/invoices"));
 
-    test('should filter invoices by status', async ({ page }) => {
-        await gotoWithRetry(page, localePath('/invoices'));
+    // Find status filter select if exists
+    const statusFilter = page.locator("select").first();
+    await expect(statusFilter).toBeVisible();
+    const selected = await statusFilter
+      .locator("option")
+      .nth(1)
+      .getAttribute("value");
+    await statusFilter.selectOption({ index: 1 });
+    await expect(statusFilter).toHaveValue(selected!);
+  });
 
-        // Find status filter select if exists
-        const statusFilter = page.locator('select').first();
-        if (await statusFilter.isVisible()) {
-            await statusFilter.selectOption({ index: 1 });
+  test("should display invoice amounts and dates", async ({ page }) => {
+    await gotoWithRetry(page, localePath("/invoices"));
+    await openFirstInvoice(page);
 
-            // Wait for filter to apply
-            await page.waitForTimeout(500);
-        }
-    });
-
-    test('should display invoice amounts and dates', async ({ page }) => {
-        await gotoWithRetry(page, localePath('/invoices'));
-        await openFirstInvoice(page);
-
-        // Should display amount and date information
-        // Look for currency symbols or date patterns
-        await expect(page.locator('body')).toContainText(/\$|ARS|USD|€/);
-    });
+    // Should display amount and date information
+    // Look for currency symbols or date patterns
+    await expect(page.locator("body")).toContainText(/\$|ARS|USD|€/);
+  });
 });

@@ -23,7 +23,7 @@ describe("getLandingPathForRole", () => {
   it("routes relationship roles to a safe landing page", () => {
     expect(getLandingPathForRole("owner")).toBe("/portal/owner");
     expect(getLandingPathForRole("tenant")).toBe("/portal/tenant");
-    expect(getLandingPathForRole("buyer")).toBe("/settings");
+    expect(getLandingPathForRole("buyer")).toBe("/portal/buyer");
     expect(getLandingPathForRole("admin")).toBe("/dashboard");
     expect(getLandingPathForRole("staff")).toBe("/dashboard");
   });
@@ -105,15 +105,27 @@ describe("getNavigationForUser", () => {
 });
 
 describe("getLandingPathForUser", () => {
-  it("uses the task dashboard when any non-buyer role is present", () => {
+  it("prioritizes internal capabilities for multirole users", () => {
+    expect(
+      getLandingPathForUser({ role: "buyer", roles: ["buyer", "staff"] }),
+    ).toBe("/dashboard");
+    expect(getLandingPathForUser({ role: "owner", roles: ["owner"] })).toBe(
+      "/portal/owner",
+    );
+    expect(getLandingPathForUser({ role: "tenant", roles: ["tenant"] })).toBe(
+      "/portal/tenant",
+    );
+    expect(getLandingPathForUser(null)).toBe("/dashboard");
+  });
+  it("uses the owner portal for combined external relationship roles", () => {
     expect(
       getLandingPathForUser({ role: "buyer", roles: ["buyer", "owner"] }),
-    ).toBe("/dashboard");
+    ).toBe("/portal/owner");
   });
 
-  it("keeps buyer-only users on their available settings page", () => {
+  it("keeps buyer-only users on their own sales portal", () => {
     expect(getLandingPathForUser({ role: "buyer", roles: ["buyer"] })).toBe(
-      "/settings",
+      "/portal/buyer",
     );
   });
 });

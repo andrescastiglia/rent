@@ -70,13 +70,12 @@ function OwnerPayoutsContent({
       if (data.some((item) => item.ownerId !== ownerId))
         throw new Error("Owner mismatch");
       setSettlements(data);
-      setSelected((id) =>
-        preferredId && data.some((item) => item.id === preferredId)
-          ? preferredId
-          : data.some((item) => item.id === id)
-            ? id
-            : (data[0]?.id ?? ""),
-      );
+      setSelected((id) => {
+        if (preferredId && data.some((item) => item.id === preferredId))
+          return preferredId;
+        if (data.some((item) => item.id === id)) return id;
+        return data[0]?.id ?? "";
+      });
       if (preferredId) setRevision((value) => value + 1);
       setError(false);
     } catch {
@@ -106,9 +105,7 @@ function OwnerPayoutsContent({
       >
         {busy ? t("loading") : t("reloadList")}
       </button>
-      {!busy && !error && !settlements.length && (
-        <p role="status">{t("empty")}</p>
-      )}
+      {!busy && !error && !settlements.length && <output>{t("empty")}</output>}
       {!error && !!settlements.length && (
         <label className="block">
           {t("settlement")}

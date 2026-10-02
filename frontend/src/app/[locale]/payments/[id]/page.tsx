@@ -26,14 +26,36 @@ import {
   ReceiptText,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import PaymentRefunds from "@/components/payments/PaymentRefunds";
+import { Button, StatePanel } from "@/components/ui";
+import { canUserAccessModule } from "@/lib/permissions";
+import { useWorkflowMutation } from "@/hooks/useWorkflowMutation";
 
-const activityTypeLabels: Record<PaymentActivityType, string> = {
-  monthly: "Mensual",
-  annual: "Anual",
-  adjustment: "Ajuste",
-  late_fee: "Mora",
-  extraordinary: "Extraordinario",
+type PaymentEdit = {
+  paymentDate: string;
+  method: string;
+  activityType: PaymentActivityType;
+  reference: string;
+  notes: string;
+  items: {
+    itemId: string;
+    description: string;
+    amount: number;
+    quantity: number;
+    type: PaymentItemType;
+  }[];
 };
+type PaymentMutation =
+  | { kind: "confirm"; id: string }
+  | { kind: "update"; id: string; form: PaymentEdit };
+
+const activityTypes: readonly PaymentActivityType[] = [
+  "monthly",
+  "annual",
+  "adjustment",
+  "late_fee",
+  "extraordinary",
+];
 
 function ReceiptSection({
   payment,
@@ -43,6 +65,7 @@ function ReceiptSection({
   downloadingInvoice,
   downloadingCreditNoteId,
   confirming,
+  canConfirm,
   onDownloadReceipt,
   onDownloadInvoice,
   onDownloadCreditNote,
@@ -55,6 +78,7 @@ function ReceiptSection({
   downloadingInvoice: boolean;
   downloadingCreditNoteId: string | null;
   confirming: boolean;
+  canConfirm: boolean;
   onDownloadReceipt: () => void;
   onDownloadInvoice: () => void;
   onDownloadCreditNote: (note: CreditNote) => void;
@@ -71,18 +95,21 @@ function ReceiptSection({
           <p className="text-gray-500 dark:text-gray-400 mb-4">
             {t("receiptPendingDescription")}
           </p>
-          <button
-            onClick={onConfirm}
-            disabled={confirming}
-            className="btn btn-primary"
-          >
-            {confirming ? (
-              <Loader2 className="animate-spin h-5 w-5 mr-2" />
-            ) : (
-              <CheckCircle size={18} className="mr-2" />
-            )}
-            {t("confirmPayment")}
-          </button>
+          {canConfirm && (
+            <button
+              data-guide="review"
+              onClick={onConfirm}
+              disabled={confirming}
+              className="btn btn-primary"
+            >
+              {confirming ? (
+                <Loader2 className="animate-spin h-5 w-5 mr-2" />
+              ) : (
+                <CheckCircle size={18} className="mr-2" />
+              )}
+              {t("confirmPayment")}
+            </button>
+          )}
         </div>
       );
     }
@@ -153,6 +180,7 @@ function ReceiptSection({
 
       <button
         type="button"
+        data-guide="receipt-download"
         onClick={onDownloadReceipt}
         disabled={downloadingReceipt || !payment.receipt.pdfUrl}
         className="btn btn-success w-full"
@@ -165,7 +193,22 @@ function ReceiptSection({
 }
 
 export default function PaymentDetailPage() {
-  const { loading: authLoading } = useAuth();
+  const { user, loading } = useAuth();
+  const params = useParams();
+  if (loading)
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
+  if (!user) return null;
+  return (
+    <PaymentDetailContent key={`${user.companyId}:${user.id}:${params.id}`} />
+  );
+}
+
+function PaymentDetailContent() {
+  const { loading: authLoading, user } = useAuth();
   const params = useParams();
   const paymentId = Array.isArray(params.id) ? params.id[0] : params.id;
   const t = useTranslations("payments");
@@ -176,30 +219,37 @@ export default function PaymentDetailPage() {
   const [linkedInvoice, setLinkedInvoice] = useState<Invoice | null>(null);
   const [creditNotes, setCreditNotes] = useState<CreditNote[]>([]);
   const [loading, setLoading] = useState(true);
-  const [confirming, setConfirming] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const tw = useTranslations("paymentWorkflow");
+  const canManage = Boolean(
+    user && canUserAccessModule(user, ["admin", "staff"], "payments"),
+  );
+  const [readError, setReadError] = useState(false);
+  const [documentError, setDocumentError] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const [downloadingReceipt, setDownloadingReceipt] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [downloadingCreditNoteId, setDownloadingCreditNoteId] = useState<
     string | null
   >(null);
-  const [editForm, setEditForm] = useState<{
-    paymentDate: string;
-    method: string;
-    activityType: PaymentActivityType;
-    reference: string;
-    notes: string;
-    items: {
-      itemId: string;
-      description: string;
-      amount: number;
-      quantity: number;
-      type: PaymentItemType;
-    }[];
-  } | null>(null);
+  const [editForm, setEditForm] = useState<PaymentEdit | null>(null);
+  const mutation = useWorkflowMutation<PaymentMutation>(async (request) => {
+    const updated =
+      request.kind === "confirm"
+        ? await paymentsApi.confirm(request.id)
+        : await paymentsApi.update(request.id, {
+            ...request.form,
+            method: request.form.method as PaymentMethod,
+          });
+    setPayment(updated);
+    setEditForm(null);
+    setReviewing(false);
+  });
+  const confirming = mutation.busy;
+  const saving = mutation.busy;
 
   const loadPayment = useCallback(async () => {
     try {
+      setReadError(false);
       if (!paymentId) return;
       const data = await paymentsApi.getById(paymentId);
       setPayment(data);
@@ -214,8 +264,8 @@ export default function PaymentDetailPage() {
         setLinkedInvoice(null);
         setCreditNotes([]);
       }
-    } catch (error) {
-      console.error("Failed to load payment", error);
+    } catch {
+      setReadError(true);
     } finally {
       setLoading(false);
     }
@@ -253,20 +303,13 @@ export default function PaymentDetailPage() {
   }, [payment?.status, payment?.receipt?.pdfUrl, paymentId]);
 
   const handleConfirm = async () => {
-    if (!payment) return;
-    try {
-      setConfirming(true);
-      const updated = await paymentsApi.confirm(payment.id);
-      setPayment(updated);
-    } catch (error) {
-      console.error("Failed to confirm payment", error);
-    } finally {
-      setConfirming(false);
-    }
+    if (!payment || !canManage) return;
+    await mutation.submit({ kind: "confirm", id: payment.id });
   };
 
   const handleEditInit = () => {
-    if (!payment) return;
+    if (!payment || !canManage || mutation.pending) return;
+    mutation.reset();
     setEditForm({
       paymentDate: payment.paymentDate,
       method: payment.method,
@@ -284,24 +327,8 @@ export default function PaymentDetailPage() {
   };
 
   const handleSaveEdit = async () => {
-    if (!payment || !editForm) return;
-    try {
-      setSaving(true);
-      const updated = await paymentsApi.update(payment.id, {
-        paymentDate: editForm.paymentDate,
-        method: editForm.method as PaymentMethod,
-        activityType: editForm.activityType,
-        reference: editForm.reference,
-        notes: editForm.notes,
-        items: editForm.items,
-      });
-      setPayment(updated);
-      setEditForm(null);
-    } catch (error) {
-      console.error("Failed to update payment", error);
-    } finally {
-      setSaving(false);
-    }
+    if (!payment || !editForm || !canManage) return;
+    await mutation.submit({ kind: "update", id: payment.id, form: editForm });
   };
 
   if (loading) {
@@ -311,6 +338,17 @@ export default function PaymentDetailPage() {
       </div>
     );
   }
+
+  if (readError && !payment)
+    return (
+      <StatePanel
+        error
+        title={tw("readError")}
+        action={
+          <Button onClick={() => void loadPayment()}>{tw("retry")}</Button>
+        }
+      />
+    );
 
   if (!payment) {
     return (
@@ -336,13 +374,14 @@ export default function PaymentDetailPage() {
   const handleDownloadReceipt = async () => {
     if (!payment?.receipt) return;
     try {
+      setDocumentError(false);
       setDownloadingReceipt(true);
       await paymentsApi.downloadReceiptPdf(
         payment.id,
         payment.receipt.receiptNumber,
       );
-    } catch (error) {
-      console.error("Failed to download receipt", error);
+    } catch {
+      setDocumentError(true);
     } finally {
       setDownloadingReceipt(false);
     }
@@ -351,13 +390,14 @@ export default function PaymentDetailPage() {
   const handleDownloadInvoice = async () => {
     if (!linkedInvoice) return;
     try {
+      setDocumentError(false);
       setDownloadingInvoice(true);
       await invoicesApi.downloadPdf(
         linkedInvoice.id,
         linkedInvoice.invoiceNumber,
       );
-    } catch (error) {
-      console.error("Failed to download invoice from payment detail", error);
+    } catch {
+      setDocumentError(true);
     } finally {
       setDownloadingInvoice(false);
     }
@@ -365,13 +405,11 @@ export default function PaymentDetailPage() {
 
   const handleDownloadCreditNote = async (note: CreditNote) => {
     try {
+      setDocumentError(false);
       setDownloadingCreditNoteId(note.id);
       await invoicesApi.downloadCreditNotePdf(note.id, note.noteNumber);
-    } catch (error) {
-      console.error(
-        "Failed to download credit note from payment detail",
-        error,
-      );
+    } catch {
+      setDocumentError(true);
     } finally {
       setDownloadingCreditNoteId(null);
     }
@@ -387,6 +425,54 @@ export default function PaymentDetailPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {readError && (
+        <StatePanel
+          error
+          title={tw("readError")}
+          action={
+            <Button onClick={() => void loadPayment()}>{tw("retry")}</Button>
+          }
+        />
+      )}
+      {documentError && <StatePanel error title={tw("documentError")} />}
+      {mutation.error && (
+        <StatePanel
+          error
+          title={tw(mutation.error)}
+          action={
+            mutation.pending ? (
+              <Button
+                disabled={mutation.busy}
+                onClick={() => void mutation.submit(mutation.pending!)}
+              >
+                {tw("recover")}
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
+      {reviewing && !mutation.pending && (
+        <section
+          className="mb-6 rounded-lg border border-line p-5"
+          aria-label={tw("review")}
+        >
+          <h2>{tw("review")}</h2>
+          <p>
+            {formattedAmount} · {formattedDate}
+          </p>
+          <p>{tw("impact")}</p>
+          <Button disabled={mutation.busy} onClick={() => void handleConfirm()}>
+            {tw("confirm")}
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={mutation.busy}
+            onClick={() => setReviewing(false)}
+          >
+            {tCommon("cancel")}
+          </Button>
+        </section>
+      )}
       {/* Header */}
       <div className="mb-8">
         <Link
@@ -449,11 +535,10 @@ export default function PaymentDetailPage() {
 
             <div className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700">
               <span className="text-gray-600 dark:text-gray-400">
-                Actividad
+                {t("activityLabel")}
               </span>
               <span className="text-gray-900 dark:text-white">
-                {activityTypeLabels[payment.activityType] ??
-                  payment.activityType}
+                {t(`activityTypes.${payment.activityType}`)}
               </span>
             </div>
 
@@ -505,7 +590,7 @@ export default function PaymentDetailPage() {
         </div>
 
         {/* Editable draft */}
-        {payment.status === "pending" && (
+        {canManage && payment.status === "pending" && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -513,6 +598,7 @@ export default function PaymentDetailPage() {
               </h2>
               {!editForm && (
                 <button
+                  data-guide="payment-edit"
                   onClick={handleEditInit}
                   className="btn btn-ghost btn-sm"
                 >
@@ -522,7 +608,10 @@ export default function PaymentDetailPage() {
             </div>
 
             {editForm && (
-              <div className="space-y-4">
+              <fieldset
+                className="space-y-4"
+                disabled={mutation.busy || Boolean(mutation.pending)}
+              >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label
@@ -569,7 +658,7 @@ export default function PaymentDetailPage() {
                       htmlFor="edit-payment-activity-type"
                       className="block text-sm text-gray-600 dark:text-gray-400"
                     >
-                      Actividad
+                      {t("activityLabel")}
                     </label>
                     <select
                       id="edit-payment-activity-type"
@@ -587,13 +676,11 @@ export default function PaymentDetailPage() {
                       }
                       className="mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                     >
-                      {Object.entries(activityTypeLabels).map(
-                        ([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ),
-                      )}
+                      {activityTypes.map((value) => (
+                        <option key={value} value={value}>
+                          {t(`activityTypes.${value}`)}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -655,6 +742,7 @@ export default function PaymentDetailPage() {
                           className="grid grid-cols-1 md:grid-cols-5 gap-2"
                         >
                           <input
+                            aria-label={t("items.description")}
                             value={item.description}
                             onChange={(e) =>
                               setEditForm((prev) => {
@@ -673,6 +761,7 @@ export default function PaymentDetailPage() {
                             type="number"
                             min="0"
                             step="0.01"
+                            aria-label={t("amount")}
                             value={item.amount}
                             onChange={(e) =>
                               setEditForm((prev) => {
@@ -690,6 +779,7 @@ export default function PaymentDetailPage() {
                           <input
                             type="number"
                             min="1"
+                            aria-label={t("items.quantity")}
                             value={item.quantity}
                             onChange={(e) =>
                               setEditForm((prev) => {
@@ -705,6 +795,7 @@ export default function PaymentDetailPage() {
                             className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
                           />
                           <select
+                            aria-label={t("items.type")}
                             value={item.type}
                             onChange={(e) =>
                               setEditForm((prev) => {
@@ -740,6 +831,7 @@ export default function PaymentDetailPage() {
                   </button>
                   <button
                     type="button"
+                    data-guide="review"
                     onClick={handleSaveEdit}
                     disabled={saving}
                     className="btn btn-primary"
@@ -747,7 +839,7 @@ export default function PaymentDetailPage() {
                     {saving ? tCommon("saving") : tCommon("save")}
                   </button>
                 </div>
-              </div>
+              </fieldset>
             )}
           </div>
         )}
@@ -765,7 +857,8 @@ export default function PaymentDetailPage() {
             downloadingReceipt={downloadingReceipt}
             downloadingInvoice={downloadingInvoice}
             downloadingCreditNoteId={downloadingCreditNoteId}
-            confirming={confirming}
+            confirming={confirming || Boolean(mutation.pending)}
+            canConfirm={canManage && !reviewing}
             onDownloadReceipt={handleDownloadReceipt}
             onDownloadInvoice={() => {
               handleDownloadInvoice().catch((error) => {
@@ -783,10 +876,11 @@ export default function PaymentDetailPage() {
                 );
               });
             }}
-            onConfirm={handleConfirm}
+            onConfirm={() => setReviewing(true)}
           />
         </div>
       </div>
+      <PaymentRefunds payment={payment} onChanged={() => void loadPayment()} />
     </div>
   );
 }

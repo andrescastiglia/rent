@@ -1,6 +1,7 @@
+import { Text, View } from '@/components/themed-native';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { invoicesApi } from '@/api/payments';
@@ -30,13 +31,17 @@ export default function InvoiceDetailScreen() {
   const invoice = query.data;
 
   return (
-    <Screen scrollViewTestID="invoiceDetail.scroll">
+    <Screen
+      scrollViewTestID="invoiceDetail.scroll"
+      guidanceReady={!query.isLoading}
+      guidanceBlocked={Boolean(query.error) || downloadMutation.isPending}
+    >
       <H1>{t('invoices.invoiceDetails')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
       {query.error ? (
         <Text style={styles.error}>{query.error.message}</Text>
       ) : null}
-      {!query.isLoading && !invoice ? (
+      {!query.isLoading && !query.error && !invoice ? (
         <Text>{t('invoices.notFound')}</Text>
       ) : null}
 

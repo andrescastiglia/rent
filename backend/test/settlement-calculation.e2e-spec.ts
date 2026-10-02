@@ -38,6 +38,7 @@ import {
   createSuperAdminTestUser,
   createTestCompany,
   loginTestUser,
+  purgeFinancialCorrections,
 } from './e2e-helpers';
 
 describe('Settlement calculation from recorded collections (e2e)', () => {
@@ -288,6 +289,7 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
       .query({ ownerId, period: '2026-07', currency: 'ARS', ...extra });
 
   const clearGenerations = async () => {
+    await purgeFinancialCorrections(dataSource, companyId);
     for (const table of [
       'settlement_generation_cancellations',
       'settlement_payout_effects_outbox',
@@ -335,13 +337,13 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
       [invoiceId],
     );
     await dataSource.query(
-      `UPDATE payments SET currency='ARS',status='completed',allocations_recorded=true,deleted_at=NULL,
+      `UPDATE payments SET refunded_amount=0,currency='ARS',status='completed',allocations_recorded=true,deleted_at=NULL,
       amount=CASE WHEN id=$1 THEN 400.01 ELSE 599.99 END,
       payment_date=CASE WHEN id=$1 THEN DATE '2026-07-05' ELSE DATE '2026-07-12' END WHERE id=ANY($2::uuid[])`,
       [paymentIds[0], paymentIds],
     );
     await dataSource.query(
-      `UPDATE payment_allocations SET reversed_at=NULL,amount=CASE WHEN payment_id=$2 THEN 400.01 ELSE 599.99 END WHERE company_id=$1`,
+      `UPDATE payment_allocations SET refunded_amount=0,reversed_at=NULL,amount=CASE WHEN payment_id=$2 THEN 400.01 ELSE 599.99 END WHERE company_id=$1`,
       [companyId, paymentIds[0]],
     );
     await dataSource.query(
@@ -526,7 +528,7 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
         'UPDATE invoices SET tenant_account_id=NULL WHERE id=$1',
         [invoiceId],
       );
-      await preview().expect(409);
+      expect((await preview().expect(409)).status).toBe(409);
     } finally {
       await dataSource.query(
         'UPDATE invoices SET tenant_account_id=$1 WHERE id=$2',
@@ -587,7 +589,7 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
       'UPDATE payment_allocations SET reversed_at=NOW() WHERE payment_id=$1',
       [paymentIds[0]],
     );
-    await preview().expect(409);
+    expect((await preview().expect(409)).status).toBe(409);
     await dataSource.query(
       'UPDATE payment_allocations SET reversed_at=NOW() WHERE company_id=$1',
       [companyId],
@@ -705,6 +707,71 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
     return { initial, resume, restore: () => calculate.mockRestore() };
   };
 
+  it('records partial refund owner debt without changing a transferred settlement or its historical commission', async () => {
+    payoutEnabled = true;
+    await dataSource.query('DELETE FROM credit_notes WHERE company_id=$1', [
+      companyId,
+    ]);
+    await dataSource.query(
+      `INSERT INTO credit_notes(company_id,invoice_id,payment_id,note_number,amount,currency,status,origin,tenant_account_id)
+      VALUES($1,$2,$3,'CALC-CN',10,'ARS','issued','late_fee_settlement',$4)`,
+      [companyId, invoiceId, paymentIds[0], tenantAccountId],
+    );
+    await dataSource.query(
+      'UPDATE tenant_accounts SET current_balance=-10 WHERE id=$1',
+      [tenantAccountId],
+    );
+    const generated = (await generate(await generationInput()).expect(201))
+      .body;
+    await dataSource.query(
+      `UPDATE settlements SET status='completed',transfer_reference='recorded-transfer' WHERE id=$1`,
+      [generated.settlementId],
+    );
+    const refundKey = randomUUID();
+    const refund = () =>
+      request(app.getHttpServer())
+        .post(`/payments/${paymentIds[0]}/refunds`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', refundKey)
+        .send({
+          amount: 100,
+          reason: 'Devolución parcial registrada por administración',
+        });
+    expect((await refund().expect(201)).body.amount).toBe('100.00');
+    await refund().expect(201);
+    const [correction] = await dataSource.query(
+      `SELECT gross_amount::text,commission_amount::text,net_amount::text FROM settlement_source_compensations WHERE settlement_id=$1`,
+      [generated.settlementId],
+    );
+    expect(correction).toEqual({
+      gross_amount: '90.00',
+      commission_amount: '4.73',
+      net_amount: '85.27',
+    });
+    const [historical] = await dataSource.query(
+      `SELECT status,gross_amount::text,commission_amount::text,net_amount::text,transfer_reference FROM settlements WHERE id=$1`,
+      [generated.settlementId],
+    );
+    expect(historical).toEqual({
+      status: 'completed',
+      gross_amount: '990.00',
+      commission_amount: '51.98',
+      net_amount: '938.02',
+      transfer_reference: 'recorded-transfer',
+    });
+    const [account] = await dataSource.query(
+      'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+      [tenantAccountId],
+    );
+    expect(account.current_balance).toBe('100.00');
+    await expect(
+      dataSource.query(
+        'UPDATE settlement_source_compensations SET net_amount=0 WHERE settlement_id=$1',
+        [generated.settlementId],
+      ),
+    ).rejects.toThrow('immutable');
+  });
+
   it('keeps generation and void disabled, including before opening a transaction', async () => {
     const input = await generationInput();
     const tx = jest.spyOn(dataSource, 'transaction');
@@ -763,9 +830,14 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
   it('rejects stale confirmation, excessive deductions, malformed input and untracked history', async () => {
     payoutEnabled = true;
     const input = await generationInput();
-    await generate({ ...input, expectedFingerprint: '0'.repeat(64) }).expect(
-      409,
-    );
+    expect(
+      (
+        await generate({
+          ...input,
+          expectedFingerprint: '0'.repeat(64),
+        }).expect(409)
+      ).status,
+    ).toBe(409);
     await generate({ ...input, additionalWithholdings: '938.02' }).expect(409);
     await generate({ ...input, additionalWithholdings: '-1.00' }).expect(400);
     await generate({ ...input, confirmed: false }).expect(400);
@@ -952,7 +1024,9 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
 
   it('does not confuse cancelled source collections with money available to transfer', async () => {
     payoutEnabled = true;
-    const { body: g } = await generate(await generationInput()).expect(201);
+    const generated = await generate(await generationInput()).expect(201);
+    expect(generated.status).toBe(201);
+    const g = generated.body;
     await request(app.getHttpServer())
       .patch(`/payments/${paymentIds[0]}/cancel`)
       .set('Authorization', `Bearer ${adminToken}`)
@@ -963,7 +1037,9 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
 
   it('rejects tampered settlement totals and preserves the agreed commission when owner settings change', async () => {
     payoutEnabled = true;
-    const { body: g } = await generate(await generationInput()).expect(201);
+    const generated = await generate(await generationInput()).expect(201);
+    expect(generated.status).toBe(201);
+    const g = generated.body;
     await dataSource.query(
       'UPDATE settlements SET gross_amount=2000 WHERE id=$1',
       [g.settlementId],
@@ -1071,7 +1147,7 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
   it('keeps snapshots readable while disabled and enforces company and admin scope on all generation routes', async () => {
     payoutEnabled = true;
     const input = await generationInput();
-    await generate(input, foreignToken).expect(404);
+    expect((await generate(input, foreignToken).expect(404)).status).toBe(404);
     for (const token of [ownerToken, tenantToken, staffToken])
       await generate(input, token).expect(403);
     const { body: g } = await generate(input).expect(201);
@@ -1208,7 +1284,9 @@ describe('Settlement calculation from recorded collections (e2e)', () => {
 
   it('requires scope, administrator role and confirmation to discard requests', async () => {
     const key = randomUUID();
-    await cancelRequest(key, foreignToken).expect(404);
+    expect((await cancelRequest(key, foreignToken).expect(404)).status).toBe(
+      404,
+    );
     for (const token of [ownerToken, tenantToken, staffToken])
       await cancelRequest(key, token).expect(403);
     await request(app.getHttpServer())

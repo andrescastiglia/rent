@@ -1,4 +1,7 @@
-import { apiClient } from '@/api/client';
+import { randomUUID } from 'expo-crypto';
+import { idempotentMutation } from '@/api/idempotency';
+import { mockPage } from '@/api/pagination';
+import { ApiError, apiClient } from '@/api/client';
 import { IS_MOCK_MODE } from '@/api/env';
 import { createAndShareMockPdf, downloadAndSharePdf } from '@/api/pdf';
 import type {
@@ -225,15 +228,11 @@ const fetchPayments = async (
 ): Promise<PaginatedResponse<Payment>> => {
   if (IS_MOCK_MODE) {
     const filtered = applyMockPaymentFilters([...MOCK_PAYMENTS], filters);
-    return {
-      data: filtered,
-      total: filtered.length,
-      page: 1,
-      limit: 20,
-    };
+    return mockPage(filtered, { ...filters });
   }
 
   const queryParams = new URLSearchParams();
+  if (filters?.search) queryParams.append('search', filters.search);
   if (filters?.tenantId) queryParams.append('tenantId', filters.tenantId);
   if (filters?.tenantAccountId)
     queryParams.append('tenantAccountId', filters.tenantAccountId);
@@ -294,8 +293,9 @@ export const paymentsApi = {
     try {
       const result = await apiClient.get<any>(`/payments/${id}`);
       return toPayment(result);
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
     }
   },
 
@@ -324,7 +324,11 @@ export const paymentsApi = {
       return created;
     }
 
-    const result = await apiClient.post<any>('/payments', payload);
+    const result = await idempotentMutation('payments:create', payload, (key) =>
+      apiClient.post<any>('/payments', payload, undefined, {
+        'Idempotency-Key': key,
+      }),
+    );
     return toPayment(result);
   },
 
@@ -355,7 +359,14 @@ export const paymentsApi = {
       return confirmed;
     }
 
-    const result = await apiClient.patch<any>(`/payments/${id}/confirm`, {});
+    const result = await idempotentMutation(
+      `payments:${id}:confirm`,
+      {},
+      (key) =>
+        apiClient.patch<any>(`/payments/${id}/confirm`, {}, undefined, {
+          'Idempotency-Key': key,
+        }),
+    );
     return toPayment(result);
   },
 
@@ -379,16 +390,12 @@ export const invoicesApi = {
   async getAll(filters?: InvoiceFilters): Promise<PaginatedResponse<Invoice>> {
     if (IS_MOCK_MODE) {
       const filtered = applyMockInvoiceFilters([...MOCK_INVOICES], filters);
-      return {
-        data: filtered,
-        total: filtered.length,
-        page: filters?.page ?? 1,
-        limit: filters?.limit ?? 20,
-      };
+      return mockPage(filtered, { ...filters });
     }
 
     const queryParams = new URLSearchParams();
     if (filters?.status) queryParams.append('status', filters.status);
+    if (filters?.search) queryParams.append('search', filters.search);
     if (filters?.leaseId) queryParams.append('leaseId', filters.leaseId);
     if (filters?.ownerId) queryParams.append('ownerId', filters.ownerId);
     if (filters?.page) queryParams.append('page', String(filters.page));
@@ -413,8 +420,9 @@ export const invoicesApi = {
     try {
       const result = await apiClient.get<any>(`/invoices/${id}`);
       return toInvoice(result);
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
     }
   },
 
@@ -441,8 +449,9 @@ export const tenantAccountsApi = {
       return await apiClient.get<TenantAccount>(
         `/tenant-accounts/lease/${leaseId}`,
       );
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
     }
   },
 };
@@ -477,7 +486,7 @@ export const paymentDocumentTemplatesApi = {
       );
       const isDefault = data.isDefault ?? isFirstForType;
       const created: PaymentDocumentTemplate = {
-        id: `tpl-${Date.now()}`,
+        id: `tpl-${randomUUID()}`,
         type: data.type,
         name: data.name,
         templateBody: data.templateBody,

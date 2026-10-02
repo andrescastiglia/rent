@@ -1,8 +1,9 @@
+import { Text, View } from '@/components/themed-native';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
 
@@ -10,6 +11,7 @@ import { Screen } from '@/components/screen';
 import { TurnstileCaptcha } from '@/components/turnstile-captcha';
 import { AppButton, Field, H1 } from '@/components/ui';
 import { useAuth } from '@/contexts/auth-context';
+import { useTheme } from '@/contexts/theme-context';
 
 const schema = z.object({
   email: z.email(),
@@ -19,6 +21,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 export default function LoginScreen() {
+  const { colors } = useTheme();
   const { t } = useTranslation();
   const { login } = useAuth();
   const [submitting, setSubmitting] = useState(false);
@@ -161,7 +164,10 @@ export default function LoginScreen() {
 
       <View style={styles.linkRow}>
         <Text style={styles.linkText}>{t('auth.noAccount')} </Text>
-        <Link href="/(auth)/register" style={styles.linkAction}>
+        <Link
+          href="/(auth)/register"
+          style={[styles.linkAction, { color: colors.primary }]}
+        >
           {t('auth.register')}
         </Link>
       </View>

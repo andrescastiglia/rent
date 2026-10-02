@@ -1,11 +1,15 @@
+import { Text, View } from '@/components/themed-native';
+import { useConfirmationDialog } from '@/components/use-confirmation-dialog';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ownersApi } from '@/api/owners';
 import { propertiesApi } from '@/api/properties';
 import { Screen } from '@/components/screen';
+import { useAuth } from '@/contexts/auth-context';
+import { canUserAccessPath } from '@/config/navigation';
 import { AppButton } from '@/components/ui';
 import { i18n } from '@/i18n';
 import type {
@@ -20,7 +24,7 @@ const formatMoney = (amount?: number, currencyCode = 'ARS'): string =>
     : new Intl.NumberFormat(i18n.language || 'es', {
         style: 'currency',
         currency: currencyCode,
-        maximumFractionDigits: 0,
+        maximumFractionDigits: 2,
       }).format(amount);
 
 const formatDateTime = (value?: string): string => {
@@ -185,6 +189,7 @@ function PropertyMaintenanceCard({
 
 type PropertyActionsProps = Readonly<{
   deleting: boolean;
+  canManage: boolean;
   onDelete: () => void;
   onEdit: () => void;
   onNewMaintenance: () => void;
@@ -193,6 +198,7 @@ type PropertyActionsProps = Readonly<{
 }>;
 
 function PropertyActions({
+  canManage,
   deleting,
   onDelete,
   onEdit,
@@ -200,6 +206,7 @@ function PropertyActions({
   onNewVisit,
   t,
 }: PropertyActionsProps) {
+  if (!canManage) return null;
   return (
     <View style={styles.actions}>
       <AppButton
@@ -233,9 +240,11 @@ function PropertyActions({
 }
 
 export default function PropertyDetailScreen() {
+  const dialog = useConfirmationDialog();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { t } = useTranslation();
 
   const propertyQuery = useQuery({
@@ -293,7 +302,7 @@ export default function PropertyDetailScreen() {
   const openEditProperty = () =>
     router.push(`/(app)/properties/${id}/edit` as never);
   const confirmDeleteProperty = () => {
-    Alert.alert(t('common.delete'), t('properties.deleteConfirm'), [
+    dialog.confirm(t('common.delete'), t('properties.deleteConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.delete'),
@@ -304,14 +313,21 @@ export default function PropertyDetailScreen() {
   };
 
   return (
-    <Screen>
+    <Screen
+      guidanceBlocked={
+        dialog.open ||
+        propertyQuery.isError ||
+        deleteMutation.isPending ||
+        deleteMutation.isError
+      }
+    >
       {propertyQuery.isLoading ? <Text>{t('common.loading')}</Text> : null}
       {propertyQuery.error ? (
         <Text style={styles.error}>
           {getQueryErrorMessage(propertyQuery.error)}
         </Text>
       ) : null}
-      {!propertyQuery.isLoading && !property ? (
+      {!propertyQuery.isLoading && !propertyQuery.error && !property ? (
         <Text>{t('properties.notFound')}</Text>
       ) : null}
 
@@ -339,6 +355,9 @@ export default function PropertyDetailScreen() {
 
       {property ? (
         <PropertyActions
+          canManage={Boolean(
+            user && canUserAccessPath(user, `/properties/${id}/edit`),
+          )}
           deleting={deleteMutation.isPending}
           onDelete={confirmDeleteProperty}
           onEdit={openEditProperty}

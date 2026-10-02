@@ -1,3 +1,5 @@
+import { argentinaCalendarDay } from '../src/payments/late-fee-calculation';
+import { buildMutationReview } from '../src/common/helpers/mutation-review';
 import { createHash, randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -25,6 +27,7 @@ import {
   createActiveTestUser,
   createTestCompany,
   loginTestUser,
+  purgeFinancialCorrections,
 } from './e2e-helpers';
 
 describe('Durable issued invoice documents (e2e)', () => {
@@ -43,6 +46,22 @@ describe('Durable issued invoice documents (e2e)', () => {
   const oldBatchToken = process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
   const oldBillingToken = process.env.BATCH_BILLING_INTERNAL_TOKEN;
   const oldFrontendUrl = process.env.FRONTEND_URL;
+  const reviewedContext = async (
+    tool: string,
+    payload: unknown,
+    context: any,
+  ) => ({
+    ...context,
+    mutationReview:
+      context.mutationReview ??
+      (await buildMutationReview(
+        db,
+        companyId,
+        tool,
+        payload as Record<string, unknown>,
+        new Date(Date.now() + 900_000).toISOString(),
+      )),
+  });
   beforeAll(async () => {
     process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = 'contracts-test-token';
     process.env.BATCH_BILLING_INTERNAL_TOKEN = 'billing-test-token';
@@ -126,6 +145,7 @@ describe('Durable issued invoice documents (e2e)', () => {
   });
   const observationIds: string[] = [];
   const clear = async () => {
+    await purgeFinancialCorrections(db, companyId);
     if (observationIds.length)
       await db.query(
         'DELETE FROM inflation_observations WHERE id=ANY($1::uuid[])',
@@ -460,10 +480,14 @@ describe('Durable issued invoice documents (e2e)', () => {
   });
 
   it('requires the batch credential to process documents', async () => {
-    await request(app.getHttpServer())
-      .post('/invoices/internal/process-documents')
-      .send({})
-      .expect(401);
+    expect(
+      (
+        await request(app.getHttpServer())
+          .post('/invoices/internal/process-documents')
+          .send({})
+          .expect(401)
+      ).status,
+    ).toBe(401);
     await request(app.getHttpServer())
       .post('/invoices/internal/process-documents')
       .set('x-batch-communications-token', 'contracts-test-token')
@@ -485,6 +509,111 @@ describe('Durable issued invoice documents (e2e)', () => {
     periodEnd: '2026-10-31',
     dueDate: '2026-11-10',
   };
+
+  it('persists immutable optional late fee evidence, exact grace/cap cents and does not bill it twice', async () => {
+    const source = await seed();
+    const today = argentinaCalendarDay();
+    const dueDate = new Date(`${today}T12:00:00Z`);
+    dueDate.setUTCDate(dueDate.getUTCDate() - 3);
+    await db.query(`UPDATE invoices SET due_date=$2 WHERE id=$1`, [
+      source.id,
+      dueDate.toISOString().slice(0, 10),
+    ]);
+    await db.query(
+      `UPDATE leases SET late_fee_type='daily_fixed',late_fee_value=0.29,late_fee_grace_days=1,late_fee_max=1 WHERE id=$1`,
+      [source.leaseId],
+    );
+    await issue(source.id).expect(200);
+    const input = {
+      ...october,
+      applyLateFee: true,
+      issue: true,
+      idempotencyKey: randomUUID(),
+    };
+    const first = (await generate(source.leaseId, input).expect(201)).body;
+    expect(first).toMatchObject({
+      lateFee: '0.58',
+      total: '1000.58',
+      lateFeeCalculation: {
+        asOf: today,
+        currency: 'ARS',
+        policy: {
+          type: 'daily_fixed',
+          value: '0.29',
+          graceDays: 1,
+          max: '1.00',
+        },
+      },
+    });
+    expect(first.lateFeeCalculation.sources[0]).toMatchObject({
+      invoiceId: source.id,
+      chargeableDays: 2,
+      amount: '0.58',
+    });
+    expect(
+      (await generate(source.leaseId, input).expect(201)).body,
+    ).toMatchObject({
+      id: first.id,
+      lateFee: first.lateFee,
+      total: first.total,
+      lateFeeCalculation: first.lateFeeCalculation,
+    });
+    const next = (
+      await generate(source.leaseId, {
+        ...input,
+        idempotencyKey: randomUUID(),
+        periodStart: '2026-11-01',
+        periodEnd: '2026-11-30',
+        dueDate: '2026-12-10',
+      }).expect(201)
+    ).body;
+    expect(next.lateFee).toBe('0.00');
+    expect(next.lateFeeCalculation.sources[0]).toMatchObject({
+      previouslyCharged: '0.58',
+      amount: '0.00',
+    });
+    await expect(
+      db.query(
+        `UPDATE invoices SET late_fee_calculation='{}'::jsonb WHERE id=$1`,
+        [first.id],
+      ),
+    ).rejects.toThrow('immutable');
+    const [account] = await db.query(
+      'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+      [source.accountId],
+    );
+    expect(account.current_balance).toBe('3000.58');
+  });
+  it('requires explicit source reconciliation for historical late fees and rolls back generation', async () => {
+    const source = await seed();
+    await db.query(
+      `UPDATE invoices SET late_fee_amount=1,total_amount=1001,due_date='2026-09-01' WHERE id=$1`,
+      [source.id],
+    );
+    await db.query(
+      `UPDATE leases SET late_fee_type='daily_fixed',late_fee_value=0.29 WHERE id=$1`,
+      [source.leaseId],
+    );
+    await issue(source.id).expect(200);
+    const response = await generate(source.leaseId, {
+      ...october,
+      applyLateFee: true,
+      issue: true,
+      idempotencyKey: randomUUID(),
+    }).expect(409);
+    expect(response.body.message).toContain('source reconciliation');
+    expect(
+      await db.query(
+        `SELECT id FROM invoices WHERE company_id=$1 AND period_start='2026-10-01'`,
+        [companyId],
+      ),
+    ).toHaveLength(0);
+    const [account] = await db.query(
+      'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+      [source.accountId],
+    );
+    expect(account.current_balance).toBe('1001.00');
+  });
 
   const addObservation = async (
     index: string,
@@ -671,13 +800,22 @@ describe('Durable issued invoice documents (e2e)', () => {
       ),
     );
     const [action] = await db.query(
-      `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at)
-      VALUES($1,$2,'post_invoices_generate_for_lease','create','invoice','Generate invoice',$3::jsonb,$4,now()+interval '15 minutes') RETURNING id,execution_key`,
+      `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at,review)
+      VALUES($1,$2,'post_invoices_generate_for_lease','create','invoice','Generate invoice',$3::jsonb,$4,now()+interval '15 minutes',$5::jsonb) RETURNING id,execution_key`,
       [
         companyId,
         requester,
         JSON.stringify(payload),
         createHash('sha256').update(JSON.stringify(ordered)).digest('hex'),
+        JSON.stringify(
+          await buildMutationReview(
+            db,
+            companyId,
+            'post_invoices_generate_for_lease',
+            payload,
+            new Date(Date.now() + 900_000).toISOString(),
+          ),
+        ),
       ],
     );
     const reauth = (
@@ -773,14 +911,23 @@ describe('Durable issued invoice documents (e2e)', () => {
         ),
       );
       const [action] = await db.query(
-        `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at)
-       VALUES($1,$2,$3,'update','invoice','Invoice action',$4::jsonb,$5,now()+interval '15 minutes') RETURNING id,execution_key`,
+        `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at,review)
+       VALUES($1,$2,$3,'update','invoice','Invoice action',$4::jsonb,$5,now()+interval '15 minutes',$6::jsonb) RETURNING id,execution_key`,
         [
           companyId,
           requester,
           toolName,
           JSON.stringify(payload),
           createHash('sha256').update(JSON.stringify(ordered)).digest('hex'),
+          JSON.stringify(
+            await buildMutationReview(
+              db,
+              companyId,
+              toolName,
+              payload,
+              new Date(Date.now() + 900_000).toISOString(),
+            ),
+          ),
         ],
       );
       const reauthToken = (
@@ -824,13 +971,17 @@ describe('Durable issued invoice documents (e2e)', () => {
         expect(recovered.result).toEqual(receipt.result);
         // All concurrent deliveries recover the same archived result without a domain write.
         const results = await Promise.all(
-          Array.from({ length: 3 }, () =>
-            executor.executeApproved(toolName, payload, {
-              userId,
-              companyId,
-              role: UserRole.ADMIN,
-              idempotencyKey: action.execution_key,
-            }),
+          Array.from({ length: 3 }, async () =>
+            executor.executeApproved(
+              toolName,
+              payload,
+              await reviewedContext(toolName, payload, {
+                userId,
+                companyId,
+                role: UserRole.ADMIN,
+                idempotencyKey: action.execution_key,
+              }),
+            ),
           ),
         );
         expect(results).toEqual([
@@ -862,20 +1013,28 @@ describe('Durable issued invoice documents (e2e)', () => {
           ),
         ).rejects.toThrow('immutable');
         await expect(
-          executor.executeApproved(toolName, payload, {
-            userId,
-            companyId,
-            role: UserRole.TENANT,
-            idempotencyKey: action.execution_key,
-          }),
+          executor.executeApproved(
+            toolName,
+            payload,
+            await reviewedContext(toolName, payload, {
+              userId,
+              companyId,
+              role: UserRole.TENANT,
+              idempotencyKey: action.execution_key,
+            }),
+          ),
         ).rejects.toThrow();
         await expect(
-          executor.executeApproved(toolName, payload, {
-            userId,
-            companyId: foreignId,
-            role: UserRole.ADMIN,
-            idempotencyKey: action.execution_key,
-          }),
+          executor.executeApproved(
+            toolName,
+            payload,
+            await reviewedContext(toolName, payload, {
+              userId,
+              companyId: foreignId,
+              role: UserRole.ADMIN,
+              idempotencyKey: action.execution_key,
+            }),
+          ),
         ).rejects.toThrow();
       } finally {
         lost.mockRestore();

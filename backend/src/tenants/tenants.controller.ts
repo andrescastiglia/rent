@@ -1,4 +1,5 @@
 import {
+  Headers,
   ParseUUIDPipe,
   Controller,
   Get,
@@ -11,6 +12,8 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
+import { ApiHeader } from '@nestjs/swagger';
+
 import { AuthGuard } from '@nestjs/passport';
 import { TenantsService } from './tenants.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
@@ -38,13 +41,19 @@ interface AuthenticatedRequest {
 export class TenantsController {
   constructor(private readonly tenantsService: TenantsService) {}
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Post()
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   create(
     @Body() createTenantDto: CreateTenantDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.tenantsService.create(createTenantDto, req.user);
+    return this.tenantsService.create(createTenantDto, req.user, executionKey);
   }
 
   @Get()
@@ -95,21 +104,37 @@ export class TenantsController {
     return this.tenantsService.listActivities(id, req.user);
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Post(':id/activities')
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
   createActivity(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateTenantActivityDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ): Promise<TenantActivity> {
-    return this.tenantsService.createActivity(id, dto, {
-      id: req.user.id,
-      companyId: req.user.companyId,
-      role: req.user.role,
-      roles: req.user.roles,
-    });
+    return this.tenantsService.createActivity(
+      id,
+      dto,
+      {
+        id: req.user.id,
+        companyId: req.user.companyId,
+        role: req.user.role,
+        roles: req.user.roles,
+      },
+      executionKey,
+    );
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Patch(':id/activities/:activityId')
   @Roles(UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF)
   updateActivity(
@@ -117,24 +142,51 @@ export class TenantsController {
     @Param('activityId', ParseUUIDPipe) activityId: string,
     @Body() dto: UpdateTenantActivityDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ): Promise<TenantActivity> {
-    return this.tenantsService.updateActivity(id, activityId, dto, req.user);
+    return this.tenantsService.updateActivity(
+      id,
+      activityId,
+      dto,
+      req.user,
+      executionKey,
+    );
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   update(
     @Param('id') id: string,
     @Body() updateTenantDto: UpdateTenantDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.tenantsService.update(id, updateTenantDto, req.user);
+    return this.tenantsService.update(
+      id,
+      updateTenantDto,
+      req.user,
+      executionKey,
+    );
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  async remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    await this.tenantsService.remove(id, req.user);
+  async remove(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
+  ) {
+    await this.tenantsService.remove(id, req.user, executionKey);
     return { message: 'Tenant deleted successfully' };
   }
 }

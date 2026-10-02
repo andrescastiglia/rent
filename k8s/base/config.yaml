@@ -17,6 +17,10 @@ data:
   API_PROXY_URL: http://backend.rent.svc.cluster.local:3001
   BACKEND_INTERNAL_URL: http://backend.rent.svc.cluster.local:3001
   NEXT_PUBLIC_API_URL: /api
+  # Provider activation requires a separate validated release.
+  BFA_ENABLED: 'false'
+  MERCADOLIBRE_ENABLED: 'false'
+  MERCADOPAGO_PAYOUTS_ENABLED: 'false'
   NODE_OPTIONS: -r /app/deploy/newrelic-bootstrap.cjs
   LOG_TO_FILE: 'false'
   NEW_RELIC_LOG: stdout

@@ -106,6 +106,155 @@ export function attributeDefaults(
     }),
   );
 }
+type CategoryAttribute = MercadoLibreCategoryDto["attributes"][number];
+function listingPictures(form: ListingForm): string[] {
+  const pictures = form.pictures
+    .split(/\r?\n/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (!pictures.length || pictures.length > 100) throw new Error("invalid");
+  for (const picture of pictures) {
+    const url = new URL(picture);
+    if (url.protocol !== "https:" || url.username || url.password)
+      throw new Error("invalid");
+  }
+  return pictures;
+}
+function validateListing(
+  form: ListingForm,
+  category: MercadoLibreCategoryDto,
+  published: boolean,
+  price: number,
+) {
+  if (
+    !form.title.trim() ||
+    !form.description.trim() ||
+    !Number.isFinite(price) ||
+    price <= 0 ||
+    category.id !== form.categoryId
+  )
+    throw new Error("invalid");
+  if (
+    !published &&
+    (!category.listingAllowed ||
+      !category.currencies.includes(form.currency) ||
+      !category.listingTypes.some((type) => type.id === form.listingType))
+  )
+    throw new Error("invalid");
+}
+function editableAttribute(
+  attribute: CategoryAttribute,
+  current: AttributeValue | undefined,
+): Record<string, unknown> | null {
+  const value = current?.value?.trim() ?? "";
+  if (!value) {
+    if (attribute.required) throw new Error("invalid");
+    return null;
+  }
+  if (value.length > attribute.maxLength) throw new Error("invalid");
+  if (attribute.values.length) {
+    if (!attribute.values.some((option) => option.id === value))
+      throw new Error("invalid");
+    return { id: attribute.id, value_id: value };
+  }
+  if (
+    ["number", "number_unit"].includes(attribute.valueType) &&
+    !Number.isFinite(Number(value))
+  )
+    throw new Error("invalid");
+  if (
+    attribute.valueType === "number_unit" &&
+    !attribute.units.some((unit) => unit.id === current?.unit)
+  )
+    throw new Error("invalid");
+  const valueName =
+    attribute.valueType === "number_unit" ? `${value} ${current!.unit}` : value;
+  return { id: attribute.id, value_name: valueName };
+}
+function readOnlyAttribute(
+  attribute: CategoryAttribute,
+  current: AttributeValue | undefined,
+  saved: unknown[],
+  sameCategory: boolean,
+): Record<string, unknown> | null {
+  const previous = saved.find((entry) => record(entry).id === attribute.id);
+  if (previous && sameCategory) return record(previous);
+  const value = current?.value?.trim() ?? "";
+  if (!value) return null;
+  return {
+    id: attribute.id,
+    ...(attribute.values.length ? { value_id: value } : { value_name: value }),
+  };
+}
+function listingAttributes(
+  form: ListingForm,
+  category: MercadoLibreCategoryDto,
+  original: Record<string, unknown>,
+): Record<string, unknown>[] {
+  const saved = Array.isArray(original.attributes) ? original.attributes : [];
+  const sameCategory = original.category_id === category.id;
+  const attributes = sameCategory
+    ? saved
+        .filter(
+          (value) =>
+            !category.attributes.some(
+              (attribute) => attribute.id === record(value).id,
+            ),
+        )
+        .map(record)
+    : [];
+  for (const attribute of category.attributes) {
+    const current = form.attributes[attribute.id];
+    const value = attribute.readOnly
+      ? readOnlyAttribute(attribute, current, saved, sameCategory)
+      : editableAttribute(attribute, current);
+    if (value) attributes.push(value);
+  }
+  return attributes;
+}
+function listingLocation(
+  form: ListingForm,
+  original: Record<string, unknown>,
+  published: boolean,
+): Record<string, unknown> {
+  if (published || !form.replaceLocation) return record(original.location);
+  if (!form.stateId || !form.cityId || !form.address.trim())
+    throw new Error("invalid");
+  return {
+    address_line: form.address.trim(),
+    ...(form.zipCode.trim() ? { zip_code: form.zipCode.trim() } : {}),
+    city: { id: form.cityId },
+    ...(form.neighborhoodId
+      ? { neighborhood: { id: form.neighborhoodId } }
+      : {}),
+  };
+}
+function listingContact(
+  form: ListingForm,
+  original: Record<string, unknown>,
+  published: boolean,
+): unknown {
+  if (published) return original.seller_contact;
+  if (
+    !form.contact.trim() ||
+    !form.areaCode.trim() ||
+    !form.phone.trim() ||
+    !form.countryCode2.trim() ||
+    !form.phone2.trim()
+  )
+    throw new Error("invalid");
+  return {
+    ...record(original.seller_contact),
+    contact: form.contact.trim(),
+    area_code: form.areaCode.trim(),
+    phone: form.phone.trim(),
+    country_code: form.countryCode.trim() || undefined,
+    country_code2: form.countryCode2.trim(),
+    area_code2: form.areaCode2.trim(),
+    phone2: form.phone2.trim(),
+    email: form.email.trim() || undefined,
+  };
+}
 export function listingPayload(
   form: ListingForm,
   category: MercadoLibreCategoryDto,
@@ -114,130 +263,8 @@ export function listingPayload(
   const published = !!listing?.externalId;
   const original = record(listing?.listingData.item);
   const price = Number(form.price);
-  const pictures = form.pictures
-    .split(/\r?\n/)
-    .map((value) => value.trim())
-    .filter(Boolean);
-  if (
-    !form.title.trim() ||
-    !form.description.trim() ||
-    !Number.isFinite(price) ||
-    price <= 0 ||
-    !pictures.length ||
-    pictures.length > 100 ||
-    category.id !== form.categoryId ||
-    (!published &&
-      (!category.listingAllowed ||
-        !category.currencies.includes(form.currency) ||
-        !category.listingTypes.some((type) => type.id === form.listingType)))
-  )
-    throw new Error("invalid");
-  for (const picture of pictures) {
-    const url = new URL(picture);
-    if (url.protocol !== "https:" || url.username || url.password)
-      throw new Error("invalid");
-  }
-  const saved = Array.isArray(original.attributes) ? original.attributes : [];
-  const attributes: Record<string, unknown>[] =
-    original.category_id === category.id
-      ? saved
-          .filter(
-            (value) =>
-              !category.attributes.some(
-                (attribute) => attribute.id === record(value).id,
-              ),
-          )
-          .map(record)
-      : [];
-  for (const attribute of category.attributes) {
-    const current = form.attributes[attribute.id];
-    const value =
-      typeof current?.value === "string" ? current.value.trim() : "";
-    if (attribute.readOnly) {
-      const previous = saved.find((entry) => record(entry).id === attribute.id);
-      if (previous && original.category_id === category.id)
-        attributes.push(record(previous));
-      else if (value)
-        attributes.push({
-          id: attribute.id,
-          ...(attribute.values.length
-            ? { value_id: value }
-            : { value_name: value }),
-        });
-      continue;
-    }
-    if (!value) {
-      if (attribute.required) throw new Error("invalid");
-      continue;
-    }
-    if (
-      value.length > attribute.maxLength ||
-      (attribute.values.length &&
-        !attribute.values.some((option) => option.id === value))
-    )
-      throw new Error("invalid");
-    if (
-      !attribute.values.length &&
-      ["number", "number_unit"].includes(attribute.valueType) &&
-      !Number.isFinite(Number(value))
-    )
-      throw new Error("invalid");
-    if (
-      attribute.valueType === "number_unit" &&
-      !attribute.units.some((unit) => unit.id === current.unit)
-    )
-      throw new Error("invalid");
-    attributes.push({
-      id: attribute.id,
-      ...(attribute.values.length
-        ? { value_id: value }
-        : {
-            value_name:
-              attribute.valueType === "number_unit"
-                ? `${value} ${current.unit}`
-                : value,
-          }),
-    });
-  }
-  const location =
-    published || !form.replaceLocation
-      ? record(original.location)
-      : {
-          address_line: form.address.trim(),
-          ...(form.zipCode.trim() ? { zip_code: form.zipCode.trim() } : {}),
-          city: { id: form.cityId },
-          ...(form.neighborhoodId
-            ? { neighborhood: { id: form.neighborhoodId } }
-            : {}),
-        };
-  if (
-    !published &&
-    form.replaceLocation &&
-    (!form.stateId || !form.cityId || !form.address.trim())
-  )
-    throw new Error("invalid");
-  if (
-    !published &&
-    (!form.contact.trim() ||
-      !form.areaCode.trim() ||
-      !form.phone.trim() ||
-      !form.countryCode2.trim() ||
-      !form.phone2.trim())
-  )
-    throw new Error("invalid");
-  const sellerContact = published
-    ? original.seller_contact
-    : {
-        ...record(original.seller_contact),
-        contact: form.contact.trim(),
-        area_code: form.areaCode.trim(),
-        phone: form.phone.trim(),
-        country_code: form.countryCode.trim() || undefined,
-        country_code2: form.countryCode2.trim(),
-        area_code2: form.areaCode2.trim(),
-        phone2: form.phone2.trim(),
-        email: form.email.trim() || undefined,
-      };
+  const pictures = listingPictures(form);
+  validateListing(form, category, published, price);
   return {
     item: {
       ...original,
@@ -250,9 +277,9 @@ export function listingPayload(
       buying_mode: "classified",
       condition: "not_specified",
       pictures: pictures.map((source) => ({ source })),
-      seller_contact: sellerContact,
-      location,
-      attributes,
+      seller_contact: listingContact(form, original, published),
+      location: listingLocation(form, original, published),
+      attributes: listingAttributes(form, category, original),
     },
     description: form.description.trim(),
   };

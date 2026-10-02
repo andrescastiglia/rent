@@ -1,14 +1,15 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
-} from 'react-native';
+} from '@/components/themed-native';
+import { Pagination } from '@/components/pagination';
+import { Field } from '@/components/ui';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
+import { Alert, StyleSheet } from 'react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -30,10 +31,12 @@ export default function UsersScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
   const [togglingUserId, setTogglingUserId] = useState<string | null>(null);
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => usersApi.list(1, 100),
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['users', page, search],
+    queryFn: () => usersApi.list(page, 20, search),
   });
 
   const toggleMutation = useMutation({
@@ -51,7 +54,15 @@ export default function UsersScreen() {
   });
 
   return (
-    <Screen>
+    <Screen guidanceReady={!isFetching} guidanceBlocked={Boolean(error)}>
+      <Field
+        label={t('common.search')}
+        value={search}
+        onChangeText={(value) => {
+          setSearch(value);
+          setPage(1);
+        }}
+      />
       {isLoading ? <ActivityIndicator /> : null}
       {error ? <Text style={styles.error}>{error.message}</Text> : null}
 
@@ -139,6 +150,7 @@ export default function UsersScreen() {
           </View>
         ))}
       </View>
+      <Pagination result={data} loading={isFetching} onPage={setPage} />
     </Screen>
   );
 }

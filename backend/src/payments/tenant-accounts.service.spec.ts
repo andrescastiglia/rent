@@ -213,17 +213,19 @@ describe('TenantAccountsService', () => {
   });
 
   it('calculates late fee across configured modes', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-10-01T15:00:00Z'));
     accountsRepository.findOne.mockResolvedValueOnce({
       lease: { lateFeeType: null, lateFeeValue: 1 },
       invoices: [],
     });
     await expect(service.calculateLateFee('acc-1')).resolves.toBe(0);
 
-    const dueDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const dueDate = '2026-09-28';
     accountsRepository.findOne.mockResolvedValueOnce({
       lease: { lateFeeType: LateFeeType.DAILY_PERCENTAGE, lateFeeValue: 1 },
       invoices: [
         {
+          id: 'overdue-1',
           status: InvoiceStatus.PENDING,
           dueDate,
           total: 1000,
@@ -237,6 +239,7 @@ describe('TenantAccountsService', () => {
       lease: { lateFeeType: LateFeeType.DAILY_FIXED, lateFeeValue: 10 },
       invoices: [
         {
+          id: 'overdue-1',
           status: InvoiceStatus.PENDING,
           dueDate,
           total: 1000,
@@ -250,6 +253,7 @@ describe('TenantAccountsService', () => {
       lease: { lateFeeType: LateFeeType.PERCENTAGE, lateFeeValue: 5 },
       invoices: [
         {
+          id: 'overdue-1',
           status: InvoiceStatus.PENDING,
           dueDate,
           total: 1000,
@@ -263,6 +267,7 @@ describe('TenantAccountsService', () => {
       lease: { lateFeeType: LateFeeType.FIXED, lateFeeValue: 40 },
       invoices: [
         {
+          id: 'overdue-1',
           status: InvoiceStatus.PENDING,
           dueDate,
           total: 1000,
@@ -271,6 +276,7 @@ describe('TenantAccountsService', () => {
       ],
     });
     await expect(service.calculateLateFee('acc-1')).resolves.toBe(40);
+    jest.useRealTimers();
   });
 
   it('returns balance info with late fee', async () => {

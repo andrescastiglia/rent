@@ -9,9 +9,12 @@ import {
   UseGuards,
   Request,
   Res,
+  Headers,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
+import { RefundPaymentDto } from './dto/refund-payment.dto';
+import { generateCustomDocumentPdf } from './templates/custom-document-pdf';
 import { PaymentsService } from './payments.service';
 import { TenantAccountsService } from './tenant-accounts.service';
 import { CreatePaymentDto, PaymentFiltersDto, UpdatePaymentDto } from './dto';
@@ -38,8 +41,17 @@ export class PaymentsController {
    */
   @Post()
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  create(@Body() dto: CreatePaymentDto, @Request() req: any) {
-    return this.paymentsService.create(dto, req.user.id, req.user.companyId);
+  create(
+    @Body() dto: CreatePaymentDto,
+    @Request() req: any,
+    @Headers('idempotency-key') executionKey?: string,
+  ) {
+    return this.paymentsService.create(
+      dto,
+      req.user.id,
+      req.user.companyId,
+      executionKey,
+    );
   }
 
   /**
@@ -47,8 +59,12 @@ export class PaymentsController {
    */
   @Patch(':id/confirm')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  confirm(@Param('id') id: string, @Request() req: any) {
-    return this.paymentsService.confirm(id, req.user.companyId);
+  confirm(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Headers('idempotency-key') executionKey?: string,
+  ) {
+    return this.paymentsService.confirm(id, req.user.companyId, executionKey);
   }
 
   /**
@@ -60,8 +76,14 @@ export class PaymentsController {
     @Param('id') id: string,
     @Body() dto: UpdatePaymentDto,
     @Request() req: any,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.paymentsService.update(id, dto, req.user.companyId);
+    return this.paymentsService.update(
+      id,
+      dto,
+      req.user.companyId,
+      executionKey,
+    );
   }
 
   /**
@@ -96,8 +118,56 @@ export class PaymentsController {
    */
   @Patch(':id/cancel')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  cancel(@Param('id') id: string, @Request() req: any) {
-    return this.paymentsService.cancel(id, req.user.companyId);
+  cancel(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Headers('idempotency-key') executionKey?: string,
+  ) {
+    return this.paymentsService.cancel(id, req.user.companyId, executionKey);
+  }
+
+  @Post(':id/refunds')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  refund(
+    @Param('id') id: string,
+    @Body() dto: RefundPaymentDto,
+    @Request() req: any,
+    @Headers('idempotency-key') executionKey?: string,
+  ) {
+    return this.paymentsService.refund(
+      id,
+      req.user.companyId,
+      dto,
+      req.user.id,
+      executionKey,
+    );
+  }
+
+  @Get(':id/refunds')
+  listRefunds(@Param('id') id: string, @Request() req: any) {
+    return this.paymentsService.listRefunds(id, req.user);
+  }
+
+  @Get(':id/refunds/:refundId/pdf')
+  async refundDocument(
+    @Param('id') id: string,
+    @Param('refundId') refundId: string,
+    @Request() req: any,
+    @Res() res: Response,
+  ) {
+    const refunds = await this.paymentsService.listRefunds(id, req.user);
+    const refund = refunds.find((item: { id: string }) => item.id === refundId);
+    if (!refund) return res.status(404).json({ message: 'Refund not found' });
+    const buffer = await generateCustomDocumentPdf(
+      `Devolución ${refund.document_number}`,
+      `Cobro: ${id}\nImporte devuelto: ${refund.currency} ${refund.amount}\nMotivo: ${refund.reason}\nReferencia: ${refund.reference}\nFecha: ${new Date(refund.created_at).toISOString()}`,
+      `Constancia de devolución: ${refund.id}`,
+    );
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="devolucion-${refund.document_number}.pdf"`,
+    });
+    return res.send(buffer);
   }
 
   /**

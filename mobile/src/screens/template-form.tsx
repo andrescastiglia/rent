@@ -1,7 +1,9 @@
+import { Text, View } from '@/components/themed-native';
+import { useGuidanceBlocker } from '@/components/guidance';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
@@ -110,6 +112,11 @@ export function TemplateForm({
   });
 
   const kind = watch('kind');
+
+  useGuidanceBlocker(
+    `${testIDPrefix}.validation`,
+    Object.keys(formState.errors).length > 0,
+  );
 
   const submit = handleSubmit(async (values) => {
     await onSubmit({
@@ -248,10 +255,10 @@ export function TemplateForm({
         />
       ) : null}
 
-      {Object.values(formState.errors).map((item) => {
+      {Object.entries(formState.errors).map(([fieldName, item]) => {
         if (!item?.message) return null;
         return (
-          <Text key={item.message} style={styles.error}>
+          <Text key={fieldName} style={styles.error}>
             {item.message}
           </Text>
         );
@@ -259,7 +266,9 @@ export function TemplateForm({
 
       <AppButton
         title={submitLabel}
-        onPress={submit}
+        onPress={() => {
+          void submit().catch(() => undefined);
+        }}
         loading={submitting}
         disabled={submitting}
         testID={`${testIDPrefix}.submit`}

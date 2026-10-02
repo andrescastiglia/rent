@@ -7,7 +7,6 @@ import {
 } from './provider-http.service';
 
 const httpsUrl = z
-  .string()
   .url()
   .refine((value) => new URL(value).protocol === 'https:');
 

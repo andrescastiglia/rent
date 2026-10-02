@@ -1,7 +1,7 @@
-import type { Page } from '@playwright/test';
-import { expect, localePath, login, test } from './fixtures/auth';
+import type { Page } from "@playwright/test";
+import { expect, localePath, login, test } from "./fixtures/auth";
 
-type UserRole = 'admin' | 'owner' | 'tenant' | 'staff';
+type UserRole = "admin" | "owner" | "tenant" | "staff";
 
 async function installTurnstileMock(page: Page): Promise<void> {
   await page.addInitScript(() => {
@@ -12,8 +12,8 @@ async function installTurnstileMock(page: Page): Promise<void> {
           options: {
             sitekey: string;
             callback?: (token: string) => void;
-            'expired-callback'?: () => void;
-            'error-callback'?: () => void;
+            "expired-callback"?: () => void;
+            "error-callback"?: () => void;
           },
         ) => string;
         reset: (widgetId?: string) => void;
@@ -24,9 +24,9 @@ async function installTurnstileMock(page: Page): Promise<void> {
     win.turnstile = {
       render: (_container, options) => {
         setTimeout(() => {
-          options.callback?.('e2e-turnstile-token');
+          options.callback?.("e2e-turnstile-token");
         }, 0);
-        return 'e2e-turnstile-widget';
+        return "e2e-turnstile-widget";
       },
       reset: () => {},
       remove: () => {},
@@ -38,14 +38,13 @@ async function gotoWithRetry(page: Page, path: string): Promise<void> {
   const maxAttempts = 3;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      await page.goto(path, { waitUntil: 'domcontentloaded' });
+      await page.goto(path, { waitUntil: "domcontentloaded" });
       return;
     } catch (error) {
       const retriable = /ERR_ABORTED|frame was detached/i.test(String(error));
       if (!retriable || attempt === maxAttempts || page.isClosed()) {
         throw error;
       }
-      await page.waitForTimeout(300);
     }
   }
 }
@@ -53,45 +52,45 @@ async function gotoWithRetry(page: Page, path: string): Promise<void> {
 async function seedAuthRole(page: Page, role: UserRole): Promise<void> {
   const authToken = `mock-token-role-${role}-${Date.now()}`;
 
-  await gotoWithRetry(page, localePath('/dashboard'));
+  await gotoWithRetry(page, localePath("/dashboard"));
   await page.evaluate(
     ({ token }) => {
-      localStorage.setItem('auth_token', token);
+      localStorage.setItem("auth_token", token);
     },
     { token: authToken },
   );
-  await gotoWithRetry(page, localePath('/dashboard'));
+  await gotoWithRetry(page, localePath("/dashboard"));
   await expect(page).toHaveURL(/\/es\/dashboard/);
 }
 
 async function openUserMenu(page: Page): Promise<void> {
   const menuButton = page
-    .locator('header button')
-    .filter({ has: page.locator('div.w-8.h-8.rounded-full') })
+    .locator("header button")
+    .filter({ has: page.locator("div.w-8.h-8.rounded-full") })
     .first();
   await menuButton.click();
 }
 
-test.describe('Auth Extended', () => {
+test.describe("Auth Extended", () => {
   test.setTimeout(60000);
-  test.describe.configure({ mode: 'serial' });
+  test.describe.configure({ mode: "serial" });
 
-  test('registers a user and shows pending approval', async ({ page }) => {
+  test("registers a user and shows pending approval", async ({ page }) => {
     await installTurnstileMock(page);
-    await page.goto(localePath('/register'));
+    await page.goto(localePath("/register"));
 
     const uniqueEmail = `e2e.register.${Date.now()}@example.com`;
 
-    await page.locator('#firstName').fill('E2E');
-    await page.locator('#lastName').fill('Register');
-    await page.locator('#email').fill(uniqueEmail);
-    await page.locator('#phone').fill('+54 9 11 5555-0000');
-    await page.locator('#password').fill('SecurePass123!');
-    await page.locator('#confirmPassword').fill('SecurePass123!');
-    await page.locator('#role').selectOption('tenant');
+    await page.locator("#firstName").fill("E2E");
+    await page.locator("#lastName").fill("Register");
+    await page.locator("#email").fill(uniqueEmail);
+    await page.locator("#phone").fill("+54 9 11 5555-0000");
+    await page.locator("#password").fill("SecurePass123!");
+    await page.locator("#confirmPassword").fill("SecurePass123!");
+    await page.locator("#role").selectOption("tenant");
 
     await page
-      .getByRole('button', { name: /crear cuenta|create account|criar conta/i })
+      .getByRole("button", { name: /crear cuenta|create account|criar conta/i })
       .click();
 
     await expect(
@@ -101,54 +100,55 @@ test.describe('Auth Extended', () => {
     ).toBeVisible();
   });
 
-  test('logs out and clears auth state', async ({ page }) => {
+  test("logs out and clears auth state", async ({ page }) => {
     await login(page);
-    await page.goto(localePath('/dashboard'));
+    await page.goto(localePath("/dashboard"));
 
     await openUserMenu(page);
-    const logoutButton = page.getByRole('menuitem', {
+    const logoutButton = page.getByRole("menuitem", {
       name: /cerrar sesi[oó]n|log out|sair/i,
     });
     await expect(logoutButton).toBeVisible();
     await logoutButton.click();
 
     await expect
-      .poll(async () => page.evaluate(() => localStorage.getItem('auth_token')))
+      .poll(async () => page.evaluate(() => localStorage.getItem("auth_token")))
       .toBeNull();
     await expect
-      .poll(async () => page.evaluate(() => localStorage.getItem('auth_user')))
+      .poll(async () => page.evaluate(() => localStorage.getItem("auth_user")))
       .toBeNull();
   });
 
-  test('redirects to login when session is no longer valid', async ({
+  test("redirects to login when session is no longer valid", async ({
     page,
   }) => {
     await login(page);
-    await page.goto(localePath('/dashboard'));
+    await page.goto(localePath("/dashboard"));
 
     await page.evaluate(() => {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_user');
-      window.dispatchEvent(new Event('storage'));
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_user");
+      window.dispatchEvent(new Event("storage"));
     });
 
     await expect
-      .poll(async () => page.evaluate(() => localStorage.getItem('auth_token')))
+      .poll(async () => page.evaluate(() => localStorage.getItem("auth_token")))
       .toBeNull();
     await expect
-      .poll(async () => page.evaluate(() => localStorage.getItem('auth_user')))
+      .poll(async () => page.evaluate(() => localStorage.getItem("auth_user")))
       .toBeNull();
+    await expect(page).toHaveURL(/\/es\/login/);
   });
 
-  test('applies role guards for protected modules', async ({ page }) => {
-    await seedAuthRole(page, 'owner');
-    await page.goto(localePath('/users'));
+  test("applies role guards for protected modules", async ({ page }) => {
+    await seedAuthRole(page, "owner");
+    await page.goto(localePath("/users"));
     await expect(
       page.getByText(/acceso denegado|access denied|acesso negado/i),
     ).toBeVisible();
 
-    await seedAuthRole(page, 'tenant');
-    await page.goto(localePath('/reports'));
+    await seedAuthRole(page, "tenant");
+    await page.goto(localePath("/reports"));
     await expect(
       page.getByText(/acceso denegado|access denied|acesso negado/i),
     ).toBeVisible();

@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { AmendmentWorkflow } from "./AmendmentWorkflow";
+import type { AmendmentScope } from "@/lib/amendment-workflow";
 import { ApiRequestError } from "@/lib/api";
 import {
   amendmentsApi as api,
@@ -39,25 +41,25 @@ function AmendmentValues({
     "approvedBy",
     "approvedAt",
   ]);
+  const label = (key: string) => {
+    if (key === "before" || key === "after") return t(key);
+    return fields.has(key) ? t(`fields.${key}`) : key;
+  };
+  const displayValue = (value: unknown) => {
+    if (value == null) return t("none");
+    if (Array.isArray(value)) return JSON.stringify(value);
+    if (typeof value === "object")
+      return <AmendmentValues values={value as Record<string, unknown>} />;
+    if (typeof value === "string") return value;
+    return JSON.stringify(value);
+  };
   return (
     <dl className="space-y-2 text-sm">
       {Object.entries(values).map(([key, value]) => (
         <div key={key} className="pl-2">
-          <dt className="font-medium">
-            {["before", "after"].includes(key)
-              ? t(key)
-              : fields.has(key)
-                ? t(`fields.${key}`)
-                : key}
-          </dt>
+          <dt className="font-medium">{label(key)}</dt>
           <dd className="whitespace-pre-wrap break-words">
-            {value && typeof value === "object" && !Array.isArray(value) ? (
-              <AmendmentValues values={value as Record<string, unknown>} />
-            ) : value == null ? (
-              t("none")
-            ) : (
-              String(value)
-            )}
+            {displayValue(value)}
           </dd>
         </div>
       ))}
@@ -69,12 +71,20 @@ export function LeaseAmendments({
   leaseId,
   canReview,
   onChanged,
+  workflow,
 }: Readonly<{
   leaseId: string;
   canReview: boolean;
   onChanged: () => Promise<void>;
+  workflow?: {
+    scope: AmendmentScope;
+    active: boolean;
+    rental: boolean;
+    currency: string;
+  };
 }>) {
   const t = useTranslations("amendments");
+  const [workflowLocked, setWorkflowLocked] = useState(false);
   const [items, setItems] = useState<LeaseAmendment[]>([]);
   const [busy, setBusy] = useState(true);
   const [readError, setReadError] = useState(false);
@@ -225,7 +235,7 @@ export function LeaseAmendments({
       <button
         type="button"
         className={buttonClass}
-        disabled={busy}
+        disabled={busy || workflowLocked}
         onClick={() => {
           void refresh();
         }}
@@ -262,7 +272,7 @@ export function LeaseAmendments({
                 {t(`application.${item.applicationStatus}`)}
               </p>
               {item.applicationError && (
-                <p role="status">{item.applicationError}</p>
+                <output>{item.applicationError}</output>
               )}
               {item.appliedAt && (
                 <p>
@@ -286,7 +296,9 @@ export function LeaseAmendments({
                     <button
                       type="button"
                       className={buttonClass}
-                      disabled={busy || readError || !!pending}
+                      disabled={
+                        busy || workflowLocked || readError || !!pending
+                      }
                       onClick={() => select(item, "cancel")}
                     >
                       {t("cancel")}
@@ -296,7 +308,9 @@ export function LeaseAmendments({
                     <button
                       type="button"
                       className={buttonClass}
-                      disabled={busy || readError || !!pending}
+                      disabled={
+                        busy || workflowLocked || readError || !!pending
+                      }
                       onClick={() => select(item, "schedule")}
                     >
                       {t("schedule")}
@@ -305,7 +319,7 @@ export function LeaseAmendments({
                   <button
                     type="button"
                     className={buttonClass}
-                    disabled={busy}
+                    disabled={busy || workflowLocked}
                     onClick={() => {
                       void showHistory(item.id);
                     }}
@@ -343,6 +357,27 @@ export function LeaseAmendments({
           );
         })}
       </ul>
+      {workflow && (
+        <AmendmentWorkflow
+          {...workflow}
+          items={items}
+          disabled={busy || readError || !!pending || !!selection}
+          onLockChange={setWorkflowLocked}
+          onCompleted={async () => {
+            try {
+              const rows = await api.list(leaseId);
+              if (mounted.current) {
+                setItems(rows);
+                setReadError(false);
+                await onChanged();
+              }
+            } catch (error) {
+              if (mounted.current) setReadError(true);
+              throw error;
+            }
+          }}
+        />
+      )}
       {selection && canReview && (
         <form
           onSubmit={(event) => {

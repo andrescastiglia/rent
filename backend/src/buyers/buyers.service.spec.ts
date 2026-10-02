@@ -61,6 +61,21 @@ describe('BuyersService', () => {
       findOne: jest.fn(),
       save: jest.fn(),
     };
+    buyersRepository.manager = {
+      transaction: jest.fn(async (execute) =>
+        execute({
+          query: jest.fn().mockResolvedValue([]),
+          getRepository: (entity: { name: string }) =>
+            (
+              ({
+                Buyer: buyersRepository,
+                User: usersRepository,
+                InterestedProfile: interestedProfilesRepository,
+              }) as Record<string, unknown>
+            )[entity.name],
+        }),
+      ),
+    };
 
     service = new BuyersService(
       buyersRepository,

@@ -1,6 +1,7 @@
 import type { Buyer, CreateBuyerInput, UpdateBuyerInput } from "@/types/buyer";
 import { apiClient, IS_MOCK_MODE } from "../api";
 import { getToken } from "../auth";
+import { collectPages, type PageResult } from "../pagination";
 
 const DELAY = 250;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -33,10 +34,53 @@ const mapBuyer = (raw: BackendBuyer): Buyer => ({
 });
 
 export const buyersApi = {
+  getPage: async (filters?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PageResult<Buyer>> => {
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      const term = filters?.name?.trim().toLowerCase() ?? "";
+      const filtered = MOCK_BUYERS.filter(
+        (buyer) =>
+          !term ||
+          `${buyer.firstName} ${buyer.lastName}`.toLowerCase().includes(term),
+      );
+      const page = filters?.page ?? 1,
+        limit = filters?.limit ?? 20;
+      return {
+        data: filtered.slice((page - 1) * limit, page * limit),
+        total: filtered.length,
+        page,
+        limit,
+      };
+    }
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters ?? {}))
+      if (value !== undefined && value !== "") query.set(key, String(value));
+    const result = await apiClient.get<
+      BackendBuyer[] | PageResult<BackendBuyer>
+    >(
+      "/buyers" + (query.size ? "?" + query.toString() : ""),
+      getToken() ?? undefined,
+    );
+    return Array.isArray(result)
+      ? {
+          data: result.map(mapBuyer),
+          total: result.length,
+          page: 1,
+          limit: Math.max(result.length, 1),
+        }
+      : { ...result, data: result.data.map(mapBuyer) };
+  },
   getAll: async (filters?: {
     name?: string;
     email?: string;
     phone?: string;
+    page?: number;
     limit?: number;
   }): Promise<Buyer[]> => {
     if (IS_MOCK_MODE) {
@@ -58,6 +102,7 @@ export const buyersApi = {
     if (filters?.email?.trim()) query.set("email", filters.email.trim());
     if (filters?.phone?.trim()) query.set("phone", filters.phone.trim());
     if (filters?.limit) query.set("limit", String(filters.limit));
+    if (filters?.page) query.set("page", String(filters.page));
 
     const endpoint =
       query.toString().length > 0 ? `/buyers?${query.toString()}` : "/buyers";
@@ -66,9 +111,14 @@ export const buyersApi = {
       | { data: BackendBuyer[]; total: number; page: number; limit: number }
     >(endpoint, token ?? undefined);
 
-    return Array.isArray(result)
-      ? result.map(mapBuyer)
-      : result.data.map(mapBuyer);
+    if (Array.isArray(result)) return result.map(mapBuyer);
+    if (filters?.page || result.total <= result.data.length)
+      return result.data.map(mapBuyer);
+    return collectPages(async (page) =>
+      page === 1
+        ? { ...result, data: result.data.map(mapBuyer) }
+        : buyersApi.getPage({ ...filters, page, limit: result.limit }),
+    );
   },
 
   getById: async (id: string): Promise<Buyer | null> => {

@@ -1,9 +1,15 @@
+import {
+  ActivityIndicator,
+  FlatList,
+  Text,
+  View,
+} from '@/components/themed-native';
 import { useQuery } from '@tanstack/react-query';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Screen } from '@/components/screen';
-import { H1 } from '@/components/ui';
+import { AppButton, H1 } from '@/components/ui';
 
 type ModuleListProps<T> = Readonly<{
   title: string;
@@ -23,6 +29,10 @@ const getItemKey = <T,>(item: T): string => {
   return JSON.stringify(item);
 };
 
+function ItemSeparator() {
+  return <View style={{ height: 12 }} />;
+}
+
 export function ModuleListScreen<T>({
   title,
   subtitle,
@@ -35,7 +45,7 @@ export function ModuleListScreen<T>({
 
   if (query.isLoading) {
     return (
-      <Screen scrollable={false}>
+      <Screen scrollable={false} guidanceReady={false}>
         <View style={styles.centered}>
           <ActivityIndicator />
         </View>
@@ -45,9 +55,15 @@ export function ModuleListScreen<T>({
 
   if (query.isError) {
     return (
-      <Screen>
+      <Screen guidanceBlocked>
         <H1>{title}</H1>
-        <Text style={styles.error}>{query.error.message}</Text>
+        <Text style={styles.error} accessibilityRole="alert">
+          {query.error.message}
+        </Text>
+        <AppButton
+          title={t('common.retry')}
+          onPress={() => void query.refetch()}
+        />
       </Screen>
     );
   }
@@ -55,17 +71,23 @@ export function ModuleListScreen<T>({
   const items = query.data ?? [];
 
   return (
-    <Screen>
-      <H1>{title}</H1>
-      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-      {items.length === 0 ? (
-        <Text style={styles.empty}>{t('common.noDataAvailable')}</Text>
-      ) : null}
-      <View style={styles.list}>
-        {items.map((item) => (
-          <View key={getItemKey(item)}>{renderItem(item)}</View>
-        ))}
-      </View>
+    <Screen scrollable={false}>
+      <FlatList
+        data={items}
+        keyExtractor={getItemKey}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={
+          <>
+            <H1>{title}</H1>
+            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          </>
+        }
+        ListEmptyComponent={
+          <Text style={styles.empty}>{t('common.noDataAvailable')}</Text>
+        }
+        ItemSeparatorComponent={ItemSeparator}
+        renderItem={({ item }) => <View>{renderItem(item)}</View>}
+      />
     </Screen>
   );
 }

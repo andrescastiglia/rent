@@ -1,3 +1,4 @@
+import { buildMutationReview } from '../src/common/helpers/mutation-review';
 import { createHash, randomUUID } from 'node:crypto';
 import { WhatsappService } from '../src/whatsapp/whatsapp.service';
 import {
@@ -43,10 +44,13 @@ import {
   Invoice,
   InvoiceStatus,
 } from '../src/payments/entities/invoice.entity';
+import { PaymentGatewayService } from '../src/payment-gateway/payment-gateway.service';
+import { PaymentGatewayTransaction } from '../src/payment-gateway/entities/payment-gateway-transaction.entity';
 import { PaymentMethod } from '../src/payments/entities/payment.entity';
 import { TenantAccount } from '../src/payments/entities/tenant-account.entity';
 import {
   configureE2eApp,
+  purgeFinancialCorrections,
   createActiveTestUser,
   createSuperAdminTestUser,
   createTestCompany,
@@ -79,6 +83,22 @@ describe('Payment accounting flow (e2e)', () => {
 
   const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
+  const reviewedContext = async (
+    tool: string,
+    payload: unknown,
+    context: any,
+  ) => ({
+    ...context,
+    mutationReview:
+      context.mutationReview ??
+      (await buildMutationReview(
+        dataSource,
+        companyId,
+        tool,
+        payload as Record<string, unknown>,
+        new Date(Date.now() + 900_000).toISOString(),
+      )),
+  });
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -238,6 +258,7 @@ describe('Payment accounting flow (e2e)', () => {
 
   afterAll(async () => {
     if (companyId) {
+      await purgeFinancialCorrections(dataSource, companyId);
       for (const table of [
         'pending_actions',
         'ai_tool_mutation_confirmations',
@@ -1023,8 +1044,8 @@ describe('Payment accounting flow (e2e)', () => {
               )
             : value;
       const [action] = await dataSource.query(
-        `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at)
-      VALUES($1,$2,$3,'update','payment','Payment recovery',$4::jsonb,$5,now()+interval '15 minutes') RETURNING id,execution_key`,
+        `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at,review)
+      VALUES($1,$2,$3,'update','payment','Payment recovery',$4::jsonb,$5,now()+interval '15 minutes',$6::jsonb) RETURNING id,execution_key`,
         [
           companyId,
           requesterId,
@@ -1033,6 +1054,15 @@ describe('Payment accounting flow (e2e)', () => {
           createHash('sha256')
             .update(JSON.stringify(sort(payload)))
             .digest('hex'),
+          JSON.stringify(
+            await buildMutationReview(
+              dataSource,
+              companyId,
+              toolName,
+              payload,
+              new Date(Date.now() + 900_000).toISOString(),
+            ),
+          ),
         ],
       );
       const reauthToken = (
@@ -1088,23 +1118,35 @@ describe('Payment accounting flow (e2e)', () => {
         };
         expect(
           await Promise.all(
-            Array.from({ length: 3 }, () =>
-              executor.executeApproved(toolName, payload, context),
+            Array.from({ length: 3 }, async () =>
+              executor.executeApproved(
+                toolName,
+                payload,
+                await reviewedContext(toolName, payload, context),
+              ),
             ),
           ),
         ).toEqual([recovered.result, recovered.result, recovered.result]);
         await expect(
-          executor.executeApproved(toolName, payload, {
-            ...context,
-            companyId: foreignCompanyId,
-            userId: foreignAdminId,
-          }),
+          executor.executeApproved(
+            toolName,
+            payload,
+            await reviewedContext(toolName, payload, {
+              ...context,
+              companyId: foreignCompanyId,
+              userId: foreignAdminId,
+            }),
+          ),
         ).rejects.toThrow();
         await expect(
-          executor.executeApproved(toolName, payload, {
-            ...context,
-            role: UserRole.TENANT,
-          }),
+          executor.executeApproved(
+            toolName,
+            payload,
+            await reviewedContext(toolName, payload, {
+              ...context,
+              role: UserRole.TENANT,
+            }),
+          ),
         ).rejects.toThrow();
         const movements = await dataSource.query(
           'SELECT movement_type FROM tenant_account_movements WHERE tenant_account_id=$1',
@@ -1387,12 +1429,16 @@ describe('Payment accounting flow (e2e)', () => {
       const result = await app.get(AiToolExecutorService).executeApproved(
         'patch_payment_by_id',
         { id: created.body.id, notes: 'AI notes', items: [], amount: 115 },
-        {
-          userId: adminId,
-          companyId,
-          role: UserRole.ADMIN,
-          idempotencyKey: randomUUID(),
-        },
+        await reviewedContext(
+          'patch_payment_by_id',
+          { id: created.body.id, notes: 'AI notes', items: [], amount: 115 },
+          {
+            userId: adminId,
+            companyId,
+            role: UserRole.ADMIN,
+            idempotencyKey: randomUUID(),
+          },
+        ),
       );
       expect(result).toMatchObject({
         currencyCode: 'USD',
@@ -2448,5 +2494,271 @@ describe('Payment accounting flow (e2e)', () => {
       sendText.mockRestore();
       sendTemplate.mockRestore();
     }
+  });
+  it('partially refunds a collection, recovers the same correction and preserves invoice cents', async () => {
+    const { payments, invoiceState, accountId } =
+        await fractionalReversalFixture(),
+      service = app.get(PaymentsService);
+    const key = randomUUID(),
+      dto = { amount: 0.3, reason: 'Devolución parcial acordada' };
+    const first = await service.refund(
+      payments[1].id,
+      companyId,
+      dto,
+      adminId,
+      key,
+    );
+    expect(await invoiceState()).toEqual({
+      paid_amount: '0.50',
+      status: 'partial',
+    });
+    expect(
+      (
+        await dataSource.query(
+          'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+          [accountId],
+        )
+      )[0].current_balance,
+    ).toBe('0.30');
+    const replay = await service.refund(
+      payments[1].id,
+      companyId,
+      dto,
+      adminId,
+      key,
+    );
+    expect(replay.id).toBe(first.id);
+    expect(
+      (
+        await dataSource.query(
+          'SELECT count(*)::int AS count FROM payment_refunds WHERE payment_id=$1',
+          [payments[1].id],
+        )
+      )[0].count,
+    ).toBe(1);
+    await request(app.getHttpServer())
+      .get(`/payments/${payments[1].id}/refunds/${first.id}/pdf`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200)
+      .expect('Content-Type', /pdf/);
+    await service.cancel(payments[1].id, companyId);
+    expect(await invoiceState()).toEqual({
+      paid_amount: '0.10',
+      status: 'partial',
+    });
+    expect(
+      (
+        await dataSource.query(
+          'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+          [accountId],
+        )
+      )[0].current_balance,
+    ).toBe('0.70');
+  });
+
+  it('serializes partial refunds with distinct keys and refuses refunds beyond remaining money', async () => {
+    const { payments, invoiceState } = await fractionalReversalFixture(),
+      service = app.get(PaymentsService);
+    const refund = () =>
+      service.refund(
+        payments[1].id,
+        companyId,
+        { amount: 0.4, reason: 'Devolución concurrente' },
+        adminId,
+        randomUUID(),
+      );
+    const results = await Promise.allSettled([refund(), refund()]);
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(await invoiceState()).toEqual({
+      paid_amount: '0.40',
+      status: 'partial',
+    });
+    expect(
+      (
+        await dataSource.query(
+          'SELECT refunded_amount::text FROM payments WHERE id=$1',
+          [payments[1].id],
+        )
+      )[0].refunded_amount,
+    ).toBe('0.40');
+  });
+
+  it('integrates checkout approval and cumulative partial refunds with the common ledger on replay', async () => {
+    const fixture = await recoveryFixture(),
+      service = app.get(PaymentsService);
+    await dataSource.query(
+      'UPDATE invoices SET subtotal=100,late_fee_amount=0,total_amount=100 WHERE id=$1',
+      [fixture.invoiceId],
+    );
+    await dataSource.query(
+      'UPDATE tenant_accounts SET current_balance=100 WHERE id=$1',
+      [fixture.accountId],
+    );
+    const initial = await service.create(
+      { ...fixture.dto, amount: 30, items: [] },
+      adminId,
+      companyId,
+    );
+    await service.confirm(initial.id, companyId);
+    const tx = await dataSource.getRepository(PaymentGatewayTransaction).save({
+      companyId,
+      invoiceId: fixture.invoiceId,
+      tenantId: (
+        await tenantAccountRepository.findOneByOrFail({
+          id: fixture.accountId,
+        })
+      ).tenantId,
+      amount: 70,
+      currency: 'ARS',
+    });
+    const gateway = app.get(PaymentGatewayService);
+    const provider = gateway as unknown as {
+      fetchMercadoPagoPayment: (id: string) => Promise<unknown>;
+    };
+    const remote = {
+      id: 'e2e-payment-' + randomUUID(),
+      status: 'approved',
+      external_reference: tx.id,
+      transaction_amount: 70,
+      currency_id: 'ARS',
+      transaction_amount_refunded: 0,
+    };
+    const spy = jest
+      .spyOn(provider, 'fetchMercadoPagoPayment')
+      .mockImplementation(async () => remote);
+    try {
+      const webhook = () =>
+        gateway.processWebhook({
+          id: randomUUID(),
+          type: 'payment',
+          data: { id: remote.id },
+        });
+      await webhook();
+      await webhook();
+      expect(
+        (
+          await dataSource.query(
+            'SELECT paid_amount::text,status FROM invoices WHERE id=$1',
+            [fixture.invoiceId],
+          )
+        )[0],
+      ).toEqual({ paid_amount: '100.00', status: 'paid' });
+      const canonical = (
+        await dataSource.query(
+          'SELECT payment_id FROM payment_gateway_transactions WHERE id=$1',
+          [tx.id],
+        )
+      )[0].payment_id;
+      expect(
+        (
+          await dataSource.query(
+            'SELECT count(*)::int AS count FROM receipts WHERE payment_id=$1',
+            [canonical],
+          )
+        )[0].count,
+      ).toBe(1);
+      expect(
+        (
+          await dataSource.query(
+            'SELECT count(*)::int AS count FROM payment_effects_outbox WHERE payment_id=$1',
+            [canonical],
+          )
+        )[0].count,
+      ).toBe(1);
+      remote.transaction_amount_refunded = 20;
+      await webhook();
+      await webhook();
+      expect(
+        (
+          await dataSource.query(
+            'SELECT paid_amount::text,status FROM invoices WHERE id=$1',
+            [fixture.invoiceId],
+          )
+        )[0],
+      ).toEqual({ paid_amount: '80.00', status: 'partial' });
+      expect(
+        (
+          await dataSource.query(
+            'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+            [fixture.accountId],
+          )
+        )[0].current_balance,
+      ).toBe('20.00');
+      expect(
+        (
+          await dataSource.query(
+            'SELECT count(*)::int AS count FROM payment_refunds WHERE payment_id=$1',
+            [canonical],
+          )
+        )[0].count,
+      ).toBe(1);
+      remote.status = 'refunded';
+      remote.transaction_amount_refunded = 70;
+      await webhook();
+      expect(
+        (
+          await dataSource.query(
+            'SELECT paid_amount::text,status FROM invoices WHERE id=$1',
+            [fixture.invoiceId],
+          )
+        )[0],
+      ).toEqual({ paid_amount: '30.00', status: 'partial' });
+      expect(
+        (
+          await dataSource.query(
+            'SELECT cancelled_at FROM receipts WHERE payment_id=$1',
+            [canonical],
+          )
+        )[0].cancelled_at,
+      ).toBeTruthy();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('audits cancellation of paid invoices with conditional credits and commission corrections', async () => {
+    const fixture = await recoveryFixture(),
+      service = app.get(PaymentsService);
+    const payment = await service.create(fixture.dto, adminId, companyId);
+    await service.confirm(payment.id, companyId);
+    const cancelled = await app
+      .get(InvoicesService)
+      .cancel(fixture.invoiceId, companyId, randomUUID());
+    expect(cancelled.status).toBe('cancelled');
+    expect(
+      (
+        await dataSource.query(
+          'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+          [fixture.accountId],
+        )
+      )[0].current_balance,
+    ).toBe('-110.00');
+    expect(
+      (
+        await dataSource.query(
+          'SELECT status FROM credit_notes WHERE invoice_id=$1',
+          [fixture.invoiceId],
+        )
+      )[0].status,
+    ).toBe('cancelled');
+    expect(
+      (
+        await dataSource.query(
+          'SELECT count(*)::int AS count FROM invoice_cancellations WHERE invoice_id=$1',
+          [fixture.invoiceId],
+        )
+      )[0].count,
+    ).toBe(1);
+    await service.cancel(payment.id, companyId);
+    expect(
+      (
+        await dataSource.query(
+          'SELECT current_balance::text FROM tenant_accounts WHERE id=$1',
+          [fixture.accountId],
+        )
+      )[0].current_balance,
+    ).toBe('0.00');
   });
 });

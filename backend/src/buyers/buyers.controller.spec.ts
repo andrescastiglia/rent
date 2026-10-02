@@ -63,7 +63,11 @@ describe('BuyersController', () => {
       } as any,
     );
 
-    expect(buyersService.create).toHaveBeenCalledWith({ name: 'Test' }, 'co1');
+    expect(buyersService.create).toHaveBeenCalledWith(
+      { name: 'Test' },
+      'co1',
+      undefined,
+    );
     expect(result).toEqual({ id: 'b1' });
   });
 
@@ -82,6 +86,7 @@ describe('BuyersController', () => {
       'b1',
       { name: 'Updated' },
       'co1',
+      undefined,
     );
     expect(result).toEqual({ id: 'b1', name: 'Updated' });
   });

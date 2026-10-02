@@ -1,9 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import {
-  ForbiddenException,
-  INestApplication,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
@@ -117,24 +113,27 @@ describe('AI company and module authorization (e2e)', () => {
     ['patch_users_activation_by_id', { isActive: false }],
     ['post_users_reset_password_by_id', { newPassword: 'ChangedPassword123!' }],
     ['delete_users_by_id', {}],
-  ])('rejects a foreign user in approved %s', async (toolName, args) => {
-    const before = await db
-      .getRepository(User)
-      .findOneByOrFail({ id: foreignUser.id });
-    await expect(
-      executor.executeApproved(
-        toolName,
-        { ...args, id: foreignUser.id },
-        context,
-      ),
-    ).rejects.toBeInstanceOf(NotFoundException);
-    expect(
-      await db.getRepository(User).findOneByOrFail({ id: foreignUser.id }),
-    ).toEqual(before);
-  });
+  ])(
+    'keeps unsupported %s disabled without changing a foreign user',
+    async (toolName, args) => {
+      const before = await db
+        .getRepository(User)
+        .findOneByOrFail({ id: foreignUser.id });
+      await expect(
+        executor.executeApproved(
+          toolName,
+          { ...args, id: foreignUser.id },
+          context,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(
+        await db.getRepository(User).findOneByOrFail({ id: foreignUser.id }),
+      ).toEqual(before);
+    },
+  );
 
   it.each(['post_users', 'post_auth_register'])(
-    'assigns %s to the authenticated company and rejects forged company IDs',
+    'keeps %s disabled for local and forged company IDs until transaction recovery exists',
     async (toolName) => {
       const args = {
         email: `${toolName}-${suffix}@ai.test`,
@@ -150,11 +149,17 @@ describe('AI company and module authorization (e2e)', () => {
           context,
         ),
       ).rejects.toThrow();
-      await executor.executeApproved(toolName, args, context);
-      const created = await db
-        .getRepository(User)
-        .findOneByOrFail({ email: args.email });
-      expect(created.companyId).toBe(company.id);
+      await expect(
+        executor.executeApproved(toolName, args, context),
+      ).rejects.toThrow('verified transactional');
+      expect(
+        await db.getRepository(User).findOneBy({ email: args.email }),
+      ).toBeNull();
+      expect(
+        executor
+          .listTools(UserRole.ADMIN)
+          .find((tool) => tool.name === toolName)?.enabled,
+      ).toBe(false);
     },
   );
 

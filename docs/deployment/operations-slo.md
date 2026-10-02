@@ -23,9 +23,9 @@ homónimo `.test.yml`.
 1. Acusar recibo de una alerta crítica en 10 minutos y warning en 30 minutos.
 2. Registrar hora, alerta, SHA activo, impacto, compañía afectada sin PII y
    responsable del incidente.
-3. Verificar health, métricas, PM2, PostgreSQL y proveedor dependiente.
-4. Mitigar: desactivar integración, reducir tráfico o revertir el enlace
-   `current` al SHA anterior según `deployment.md`.
+3. Verificar health, métricas, rollouts y pods del namespace `rent`, PostgreSQL y proveedor dependiente.
+4. Mitigar: desactivar integración, reducir tráfico o restaurar los digests
+   anteriores según [el runbook Kubernetes](kubernetes.md). Conservar migraciones y datos.
 5. Confirmar recuperación en dos ventanas consecutivas y cerrar la alerta.
 6. Crear seguimiento con causa, evidencia y acción preventiva.
 

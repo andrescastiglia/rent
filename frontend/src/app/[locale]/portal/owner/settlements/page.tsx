@@ -9,6 +9,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import { Download, FileText, Loader2 } from "lucide-react";
 import { hasUserRole } from "@/lib/permissions";
+import { Button, StatePanel } from "@/components/ui";
 
 const STATUS_BADGE: Record<
   Settlement["status"],
@@ -47,6 +48,8 @@ export default function OwnerSettlementsPage() {
 
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [downloadError, setDownloadError] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,9 +61,11 @@ export default function OwnerSettlementsPage() {
   const fetchSettlements = useCallback(async () => {
     try {
       setLoading(true);
+      setError(false);
       const data = await settlementsApi.getAll();
       setSettlements(data);
     } catch (error) {
+      setError(true);
       console.error("Error fetching settlements:", error);
     } finally {
       setLoading(false);
@@ -78,11 +83,13 @@ export default function OwnerSettlementsPage() {
       if (downloading) return;
       try {
         setDownloading(settlement.id);
+        setDownloadError(false);
         await settlementsApi.downloadReceipt(
           settlement.id,
           settlement.receiptName ?? undefined,
         );
       } catch (error) {
+        setDownloadError(true);
         console.error("Error downloading receipt:", error);
       } finally {
         setDownloading(null);
@@ -100,9 +107,22 @@ export default function OwnerSettlementsPage() {
   }
 
   if (!hasUserRole(user, "owner")) return null;
+  if (error)
+    return (
+      <StatePanel
+        error
+        title={t("readError")}
+        action={
+          <Button variant="secondary" onClick={() => void fetchSettlements()}>
+            {t("retry")}
+          </Button>
+        }
+      />
+    );
 
   return (
     <div className="space-y-4">
+      {downloadError && <StatePanel error title={t("downloadError")} />}
       <h1 className="text-xl font-bold text-gray-900 dark:text-white">
         {t("settlements")}
       </h1>

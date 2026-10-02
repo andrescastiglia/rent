@@ -605,6 +605,12 @@ export type SaleReceipt = {
   overdueAmount: number;
   copyCount: number;
   pdfUrl: string;
+  financialSnapshot: {
+    [key: string]: unknown;
+  } | null;
+  cancelledAt: string | null;
+  cancelledBy: string | null;
+  cancellationReason: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -735,6 +741,7 @@ export type InterestedProfile = {
   customFields: {
     [key: string]: unknown;
   };
+  pipelineStage: string | null;
   lastContactAt: string;
   nextContactAt: string;
   lostReason: string;
@@ -828,7 +835,9 @@ export type CommunicationTemplate = {
     | 'office_prospect_welcome_sale'
     | 'property_visit_scheduled'
     | 'property_visit_completed'
-    | 'property_visit_offer';
+    | 'property_visit_offer'
+    | 'maintenance_assigned'
+    | 'maintenance_resolved';
   recipientRole:
     'admin' | 'staff' | 'buyer' | 'tenant' | 'owner' | 'interested';
   channel: 'whatsapp' | 'email' | 'sms';
@@ -862,7 +871,9 @@ export type CreateCommunicationTemplateDto = {
     | 'office_prospect_welcome_sale'
     | 'property_visit_scheduled'
     | 'property_visit_completed'
-    | 'property_visit_offer';
+    | 'property_visit_offer'
+    | 'maintenance_assigned'
+    | 'maintenance_resolved';
   recipientRole:
     'admin' | 'staff' | 'buyer' | 'tenant' | 'owner' | 'interested';
   channel: 'whatsapp' | 'email' | 'sms';
@@ -894,7 +905,9 @@ export type UpdateCommunicationTemplateDto = {
     | 'office_prospect_welcome_sale'
     | 'property_visit_scheduled'
     | 'property_visit_completed'
-    | 'property_visit_offer';
+    | 'property_visit_offer'
+    | 'maintenance_assigned'
+    | 'maintenance_resolved';
   recipientRole?:
     'admin' | 'staff' | 'buyer' | 'tenant' | 'owner' | 'interested';
   channel?: 'whatsapp' | 'email' | 'sms';
@@ -950,7 +963,9 @@ export type CommunicationDelivery = {
     | 'office_prospect_welcome_sale'
     | 'property_visit_scheduled'
     | 'property_visit_completed'
-    | 'property_visit_offer';
+    | 'property_visit_offer'
+    | 'maintenance_assigned'
+    | 'maintenance_resolved';
   recipientRole:
     'admin' | 'staff' | 'buyer' | 'tenant' | 'owner' | 'interested';
   recipientId: string | null;
@@ -1290,7 +1305,8 @@ export type ImportCurrentLeaseDto = {
   notes?: string;
 };
 
-export type CreateAmendmentDto = {
+export type CreateAmendmentRequestDto = {
+  idempotencyKey?: string;
   leaseId: string;
   companyId: string;
   effectiveDate: string;
@@ -1338,9 +1354,27 @@ export type ReviewAmendmentResultDto = {
   review: AmendmentReviewDto;
 };
 
+export type AmendmentTransitionDto = {
+  idempotencyKey?: string;
+  expectedUpdatedAt?: string;
+};
+
 export type LeaseContractStatusDto = {
   status: 'queued' | 'completed' | 'dead_letter' | 'unavailable';
   available: boolean;
+};
+
+export type CompanyFinancialSettingsViewDto = {
+  configured: boolean;
+  commissionTaxRate: number | null;
+  source: string | null;
+  effectiveFrom: string | null;
+};
+
+export type CompanyFinancialSettingsDto = {
+  commissionTaxRate: number;
+  source: string;
+  effectiveFrom: string;
 };
 
 export type ScheduledBillingDto = {
@@ -1373,6 +1407,9 @@ export type Invoice = {
   subtotal: number;
   taxAmount: number;
   lateFee: number;
+  lateFeeCalculation: {
+    [key: string]: unknown;
+  } | null;
   adjustments: number;
   total: number;
   netAmount: number;
@@ -1486,6 +1523,7 @@ export type PaymentAllocation = {
     | 'cancelled'
     | 'refunded';
   reversedAt: string | null;
+  refundedAmount: number;
   createdAt: string;
 };
 
@@ -1536,6 +1574,7 @@ export type Payment = {
   receipt: Receipt;
   items: Array<PaymentItem>;
   allocations: Array<PaymentAllocation>;
+  refundedAmount: number;
   createdAt: string;
   updatedAt: string;
   deletedAt: string;
@@ -1686,6 +1725,12 @@ export type UpdatePaymentDto = {
     'monthly' | 'annual' | 'adjustment' | 'late_fee' | 'extraordinary';
 };
 
+export type RefundPaymentDto = {
+  amount: number;
+  reason: string;
+  reference?: string;
+};
+
 export type PaymentDocumentTemplate = {
   id: string;
   companyId: string;
@@ -1713,9 +1758,9 @@ export type UpdatePaymentDocumentTemplateDto = {
 };
 
 export type CreateTenantDto = {
-  companyId: string;
-  email: string;
-  password: string;
+  companyId?: string;
+  email?: string | null;
+  password?: string;
   firstName: string;
   lastName: string;
   phone?: string;
@@ -1724,6 +1769,19 @@ export type CreateTenantDto = {
   emergencyPhone?: string;
   contactConsent?: boolean;
   preferredContactChannel?: 'whatsapp' | 'email' | 'sms';
+  cuil?: string;
+  dateOfBirth?: string;
+  nationality?: string;
+  occupation?: string;
+  employer?: string;
+  monthlyIncome?: number;
+  employmentStatus?:
+    'employed' | 'self_employed' | 'unemployed' | 'retired' | 'student';
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelationship?: string;
+  creditScore?: number;
+  notes?: string;
 };
 
 export type TenantActivity = {
@@ -1765,8 +1823,14 @@ export type UpdateTenantActivityDto = {
 };
 
 export type UpdateTenantDto = {
-  email?: string;
   password?: string;
+};
+
+export type OwnerPageDto = {
+  data: Array<Owner>;
+  total: number;
+  page: number;
+  limit: number;
 };
 
 export type CreateOwnerDto = {
@@ -2129,6 +2193,38 @@ export type CreateInterestedProfileDto = {
   notes?: string;
 };
 
+export type PreviewInterestedImportDto = {
+  rows: Array<CreateInterestedProfileDto>;
+};
+
+export type ApplyInterestedImportDto = {
+  rows: Array<CreateInterestedProfileDto>;
+  reviewToken: string;
+  skipRows: Array<number>;
+};
+
+export type PreviewInterestedMergeDto = {
+  targetId: string;
+  sourceId: string;
+};
+
+export type ApplyInterestedMergeDto = {
+  targetId: string;
+  sourceId: string;
+  reviewToken: string;
+};
+
+export type ConfigureInterestedPipelineDto = {
+  stages: Array<{
+    id: string;
+    label: string;
+  }>;
+};
+
+export type MoveInterestedPipelineDto = {
+  stageId: string;
+};
+
 export type UpdateInterestedMatchDto = {
   status:
     | 'suggested'
@@ -2241,6 +2337,10 @@ export type CreateSaleReceiptDto = {
   amount: number;
   paymentDate: string;
   installmentNumber?: number;
+};
+
+export type CancelSaleReceiptDto = {
+  reason: string;
 };
 
 export type ExecuteAiToolDto = {
@@ -2829,6 +2929,10 @@ export type BankReconciliationAlert = {
   updatedAt: string;
 };
 
+export type MaintenanceAttachmentDto = {
+  [key: string]: unknown;
+};
+
 export type CreatePaymentPreferenceDto = {
   invoiceId: string;
   successUrl?: string;
@@ -2848,6 +2952,9 @@ export type PaymentGatewayTransaction = {
   externalPaymentId: string | null;
   status: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'refunded';
   amount: number;
+  idempotencyKey: string | null;
+  paymentId: string | null;
+  refundedAmount: number;
   currency: string;
   paymentMethod: string | null;
   installments: number;
@@ -3091,6 +3198,7 @@ export type UsersFindAllData = {
   body?: never;
   path?: never;
   query?: {
+    search?: string;
     page?: number;
     limit?: number;
   };
@@ -3279,6 +3387,10 @@ export type PropertiesFindAllData = {
   body?: never;
   path?: never;
   query?: {
+    search?: string;
+    operation?: 'rent' | 'sale';
+    operationState?: 'available' | 'rented' | 'reserved' | 'sold';
+    order?: 'address' | 'newest';
     ownerId?: string;
     addressCity?: string;
     addressState?: string;
@@ -3310,6 +3422,12 @@ export type PropertiesFindAllResponses = {
 
 export type PropertiesCreateData = {
   body: CreatePropertyDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path?: never;
   query?: never;
   url: '/properties';
@@ -3324,6 +3442,12 @@ export type PropertiesCreateResponse =
 
 export type PropertiesRemoveData = {
   body?: never;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -3353,6 +3477,12 @@ export type PropertiesFindOneResponse =
 
 export type PropertiesUpdateData = {
   body: UpdatePropertyDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -3407,6 +3537,9 @@ export type PropertyImagesGetPropertyImageResponses = {
 
 export type UnitsCreateData = {
   body: CreateUnitDto;
+  headers: {
+    'idempotency-key': string;
+  };
   path?: never;
   query?: never;
   url: '/units';
@@ -3437,6 +3570,9 @@ export type UnitsFindByPropertyResponse =
 
 export type UnitsRemoveData = {
   body?: never;
+  headers: {
+    'idempotency-key': string;
+  };
   path: {
     id: string;
   };
@@ -3466,6 +3602,9 @@ export type UnitsFindOneResponse =
 
 export type UnitsUpdateData = {
   body: UpdateUnitDto;
+  headers: {
+    'idempotency-key': string;
+  };
   path: {
     id: string;
   };
@@ -3498,6 +3637,9 @@ export type PropertyVisitsFindAllResponse =
 
 export type PropertyVisitsCreateData = {
   body: CreatePropertyVisitDto;
+  headers: {
+    'idempotency-key': string;
+  };
   path: {
     propertyId: string;
   };
@@ -3514,6 +3656,9 @@ export type PropertyVisitsCreateResponse =
 
 export type PropertyVisitsUpdateResultData = {
   body: UpdatePropertyVisitResultDto;
+  headers: {
+    'idempotency-key': string;
+  };
   path: {
     propertyId: string;
     visitId: string;
@@ -3547,6 +3692,9 @@ export type PropertyVisitsFindAllMaintenanceTasksResponse =
 
 export type PropertyVisitsCreateMaintenanceTaskData = {
   body: CreatePropertyMaintenanceTaskDto;
+  headers: {
+    'idempotency-key': string;
+  };
   path: {
     propertyId: string;
   };
@@ -4543,7 +4691,7 @@ export type LeaseContractEffectsProcessResponse =
   LeaseContractEffectsProcessResponses[keyof LeaseContractEffectsProcessResponses];
 
 export type AmendmentsCreateData = {
-  body: CreateAmendmentDto;
+  body: CreateAmendmentRequestDto;
   path?: never;
   query?: never;
   url: '/amendments';
@@ -4621,7 +4769,7 @@ export type AmendmentsReviewResponse =
   AmendmentsReviewResponses[keyof AmendmentsReviewResponses];
 
 export type AmendmentsSubmitData = {
-  body?: never;
+  body: AmendmentTransitionDto;
   path: {
     id: string;
   };
@@ -4637,7 +4785,7 @@ export type AmendmentsSubmitResponse =
   AmendmentsSubmitResponses[keyof AmendmentsSubmitResponses];
 
 export type AmendmentsApproveData = {
-  body?: never;
+  body: AmendmentTransitionDto;
   path: {
     id: string;
   };
@@ -4653,7 +4801,7 @@ export type AmendmentsApproveResponse =
   AmendmentsApproveResponses[keyof AmendmentsApproveResponses];
 
 export type AmendmentsRejectData = {
-  body?: never;
+  body: AmendmentTransitionDto;
   path: {
     id: string;
   };
@@ -4725,6 +4873,37 @@ export type LeasesContractDownloadContractLegacyData = {
 export type LeasesContractDownloadContractLegacyResponses = {
   200: unknown;
 };
+
+export type CompanyFinancialSettingsGetData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/companies/current/financial-settings';
+};
+
+export type CompanyFinancialSettingsGetResponses = {
+  200: CompanyFinancialSettingsViewDto;
+};
+
+export type CompanyFinancialSettingsGetResponse =
+  CompanyFinancialSettingsGetResponses[keyof CompanyFinancialSettingsGetResponses];
+
+export type CompanyFinancialSettingsUpdateData = {
+  body: CompanyFinancialSettingsDto;
+  headers: {
+    'idempotency-key': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/companies/current/financial-settings';
+};
+
+export type CompanyFinancialSettingsUpdateResponses = {
+  200: CompanyFinancialSettingsViewDto;
+};
+
+export type CompanyFinancialSettingsUpdateResponse =
+  CompanyFinancialSettingsUpdateResponses[keyof CompanyFinancialSettingsUpdateResponses];
 
 export type ScheduledBillingGenerateData = {
   body: ScheduledBillingDto;
@@ -4854,6 +5033,7 @@ export type InvoicesFindAllData = {
       | 'overdue'
       | 'cancelled'
       | 'refunded';
+    search?: string;
     page?: number;
     limit?: number;
   };
@@ -5028,6 +5208,7 @@ export type PaymentsFindAllData = {
       'monthly' | 'annual' | 'adjustment' | 'late_fee' | 'extraordinary';
     fromDate?: string;
     toDate?: string;
+    search?: string;
     page?: number;
     limit?: number;
   };
@@ -5040,6 +5221,9 @@ export type PaymentsFindAllResponses = {
 
 export type PaymentsCreateData = {
   body: CreatePaymentDto;
+  headers: {
+    'idempotency-key': string;
+  };
   path?: never;
   query?: never;
   url: '/payments';
@@ -5054,6 +5238,9 @@ export type PaymentsCreateResponse =
 
 export type PaymentsConfirmData = {
   body?: never;
+  headers: {
+    'idempotency-key': string;
+  };
   path: {
     id: string;
   };
@@ -5086,6 +5273,9 @@ export type PaymentsFindOneResponse =
 
 export type PaymentsUpdateData = {
   body: UpdatePaymentDto;
+  headers: {
+    'idempotency-key': string;
+  };
   path: {
     id: string;
   };
@@ -5118,6 +5308,9 @@ export type PaymentsFindReceiptsByTenantResponse =
 
 export type PaymentsCancelData = {
   body?: never;
+  headers: {
+    'idempotency-key': string;
+  };
   path: {
     id: string;
   };
@@ -5131,6 +5324,59 @@ export type PaymentsCancelResponses = {
 
 export type PaymentsCancelResponse =
   PaymentsCancelResponses[keyof PaymentsCancelResponses];
+
+export type PaymentsListRefundsData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/payments/{id}/refunds';
+};
+
+export type PaymentsListRefundsResponses = {
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type PaymentsListRefundsResponse =
+  PaymentsListRefundsResponses[keyof PaymentsListRefundsResponses];
+
+export type PaymentsRefundData = {
+  body: RefundPaymentDto;
+  headers: {
+    'idempotency-key': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/payments/{id}/refunds';
+};
+
+export type PaymentsRefundResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type PaymentsRefundResponse =
+  PaymentsRefundResponses[keyof PaymentsRefundResponses];
+
+export type PaymentsRefundDocumentData = {
+  body?: never;
+  path: {
+    id: string;
+    refundId: string;
+  };
+  query?: never;
+  url: '/payments/{id}/refunds/{refundId}/pdf';
+};
+
+export type PaymentsRefundDocumentResponses = {
+  200: unknown;
+};
 
 export type PaymentsGetReceiptData = {
   body?: never;
@@ -5210,6 +5456,12 @@ export type TenantsFindAllResponses = {
 
 export type TenantsCreateData = {
   body: CreateTenantDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path?: never;
   query?: never;
   url: '/tenants';
@@ -5254,6 +5506,12 @@ export type TenantsGetMyProfileSummaryResponse =
 
 export type TenantsRemoveData = {
   body?: never;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -5283,6 +5541,12 @@ export type TenantsFindOneResponse =
 
 export type TenantsUpdateData = {
   body: UpdateTenantDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -5331,6 +5595,12 @@ export type TenantsListActivitiesResponse =
 
 export type TenantsCreateActivityData = {
   body: CreateTenantActivityDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -5347,6 +5617,12 @@ export type TenantsCreateActivityResponse =
 
 export type TenantsUpdateActivityData = {
   body: UpdateTenantActivityDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
     activityId: string;
@@ -5409,6 +5685,12 @@ export type OwnersFindAllResponse =
 
 export type OwnersCreateData = {
   body: CreateOwnerDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path?: never;
   query?: never;
   url: '/owners';
@@ -5420,6 +5702,25 @@ export type OwnersCreateResponses = {
 
 export type OwnersCreateResponse =
   OwnersCreateResponses[keyof OwnersCreateResponses];
+
+export type OwnersGetPageData = {
+  body?: never;
+  path?: never;
+  query?: {
+    search?: string;
+    page?: number;
+    limit?: number;
+    sortOrder?: 'ASC' | 'DESC';
+  };
+  url: '/owners/page';
+};
+
+export type OwnersGetPageResponses = {
+  200: OwnerPageDto;
+};
+
+export type OwnersGetPageResponse =
+  OwnersGetPageResponses[keyof OwnersGetPageResponses];
 
 export type OwnersGetMyProfileData = {
   body?: never;
@@ -5467,6 +5768,12 @@ export type OwnersFindOneResponse =
 
 export type OwnersUpdateData = {
   body: UpdateOwnerDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -5539,6 +5846,12 @@ export type OwnersListActivitiesResponse =
 
 export type OwnersCreateActivityData = {
   body: CreateOwnerActivityDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -5555,6 +5868,12 @@ export type OwnersCreateActivityResponse =
 
 export type OwnersUpdateActivityData = {
   body: UpdateOwnerActivityDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
     activityId: string;
@@ -5901,6 +6220,107 @@ export type HealthCheckResponses = {
 export type HealthCheckResponse =
   HealthCheckResponses[keyof HealthCheckResponses];
 
+export type InterestedWorkflowPreviewImportData = {
+  body: PreviewInterestedImportDto;
+  path?: never;
+  query?: never;
+  url: '/interested/workflow/import/preview';
+};
+
+export type InterestedWorkflowPreviewImportResponses = {
+  201: unknown;
+};
+
+export type InterestedWorkflowApplyImportData = {
+  body: ApplyInterestedImportDto;
+  headers: {
+    'Idempotency-Key': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/interested/workflow/import';
+};
+
+export type InterestedWorkflowApplyImportResponses = {
+  201: unknown;
+};
+
+export type InterestedWorkflowPreviewMergeData = {
+  body: PreviewInterestedMergeDto;
+  path?: never;
+  query?: never;
+  url: '/interested/workflow/merge/preview';
+};
+
+export type InterestedWorkflowPreviewMergeResponses = {
+  201: unknown;
+};
+
+export type InterestedWorkflowMergeData = {
+  body: ApplyInterestedMergeDto;
+  headers: {
+    'Idempotency-Key': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/interested/workflow/merge';
+};
+
+export type InterestedWorkflowMergeResponses = {
+  201: unknown;
+};
+
+export type InterestedWorkflowPipelineData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/interested/workflow/pipeline';
+};
+
+export type InterestedWorkflowPipelineResponses = {
+  200: Array<{
+    [key: string]: unknown;
+  }>;
+};
+
+export type InterestedWorkflowPipelineResponse =
+  InterestedWorkflowPipelineResponses[keyof InterestedWorkflowPipelineResponses];
+
+export type InterestedWorkflowConfigurePipelineData = {
+  body: ConfigureInterestedPipelineDto;
+  headers: {
+    'Idempotency-Key': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/interested/workflow/pipeline';
+};
+
+export type InterestedWorkflowConfigurePipelineResponses = {
+  200: unknown;
+};
+
+export type InterestedWorkflowMoveData = {
+  body: MoveInterestedPipelineDto;
+  headers: {
+    'Idempotency-Key': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/interested/workflow/pipeline/{id}';
+};
+
+export type InterestedWorkflowMoveResponses = {
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type InterestedWorkflowMoveResponse =
+  InterestedWorkflowMoveResponses[keyof InterestedWorkflowMoveResponses];
+
 export type InterestedFindAllData = {
   body?: never;
   path?: never;
@@ -5932,6 +6352,12 @@ export type InterestedFindAllResponses = {
 
 export type InterestedCreateData = {
   body: CreateInterestedProfileDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path?: never;
   query?: never;
   url: '/interested';
@@ -5973,6 +6399,12 @@ export type InterestedFindPotentialDuplicatesResponses = {
 
 export type InterestedRemoveData = {
   body?: never;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -6002,6 +6434,12 @@ export type InterestedFindOneResponse =
 
 export type InterestedUpdateData = {
   body: UpdateInterestedProfileDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -6065,6 +6503,12 @@ export type InterestedFindMatchesResponse =
 
 export type InterestedRefreshMatchesData = {
   body?: never;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -6081,6 +6525,12 @@ export type InterestedRefreshMatchesResponse =
 
 export type InterestedUpdateMatchData = {
   body: UpdateInterestedMatchDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
     matchId: string;
@@ -6098,6 +6548,12 @@ export type InterestedUpdateMatchResponse =
 
 export type InterestedChangeStageData = {
   body: ChangeInterestedStageDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -6114,6 +6570,12 @@ export type InterestedChangeStageResponse =
 
 export type InterestedCreateActivityData = {
   body: CreateInterestedActivityDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -6164,6 +6626,12 @@ export type InterestedListReservationsResponse =
 
 export type InterestedCreateReservationData = {
   body: CreatePropertyReservationDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -6180,6 +6648,12 @@ export type InterestedCreateReservationResponse =
 
 export type InterestedUpdateActivityData = {
   body: UpdateInterestedActivityDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
     activityId: string;
@@ -6197,6 +6671,12 @@ export type InterestedUpdateActivityResponse =
 
 export type InterestedConvertToTenantData = {
   body: ConvertInterestedToTenantDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -6210,6 +6690,12 @@ export type InterestedConvertToTenantResponses = {
 
 export type InterestedConvertToBuyerData = {
   body: ConvertInterestedToBuyerDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -6237,6 +6723,9 @@ export type SalesListFoldersResponse =
 
 export type SalesCreateFolderData = {
   body: CreateSaleFolderDto;
+  headers: {
+    'idempotency-key': string;
+  };
   path?: never;
   query?: never;
   url: '/sales/folders';
@@ -6254,6 +6743,9 @@ export type SalesListAgreementsData = {
   path?: never;
   query?: {
     folderId?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
   };
   url: '/sales/agreements';
 };
@@ -6267,6 +6759,9 @@ export type SalesListAgreementsResponse =
 
 export type SalesCreateAgreementData = {
   body: CreateSaleAgreementDto;
+  headers: {
+    'idempotency-key': string;
+  };
   path?: never;
   query?: never;
   url: '/sales/agreements';
@@ -6278,6 +6773,22 @@ export type SalesCreateAgreementResponses = {
 
 export type SalesCreateAgreementResponse =
   SalesCreateAgreementResponses[keyof SalesCreateAgreementResponses];
+
+export type SalesPageAgreementsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    folderId?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  };
+  url: '/sales/agreements/page';
+};
+
+export type SalesPageAgreementsResponses = {
+  200: unknown;
+};
 
 export type SalesGetAgreementData = {
   body?: never;
@@ -6313,6 +6824,9 @@ export type SalesListReceiptsResponse =
 
 export type SalesCreateReceiptData = {
   body: CreateSaleReceiptDto;
+  headers: {
+    'idempotency-key': string;
+  };
   path: {
     id: string;
   };
@@ -6326,6 +6840,42 @@ export type SalesCreateReceiptResponses = {
 
 export type SalesCreateReceiptResponse =
   SalesCreateReceiptResponses[keyof SalesCreateReceiptResponses];
+
+export type SalesCancelReceiptData = {
+  body: CancelSaleReceiptDto;
+  headers: {
+    'idempotency-key': string;
+  };
+  path: {
+    receiptId: string;
+  };
+  query?: never;
+  url: '/sales/receipts/{receiptId}/cancel';
+};
+
+export type SalesCancelReceiptResponses = {
+  200: SaleReceipt;
+};
+
+export type SalesCancelReceiptResponse =
+  SalesCancelReceiptResponses[keyof SalesCancelReceiptResponses];
+
+export type SalesGetScheduleData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query: {
+    page: number;
+    limit: number;
+    asOf?: string;
+  };
+  url: '/sales/agreements/{id}/schedule';
+};
+
+export type SalesGetScheduleResponses = {
+  200: unknown;
+};
 
 export type SalesDownloadReceiptData = {
   body?: never;
@@ -6475,6 +7025,24 @@ export type PendingActionsApproveResponses = {
 export type PendingActionsApproveResponse =
   PendingActionsApproveResponses[keyof PendingActionsApproveResponses];
 
+export type PendingActionsDetailData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/pending-actions/{id}';
+};
+
+export type PendingActionsDetailResponses = {
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type PendingActionsDetailResponse =
+  PendingActionsDetailResponses[keyof PendingActionsDetailResponses];
+
 export type PendingActionsRejectData = {
   body: RejectPendingActionDto;
   path: {
@@ -6522,6 +7090,9 @@ export type MaintenanceFindAllResponse =
 
 export type MaintenanceCreateData = {
   body: CreateMaintenanceTicketDto;
+  headers: {
+    'idempotency-key': string;
+  };
   path?: never;
   query?: never;
   url: '/maintenance/tickets';
@@ -6536,6 +7107,9 @@ export type MaintenanceCreateResponse =
 
 export type MaintenanceRemoveData = {
   body?: never;
+  headers: {
+    'idempotency-key': string;
+  };
   path: {
     id: string;
   };
@@ -6568,6 +7142,9 @@ export type MaintenanceFindOneResponse =
 
 export type MaintenanceUpdateData = {
   body: UpdateMaintenanceTicketDto;
+  headers: {
+    'idempotency-key': string;
+  };
   path: {
     id: string;
   };
@@ -6600,6 +7177,9 @@ export type MaintenanceGetCommentsResponse =
 
 export type MaintenanceAddCommentData = {
   body: CreateCommentDto;
+  headers: {
+    'idempotency-key': string;
+  };
   path: {
     id: string;
   };
@@ -7146,6 +7726,12 @@ export type BuyersFindAllResponses = {
 
 export type BuyersCreateData = {
   body: CreateBuyerDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path?: never;
   query?: never;
   url: '/buyers';
@@ -7176,6 +7762,12 @@ export type BuyersFindOneResponse =
 
 export type BuyersUpdateData = {
   body: UpdateBuyerDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    'Idempotency-Key'?: string;
+  };
   path: {
     id: string;
   };
@@ -7271,8 +7863,47 @@ export type BankReconciliationResolveAlertResponses = {
 export type BankReconciliationResolveAlertResponse =
   BankReconciliationResolveAlertResponses[keyof BankReconciliationResolveAlertResponses];
 
+export type MaintenanceAttachmentsCreateData = {
+  body: MaintenanceAttachmentDto;
+  headers?: {
+    'Idempotency-Key'?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/maintenance/tickets/{id}/attachments/upload-url';
+};
+
+export type MaintenanceAttachmentsCreateResponses = {
+  201: unknown;
+};
+
+export type MaintenanceAttachmentsConfirmData = {
+  body?: never;
+  headers?: {
+    'Idempotency-Key'?: string;
+  };
+  path: {
+    id: string;
+    documentId: string;
+  };
+  query?: never;
+  url: '/maintenance/tickets/{id}/attachments/{documentId}/confirm';
+};
+
+export type MaintenanceAttachmentsConfirmResponses = {
+  200: Document;
+};
+
+export type MaintenanceAttachmentsConfirmResponse =
+  MaintenanceAttachmentsConfirmResponses[keyof MaintenanceAttachmentsConfirmResponses];
+
 export type PaymentGatewayCreatePreferenceData = {
   body: CreatePaymentPreferenceDto;
+  headers: {
+    'idempotency-key': string;
+  };
   path?: never;
   query?: never;
   url: '/payment-gateway/preferences';

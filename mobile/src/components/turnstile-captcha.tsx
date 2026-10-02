@@ -1,8 +1,10 @@
+import { Text, View } from '@/components/themed-native';
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '@/contexts/theme-context';
 
 type TurnstileCaptchaProps = Readonly<{
   onTokenChange: (token: string | null) => void;
@@ -17,7 +19,11 @@ type BridgePayload =
 const TURNSTILE_SRC =
   'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
-const buildHtml = (siteKey: string) => `<!doctype html>
+const buildHtml = (
+  siteKey: string,
+  mode: 'light' | 'dark',
+  background: string,
+) => `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -31,7 +37,7 @@ const buildHtml = (siteKey: string) => `<!doctype html>
         padding: 0;
         width: 100%;
         height: 100%;
-        background: #ffffff;
+        background: ${background};
         overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       }
@@ -58,6 +64,7 @@ const buildHtml = (siteKey: string) => `<!doctype html>
 
           window.turnstile.render('#widget', {
             sitekey: ${JSON.stringify(siteKey)},
+            theme: ${JSON.stringify(mode)},
             callback: function(token) {
               post({ type: 'token', token: token });
             },
@@ -86,12 +93,13 @@ export function TurnstileCaptcha({
   testID = 'captcha.widget',
 }: TurnstileCaptchaProps) {
   const { t } = useTranslation();
+  const { colors, mode } = useTheme();
   const siteKey = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY?.trim() ?? '';
 
   const html = useMemo(() => {
     if (!siteKey) return '';
-    return buildHtml(siteKey);
-  }, [siteKey]);
+    return buildHtml(siteKey, mode, colors.surface);
+  }, [siteKey, mode, colors.surface]);
 
   const handleMessage = (event: WebViewMessageEvent) => {
     try {
@@ -131,7 +139,7 @@ export function TurnstileCaptcha({
         domStorageEnabled
         originWhitelist={['*']}
         scrollEnabled={false}
-        style={styles.webView}
+        style={[styles.webView, { backgroundColor: colors.surface }]}
       />
     </View>
   );

@@ -11,7 +11,7 @@ beforeEach(() => {
 });
 test("leaves legacy behavior unchanged and permits explicit local disable", () => {
   expect(databaseTls({})).toBeUndefined();
-  expect(databaseTls({ DATABASE_SSL_MODE: "disable" })).toBe(false);
+  expect(databaseTls({ DATABASE_SSL_MODE: "disable" })).toEqual({ ssl: false });
   expect(readFileSync).not.toHaveBeenCalled();
 });
 test("rejects modes that cannot verify the server", () => {
@@ -39,8 +39,7 @@ test.each([
   "postgres://db/app?application_name=rent",
 ])("uses the configured CA with URL %s", (url) => {
   expect(databaseTls({ ...verified, DATABASE_URL: url })).toEqual({
-    rejectUnauthorized: true,
-    ca: "test-ca",
+    ssl: { rejectUnauthorized: true, ca: "test-ca" },
   });
   expect(readFileSync).toHaveBeenCalledWith("/ca.crt", "utf8");
 });

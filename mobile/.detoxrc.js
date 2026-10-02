@@ -10,6 +10,13 @@ module.exports = {
     },
   },
   apps: {
+    'ios.debug': {
+      type: 'ios.app',
+      binaryPath:
+        process.env.DETOX_IOS_BINARY ||
+        'artifacts/ios/DerivedData/Build/Products/Debug-iphonesimulator/rent.app',
+      launchArgs: { detoxEnableSynchronization: '0' },
+    },
     'android.debug': {
       type: 'android.apk',
       binaryPath: 'android/app/build/outputs/apk/debug/app-debug.apk',
@@ -35,6 +42,12 @@ module.exports = {
     },
   },
   devices: {
+    simulator: {
+      type: 'ios.simulator',
+      device: process.env.DETOX_IOS_SIMULATOR_ID
+        ? { id: process.env.DETOX_IOS_SIMULATOR_ID }
+        : { type: 'iPhone 16' },
+    },
     emulator: {
       type: 'android.emulator',
       device: {
@@ -51,6 +64,10 @@ module.exports = {
     },
   },
   configurations: {
+    'ios.sim.debug': {
+      device: 'simulator',
+      app: 'ios.debug',
+    },
     'android.emu.debug': {
       device: 'emulator',
       app: 'android.debug',

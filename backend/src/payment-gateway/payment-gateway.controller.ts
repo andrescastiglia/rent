@@ -15,6 +15,8 @@ import {
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Public } from '../common/decorators/public.decorator';
+import { SelfServiceAction } from '../common/decorators/self-service-action.decorator';
+import { Authenticated } from '../common/decorators/authenticated.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { PaymentGatewayService } from './payment-gateway.service';
 import { CreatePaymentPreferenceDto } from './dto/create-payment-preference.dto';
@@ -32,14 +34,17 @@ interface AuthenticatedRequest {
 
 @Controller('payment-gateway')
 @UseGuards(JwtAuthGuard)
+@Authenticated('payments')
 export class PaymentGatewayController {
   constructor(private readonly paymentGatewayService: PaymentGatewayService) {}
 
   @Post('preferences')
+  @SelfServiceAction('checkout.create')
   @Roles(UserRole.ADMIN, UserRole.TENANT)
   async createPreference(
     @Body() dto: CreatePaymentPreferenceDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ): Promise<{
     initPoint: string;
     sandboxInitPoint: string;
@@ -50,6 +55,7 @@ export class PaymentGatewayController {
       req.user.id,
       dto,
       req.user,
+      executionKey,
     );
   }
 

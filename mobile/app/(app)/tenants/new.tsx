@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { useAuth } from '@/contexts/auth-context';
 import { tenantsApi } from '@/api/tenants';
 import { Screen } from '@/components/screen';
 import { H1 } from '@/components/ui';
@@ -11,11 +12,13 @@ import type { CreateTenantInput } from '@/types/tenant';
 
 export default function NewTenantScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const { t } = useTranslation();
 
   const mutation = useMutation({
-    mutationFn: (payload: CreateTenantInput) => tenantsApi.create(payload),
+    mutationFn: (payload: CreateTenantInput) =>
+      tenantsApi.create({ ...payload, companyId: user?.companyId }),
     onSuccess: async (created) => {
       await queryClient.invalidateQueries({ queryKey: ['tenants'] });
       router.replace(`/(app)/tenants/${created.id}`);
@@ -29,7 +32,10 @@ export default function NewTenantScreen() {
   });
 
   return (
-    <Screen scrollViewTestID="tenantCreate.scroll">
+    <Screen
+      scrollViewTestID="tenantCreate.scroll"
+      guidanceBlocked={mutation.isPending || mutation.isError}
+    >
       <H1>{t('tenants.newTenant')}</H1>
       <TenantForm
         submitLabel={t('tenants.addTenant')}

@@ -5,10 +5,12 @@ import Sidebar from "@/components/layout/Sidebar";
 import Footer from "@/components/layout/Footer";
 import Breadcrumbs from "@/components/ui/Breadcrumbs";
 import AiAssistantPanel from "@/components/ai/AiAssistantPanel";
+import ContextualGuidance from "@/components/common/ContextualGuidance";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { aiApi, AiToolsMode } from "@/lib/api/ai";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 
 interface MainLayoutProps {
@@ -18,9 +20,19 @@ interface MainLayoutProps {
 export default function MainLayout({ children }: MainLayoutProps) {
   const { user, token, loading } = useAuth();
   const router = useLocalizedRouter();
+  const t = useTranslations("common");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [aiMode, setAiMode] = useState<AiToolsMode>("NONE");
+  const conversationScope = user
+    ? `${user.companyId ?? "global"}:${user.id}`
+    : "";
+  const [aiStatus, setAiStatus] = useState<{
+    scope: string;
+    mode: AiToolsMode;
+  } | null>(null);
+  const aiMode =
+    token && aiStatus?.scope === conversationScope ? aiStatus.mode : "NONE";
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -37,10 +49,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
       try {
         const status = await aiApi.getToolsStatus();
         if (!isMounted) return;
-        setAiMode(status.mode);
+        setAiStatus({ scope: conversationScope, mode: status.mode });
       } catch {
         if (!isMounted) return;
-        setAiMode("NONE");
+        setAiStatus({ scope: conversationScope, mode: "NONE" });
       }
     };
 
@@ -49,13 +61,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
     return () => {
       isMounted = false;
     };
-  }, [user, token]);
+  }, [conversationScope, user, token]);
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="animate-spin h-12 w-12 text-blue-500" />
-      </div>
+      <output className="flex min-h-screen items-center justify-center gap-3 text-muted">
+        <Loader2
+          className="animate-spin h-6 w-6 text-primary"
+          aria-hidden="true"
+        />
+        <span>{t("loading")}</span>
+      </output>
     );
   }
 
@@ -64,9 +80,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex min-h-screen min-w-0 flex-col bg-background">
+      <a href="#main-content" className="skip-link">
+        {t("skipToContent")}
+      </a>
       <Header
-        onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+        onMenuToggle={() => setSidebarOpen((open) => !open)}
         aiEnabled={aiMode !== "NONE"}
         aiPanelOpen={isAiPanelOpen && aiMode !== "NONE"}
         sidebarOpen={sidebarOpen}
@@ -75,20 +94,31 @@ export default function MainLayout({ children }: MainLayoutProps) {
           setIsAiPanelOpen((prev) => !prev);
         }}
       />
-      <div className="flex flex-1">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <main className="flex-1 p-6 bg-gray-50 dark:bg-gray-900">
-          <div className="max-w-7xl mx-auto">
+      <div className="flex min-w-0 flex-1 items-start">
+        <Sidebar isOpen={sidebarOpen} onClose={closeSidebar} />
+        <main
+          id="main-content"
+          tabIndex={-1}
+          data-sidebar-background
+          className="min-w-0 w-full flex-1 px-4 py-5 sm:px-6 sm:py-6 xl:px-8"
+        >
+          <div
+            key={`content:${conversationScope}`}
+            className="mx-auto min-w-0 max-w-7xl"
+          >
             <Breadcrumbs />
             {children}
           </div>
           <AiAssistantPanel
+            key={conversationScope}
+            conversationScope={conversationScope}
             isOpen={isAiPanelOpen && aiMode !== "NONE"}
             mode={aiMode}
             onClose={() => setIsAiPanelOpen(false)}
           />
         </main>
       </div>
+      <ContextualGuidance />
       <Footer />
     </div>
   );

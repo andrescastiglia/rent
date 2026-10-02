@@ -1325,7 +1325,11 @@ export class LeasesService {
   ): Promise<void> {
     if (contractType === ContractType.RENTAL) {
       this.validateRentalCreate(dto);
-      await this.validateTenantForCompany(dto.tenantId!, companyId, manager);
+      dto.tenantId = await this.validateTenantForCompany(
+        dto.tenantId!,
+        companyId,
+        manager,
+      );
       await this.ensureNoActiveRentalLease(propertyId, manager);
       await this.ensureNoOpenLeaseForParty(
         propertyId,
@@ -1802,7 +1806,11 @@ export class LeasesService {
         throw new BadRequestException('Rental imports require tenantId');
       }
 
-      await this.validateTenantForCompany(dto.tenantId, companyId, manager);
+      dto.tenantId = await this.validateTenantForCompany(
+        dto.tenantId,
+        companyId,
+        manager,
+      );
       await this.ensureNoActiveRentalLease(propertyId, manager);
       await this.ensureNoOpenLeaseForParty(
         propertyId,
@@ -2096,7 +2104,7 @@ export class LeasesService {
   private getUploadedFileExtension(filename: string): string {
     const normalized = filename.trim().toLowerCase();
     const parts = normalized.split('.');
-    return parts.length > 1 ? parts[parts.length - 1] : '';
+    return parts.length > 1 ? parts.at(-1)! : '';
   }
 
   private plainTextToHtml(value: string): string {
@@ -2245,7 +2253,11 @@ export class LeasesService {
     manager?: EntityManager,
   ): Promise<void> {
     if (contractType === ContractType.RENTAL && dto.tenantId) {
-      await this.validateTenantForCompany(dto.tenantId, companyId, manager);
+      dto.tenantId = await this.validateTenantForCompany(
+        dto.tenantId,
+        companyId,
+        manager,
+      );
     }
     if (contractType === ContractType.SALE && dto.buyerId) {
       const buyer = await (
@@ -2263,15 +2275,19 @@ export class LeasesService {
     tenantId: string,
     companyId: string,
     manager?: EntityManager,
-  ): Promise<void> {
+  ): Promise<string> {
     const tenant = await (
       manager?.getRepository(Tenant) ?? this.tenantsRepository
     ).findOne({
-      where: { id: tenantId, companyId, deletedAt: IsNull() },
+      where: [
+        { id: tenantId, companyId, deletedAt: IsNull() },
+        { userId: tenantId, companyId, deletedAt: IsNull() },
+      ],
     });
     if (!tenant) {
       throw new NotFoundException('Tenant not found');
     }
+    return tenant.id;
   }
 
   private applyVisibilityScope(

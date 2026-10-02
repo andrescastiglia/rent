@@ -38,7 +38,7 @@ const resolveInterestedStatus = (raw: any): InterestedStatus => {
     return raw.status;
   }
   if (raw.convertedToTenantId) return "tenant";
-  if (raw.convertedToSaleAgreementId) return "buyer";
+  if (raw.convertedToBuyerId || raw.convertedToSaleAgreementId) return "buyer";
   return "interested";
 };
 
@@ -207,11 +207,13 @@ const mapProfile = (raw: any): InterestedProfile => {
     lastContactAt: toOptionalIsoString(raw.lastContactAt),
     nextContactAt: toOptionalIsoString(raw.nextContactAt),
     lostReason: raw.lostReason,
+    pipelineStage: raw.pipelineStage,
     consentContact: raw.consentContact,
     consentRecordedAt: toOptionalIsoString(raw.consentRecordedAt),
     registeredInOffice: raw.registeredInOffice,
     preferredContactChannel: raw.preferredContactChannel,
     convertedToTenantId: raw.convertedToTenantId,
+    convertedToBuyerId: raw.convertedToBuyerId,
     convertedToSaleAgreementId: raw.convertedToSaleAgreementId,
     notes: raw.notes,
     createdAt: raw.createdAt

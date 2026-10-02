@@ -123,7 +123,7 @@ export function SettlementGenerationPanel({
       >
         {busy ? t("loading") : t("refreshAudit")}
       </button>
-      {state && !state.enabled && <p role="status">{t("disabled")}</p>}
+      {state && !state.enabled && <output>{t("disabled")}</output>}
       {state && !generation && !error && <p>{t("legacy")}</p>}
       {generation && (
         <>

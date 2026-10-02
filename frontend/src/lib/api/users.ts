@@ -29,7 +29,7 @@ type BackendUser = {
   avatarUrl?: string | null;
   language?: string;
   role: User["role"];
-  roles?: User["roles"];
+  roles?: NonNullable<User["roles"]>;
   isActive?: boolean;
   accessRequested?: boolean;
   companyId?: string;
@@ -61,7 +61,7 @@ export type CreateManagedUserInput = {
   firstName: string;
   lastName: string;
   role: User["role"];
-  roles?: User["roles"];
+  roles?: NonNullable<User["roles"]>;
   phone?: string;
   permissions?: UserModulePermissions;
 };
@@ -73,7 +73,7 @@ export type UpdateManagedUserInput = {
   phone?: string;
   role?: User["role"];
   permissions?: UserModulePermissions;
-  roles?: User["roles"];
+  roles?: NonNullable<User["roles"]>;
 };
 
 export type ResetUserPasswordResult = {
@@ -207,14 +207,22 @@ export const usersApi = {
     );
   },
 
-  list: async (page = 1, limit = 20): Promise<UsersPage> => {
+  list: async (page = 1, limit = 20, search = ""): Promise<UsersPage> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
       const start = (page - 1) * limit;
-      const data = MOCK_MANAGED_USERS.slice(start, start + limit);
+      const term = search.trim().toLocaleLowerCase();
+      const filtered = MOCK_MANAGED_USERS.filter(
+        (user) =>
+          !term ||
+          `${user.firstName} ${user.lastName} ${user.email ?? ""}`
+            .toLocaleLowerCase()
+            .includes(term),
+      );
+      const data = filtered.slice(start, start + limit);
       return {
         data,
-        total: MOCK_MANAGED_USERS.length,
+        total: filtered.length,
         page,
         limit,
       };
@@ -222,7 +230,8 @@ export const usersApi = {
 
     const token = getToken();
     const result = await apiClient.get<UsersListResponse>(
-      `/users?page=${page}&limit=${limit}`,
+      `/users?page=${page}&limit=${limit}` +
+        (search.trim() ? "&search=" + encodeURIComponent(search.trim()) : ""),
       token ?? undefined,
     );
     return {

@@ -47,6 +47,7 @@ BEGIN
         'raster_columns',
         'raster_overviews',
         'migrations',
+        'schema_migrations',
         'typeorm_metadata'
       );
 
@@ -141,7 +142,7 @@ INSERT INTO users (
 )
 VALUES
     ('10000000-0000-0000-0000-000000000101', '10000000-0000-0000-0000-000000000001', 'admin@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'admin', 'es', 'Admin', 'Demo', '+54 11 4000-0001', TRUE, '{}'::jsonb, NOW(), NOW()),
-    ('10000000-0000-0000-0000-000000000102', '10000000-0000-0000-0000-000000000001', 'staff@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'staff', 'es', 'Sofia', 'Staff', '+54 11 4000-0002', TRUE, '{"dashboard": true, "properties": true, "owners": true, "tenants": true, "interested": true, "leases": true, "templates": true, "payments": true, "invoices": true, "sales": true, "reports": true}'::jsonb, NOW(), NOW()),
+    ('10000000-0000-0000-0000-000000000102', '10000000-0000-0000-0000-000000000001', 'staff@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'staff', 'es', 'Sofia', 'Staff', '+54 11 4000-0002', TRUE, '{"dashboard": true, "properties": true, "owners": true, "tenants": true, "interested": true, "leases": true, "templates": true, "payments": true, "invoices": true, "sales": true, "reports": true, "ai": true}'::jsonb, NOW(), NOW()),
     ('10000000-0000-0000-0000-000000000201', '10000000-0000-0000-0000-000000000001', 'ana.owner@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'owner', 'es', 'Ana', 'Gomez', '+54 11 4000-0003', TRUE, '{}'::jsonb, NOW(), NOW()),
     ('10000000-0000-0000-0000-000000000202', '10000000-0000-0000-0000-000000000001', 'bruno.owner@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'owner', 'es', 'Bruno', 'Diaz', '+54 11 4000-0004', TRUE, '{}'::jsonb, NOW(), NOW()),
     ('10000000-0000-0000-0000-000000000401', '10000000-0000-0000-0000-000000000001', 'tenant.demo@rent.demo', (SELECT password_hash FROM _reset_data_password_hash LIMIT 1), 'tenant', 'es', 'Lucas', 'Perez', '+54 11 4000-0005', TRUE, '{}'::jsonb, NOW(), NOW()),
@@ -414,6 +415,212 @@ SET
     updated_at = NOW();
 
 -- -----------------------------------------------------------------------------
+-- Lease contract templates (rental + sale)
+-- -----------------------------------------------------------------------------
+INSERT INTO lease_contract_templates (
+    id, company_id, name, contract_type, template_body, template_format, source_file_name, source_mime_type, is_active, created_at, updated_at
+)
+VALUES
+    (
+      '10000000-0000-0000-0000-000000001101',
+      '10000000-0000-0000-0000-000000000001',
+      'Alquiler Estandar',
+      'rental',
+      '<p><strong>Contrato de alquiler</strong> firmado el {{today}} entre {{owner.fullName}} y {{tenant.fullName}} para {{property.name}}.</p><p>Inicio: {{lease.startDate}}. Fin: {{lease.endDate}}. Canon mensual: {{lease.monthlyRent}} {{lease.currency}}.</p>',
+      'html',
+      NULL,
+      NULL,
+      TRUE,
+      NOW(),
+      NOW()
+    ),
+    (
+      '10000000-0000-0000-0000-000000001102',
+      '10000000-0000-0000-0000-000000000001',
+      'Alquiler con Ajustes',
+      'rental',
+      'Las partes acuerdan ajuste {{lease.adjustmentType}} cada {{lease.adjustmentFrequencyMonths}} meses.' || E'\n\n' ||
+      'Mora: tipo {{lease.lateFeeType}} valor {{lease.lateFeeValue}}.',
+      'plain_text',
+      NULL,
+      NULL,
+      TRUE,
+      NOW(),
+      NOW()
+    ),
+    (
+      '10000000-0000-0000-0000-000000001103',
+      '10000000-0000-0000-0000-000000000001',
+      'Compra Venta Estandar',
+      'sale',
+      'Boleto de compra/venta de {{property.name}} entre {{owner.fullName}} y {{buyer.fullName}}.' || E'\n\n' ||
+      'Valor fiscal: {{lease.fiscalValue}} {{lease.currency}}. Fecha: {{today}}.',
+      'plain_text',
+      NULL,
+      NULL,
+      TRUE,
+      NOW(),
+      NOW()
+    )
+ON CONFLICT (id) DO UPDATE
+SET
+    company_id = EXCLUDED.company_id,
+    name = EXCLUDED.name,
+    contract_type = EXCLUDED.contract_type,
+    template_body = EXCLUDED.template_body,
+    template_format = EXCLUDED.template_format,
+    source_file_name = EXCLUDED.source_file_name,
+    source_mime_type = EXCLUDED.source_mime_type,
+    is_active = EXCLUDED.is_active,
+    updated_at = NOW();
+
+-- Canonical contracts must exist before linked sale agreements.
+INSERT INTO leases (
+    id, company_id, property_id, tenant_id, buyer_id, owner_id, contract_type, status,
+    start_date, end_date, monthly_rent, fiscal_value, currency,
+    payment_frequency, payment_due_day, billing_frequency, billing_day,
+    template_id, template_name, draft_contract_text, draft_contract_format, confirmed_contract_text, confirmed_contract_format, confirmed_at,
+    adjustment_type, adjustment_frequency_months, inflation_index_type,
+    late_fee_type, late_fee_value, auto_generate_invoices,
+    created_at, updated_at
+)
+VALUES
+(
+    '10000000-0000-0000-0000-000000001201',
+    '10000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000602',
+    '10000000-0000-0000-0000-000000000501',
+    NULL,
+    '10000000-0000-0000-0000-000000000301',
+    'rental',
+    'active',
+    DATE '2026-01-01',
+    DATE '2028-01-01',
+    320000.00,
+    NULL,
+    'ARS',
+    'monthly',
+    10,
+    'first_of_month',
+    NULL,
+    '10000000-0000-0000-0000-000000001101',
+    'Alquiler Estandar',
+    '<p>Borrador base para caso de uso de alquiler.</p>',
+    'html',
+    '<p>Contrato confirmado para caso de uso de alquiler.</p>',
+    'html',
+    NOW(),
+    'inflation_index',
+    6,
+    'icl',
+    'none',
+    0,
+    TRUE,
+    NOW(),
+    NOW()
+),
+(
+    '10000000-0000-0000-0000-000000001202',
+    '10000000-0000-0000-0000-000000000001',
+    '10000000-0000-0000-0000-000000000603',
+    NULL,
+    '10000000-0000-0000-0000-000000000803',
+    '10000000-0000-0000-0000-000000000302',
+    'sale',
+    'active',
+    NULL,
+    NULL,
+    NULL,
+    60000000.00,
+    'ARS',
+    'monthly',
+    10,
+    'first_of_month',
+    NULL,
+    '10000000-0000-0000-0000-000000001103',
+    'Compra Venta Estandar',
+    'Borrador base para caso de uso de venta.',
+    'plain_text',
+    'Contrato confirmado para caso de uso de venta.',
+    'plain_text',
+    NOW(),
+    'fixed',
+    12,
+    NULL,
+    'none',
+    0,
+    FALSE,
+    NOW(),
+    NOW()
+),
+(
+    '20000000-0000-0000-0000-000000001201',
+    '20000000-0000-0000-0000-000000000001',
+    '20000000-0000-0000-0000-000000000601',
+    '20000000-0000-0000-0000-000000000501',
+    NULL,
+    '20000000-0000-0000-0000-000000000301',
+    'rental',
+    'active',
+    DATE '2026-01-01',
+    DATE '2028-01-01',
+    320000.00,
+    NULL,
+    'ARS',
+    'monthly',
+    10,
+    'first_of_month',
+    NULL,
+    NULL,
+    'Isolation Rental',
+    'Borrador aislado con nombres y valores deliberadamente solapados.',
+    'plain_text',
+    'Contrato aislado confirmado.',
+    'plain_text',
+    NOW(),
+    'fixed',
+    12,
+    NULL,
+    'none',
+    0,
+    TRUE,
+    NOW(),
+    NOW()
+)
+ON CONFLICT (id) DO UPDATE
+SET
+    company_id = EXCLUDED.company_id,
+    property_id = EXCLUDED.property_id,
+    tenant_id = EXCLUDED.tenant_id,
+    buyer_id = EXCLUDED.buyer_id,
+    owner_id = EXCLUDED.owner_id,
+    contract_type = EXCLUDED.contract_type,
+    status = EXCLUDED.status,
+    start_date = EXCLUDED.start_date,
+    end_date = EXCLUDED.end_date,
+    monthly_rent = EXCLUDED.monthly_rent,
+    fiscal_value = EXCLUDED.fiscal_value,
+    currency = EXCLUDED.currency,
+    payment_frequency = EXCLUDED.payment_frequency,
+    payment_due_day = EXCLUDED.payment_due_day,
+    billing_frequency = EXCLUDED.billing_frequency,
+    billing_day = EXCLUDED.billing_day,
+    template_id = EXCLUDED.template_id,
+    template_name = EXCLUDED.template_name,
+    draft_contract_text = EXCLUDED.draft_contract_text,
+    draft_contract_format = EXCLUDED.draft_contract_format,
+    confirmed_contract_text = EXCLUDED.confirmed_contract_text,
+    confirmed_contract_format = EXCLUDED.confirmed_contract_format,
+    confirmed_at = EXCLUDED.confirmed_at,
+    adjustment_type = EXCLUDED.adjustment_type,
+    adjustment_frequency_months = EXCLUDED.adjustment_frequency_months,
+    inflation_index_type = EXCLUDED.inflation_index_type,
+    late_fee_type = EXCLUDED.late_fee_type,
+    late_fee_value = EXCLUDED.late_fee_value,
+    auto_generate_invoices = EXCLUDED.auto_generate_invoices,
+    updated_at = NOW();
+
+-- -----------------------------------------------------------------------------
 -- Sale agreement (used by buyer conversion case)
 -- -----------------------------------------------------------------------------
 INSERT INTO sale_folders (id, company_id, name, description, created_at, updated_at)
@@ -433,7 +640,7 @@ SET
     updated_at = NOW();
 
 INSERT INTO sale_agreements (
-    id, company_id, folder_id, buyer_id, buyer_name, buyer_phone, total_amount, currency,
+    id, company_id, folder_id, buyer_id, contract_id, property_id, buyer_name, buyer_phone, total_amount, currency,
     installment_amount, installment_count, start_date, due_day, paid_amount, notes, created_at, updated_at
 )
 VALUES (
@@ -441,6 +648,8 @@ VALUES (
     '10000000-0000-0000-0000-000000000001',
     '10000000-0000-0000-0000-000000000801',
     '10000000-0000-0000-0000-000000000803',
+    '10000000-0000-0000-0000-000000001202',
+    '10000000-0000-0000-0000-000000000603',
     'Rocio Buy',
     '+54 11 7000-0005',
     60000000.00,
@@ -459,6 +668,8 @@ SET
     company_id = EXCLUDED.company_id,
     folder_id = EXCLUDED.folder_id,
     buyer_id = EXCLUDED.buyer_id,
+    contract_id = EXCLUDED.contract_id,
+    property_id = EXCLUDED.property_id,
     buyer_name = EXCLUDED.buyer_name,
     buyer_phone = EXCLUDED.buyer_phone,
     total_amount = EXCLUDED.total_amount,
@@ -651,66 +862,6 @@ SET interested_profile_id = '10000000-0000-0000-0000-000000000905',
 WHERE id = '10000000-0000-0000-0000-000000000803';
 
 -- -----------------------------------------------------------------------------
--- Lease contract templates (rental + sale)
--- -----------------------------------------------------------------------------
-INSERT INTO lease_contract_templates (
-    id, company_id, name, contract_type, template_body, template_format, source_file_name, source_mime_type, is_active, created_at, updated_at
-)
-VALUES
-    (
-      '10000000-0000-0000-0000-000000001101',
-      '10000000-0000-0000-0000-000000000001',
-      'Alquiler Estandar',
-      'rental',
-      '<p><strong>Contrato de alquiler</strong> firmado el {{today}} entre {{owner.fullName}} y {{tenant.fullName}} para {{property.name}}.</p><p>Inicio: {{lease.startDate}}. Fin: {{lease.endDate}}. Canon mensual: {{lease.monthlyRent}} {{lease.currency}}.</p>',
-      'html',
-      NULL,
-      NULL,
-      TRUE,
-      NOW(),
-      NOW()
-    ),
-    (
-      '10000000-0000-0000-0000-000000001102',
-      '10000000-0000-0000-0000-000000000001',
-      'Alquiler con Ajustes',
-      'rental',
-      'Las partes acuerdan ajuste {{lease.adjustmentType}} cada {{lease.adjustmentFrequencyMonths}} meses.' || E'\n\n' ||
-      'Mora: tipo {{lease.lateFeeType}} valor {{lease.lateFeeValue}}.',
-      'plain_text',
-      NULL,
-      NULL,
-      TRUE,
-      NOW(),
-      NOW()
-    ),
-    (
-      '10000000-0000-0000-0000-000000001103',
-      '10000000-0000-0000-0000-000000000001',
-      'Compra Venta Estandar',
-      'sale',
-      'Boleto de compra/venta de {{property.name}} entre {{owner.fullName}} y {{buyer.fullName}}.' || E'\n\n' ||
-      'Valor fiscal: {{lease.fiscalValue}} {{lease.currency}}. Fecha: {{today}}.',
-      'plain_text',
-      NULL,
-      NULL,
-      TRUE,
-      NOW(),
-      NOW()
-    )
-ON CONFLICT (id) DO UPDATE
-SET
-    company_id = EXCLUDED.company_id,
-    name = EXCLUDED.name,
-    contract_type = EXCLUDED.contract_type,
-    template_body = EXCLUDED.template_body,
-    template_format = EXCLUDED.template_format,
-    source_file_name = EXCLUDED.source_file_name,
-    source_mime_type = EXCLUDED.source_mime_type,
-    is_active = EXCLUDED.is_active,
-    updated_at = NOW();
-
--- -----------------------------------------------------------------------------
 -- Payment document templates (receipt, invoice, credit note)
 -- -----------------------------------------------------------------------------
 INSERT INTO payment_document_templates (
@@ -776,151 +927,6 @@ SET
 -- -----------------------------------------------------------------------------
 -- Active rental lease and tenant account (dependency complete scenario)
 -- -----------------------------------------------------------------------------
-INSERT INTO leases (
-    id, company_id, property_id, tenant_id, buyer_id, owner_id, contract_type, status,
-    start_date, end_date, monthly_rent, fiscal_value, currency,
-    payment_frequency, payment_due_day, billing_frequency, billing_day,
-    template_id, template_name, draft_contract_text, draft_contract_format, confirmed_contract_text, confirmed_contract_format, confirmed_at,
-    adjustment_type, adjustment_frequency_months, inflation_index_type,
-    late_fee_type, late_fee_value, auto_generate_invoices,
-    created_at, updated_at
-)
-VALUES
-(
-    '10000000-0000-0000-0000-000000001201',
-    '10000000-0000-0000-0000-000000000001',
-    '10000000-0000-0000-0000-000000000602',
-    '10000000-0000-0000-0000-000000000501',
-    NULL,
-    '10000000-0000-0000-0000-000000000301',
-    'rental',
-    'active',
-    DATE '2026-01-01',
-    DATE '2028-01-01',
-    320000.00,
-    NULL,
-    'ARS',
-    'monthly',
-    10,
-    'first_of_month',
-    NULL,
-    '10000000-0000-0000-0000-000000001101',
-    'Alquiler Estandar',
-    '<p>Borrador base para caso de uso de alquiler.</p>',
-    'html',
-    '<p>Contrato confirmado para caso de uso de alquiler.</p>',
-    'html',
-    NOW(),
-    'inflation_index',
-    6,
-    'icl',
-    'none',
-    0,
-    TRUE,
-    NOW(),
-    NOW()
-),
-(
-    '10000000-0000-0000-0000-000000001202',
-    '10000000-0000-0000-0000-000000000001',
-    '10000000-0000-0000-0000-000000000603',
-    NULL,
-    '10000000-0000-0000-0000-000000000803',
-    '10000000-0000-0000-0000-000000000302',
-    'sale',
-    'active',
-    NULL,
-    NULL,
-    NULL,
-    60000000.00,
-    'ARS',
-    'monthly',
-    10,
-    'first_of_month',
-    NULL,
-    '10000000-0000-0000-0000-000000001103',
-    'Compra Venta Estandar',
-    'Borrador base para caso de uso de venta.',
-    'plain_text',
-    'Contrato confirmado para caso de uso de venta.',
-    'plain_text',
-    NOW(),
-    'fixed',
-    12,
-    NULL,
-    'none',
-    0,
-    FALSE,
-    NOW(),
-    NOW()
-),
-(
-    '20000000-0000-0000-0000-000000001201',
-    '20000000-0000-0000-0000-000000000001',
-    '20000000-0000-0000-0000-000000000601',
-    '20000000-0000-0000-0000-000000000501',
-    NULL,
-    '20000000-0000-0000-0000-000000000301',
-    'rental',
-    'active',
-    DATE '2026-01-01',
-    DATE '2028-01-01',
-    320000.00,
-    NULL,
-    'ARS',
-    'monthly',
-    10,
-    'first_of_month',
-    NULL,
-    NULL,
-    'Isolation Rental',
-    'Borrador aislado con nombres y valores deliberadamente solapados.',
-    'plain_text',
-    'Contrato aislado confirmado.',
-    'plain_text',
-    NOW(),
-    'fixed',
-    12,
-    NULL,
-    'none',
-    0,
-    TRUE,
-    NOW(),
-    NOW()
-)
-ON CONFLICT (id) DO UPDATE
-SET
-    company_id = EXCLUDED.company_id,
-    property_id = EXCLUDED.property_id,
-    tenant_id = EXCLUDED.tenant_id,
-    buyer_id = EXCLUDED.buyer_id,
-    owner_id = EXCLUDED.owner_id,
-    contract_type = EXCLUDED.contract_type,
-    status = EXCLUDED.status,
-    start_date = EXCLUDED.start_date,
-    end_date = EXCLUDED.end_date,
-    monthly_rent = EXCLUDED.monthly_rent,
-    fiscal_value = EXCLUDED.fiscal_value,
-    currency = EXCLUDED.currency,
-    payment_frequency = EXCLUDED.payment_frequency,
-    payment_due_day = EXCLUDED.payment_due_day,
-    billing_frequency = EXCLUDED.billing_frequency,
-    billing_day = EXCLUDED.billing_day,
-    template_id = EXCLUDED.template_id,
-    template_name = EXCLUDED.template_name,
-    draft_contract_text = EXCLUDED.draft_contract_text,
-    draft_contract_format = EXCLUDED.draft_contract_format,
-    confirmed_contract_text = EXCLUDED.confirmed_contract_text,
-    confirmed_contract_format = EXCLUDED.confirmed_contract_format,
-    confirmed_at = EXCLUDED.confirmed_at,
-    adjustment_type = EXCLUDED.adjustment_type,
-    adjustment_frequency_months = EXCLUDED.adjustment_frequency_months,
-    inflation_index_type = EXCLUDED.inflation_index_type,
-    late_fee_type = EXCLUDED.late_fee_type,
-    late_fee_value = EXCLUDED.late_fee_value,
-    auto_generate_invoices = EXCLUDED.auto_generate_invoices,
-    updated_at = NOW();
-
 INSERT INTO tenant_accounts (
     id, company_id, tenant_id, lease_id, current_balance, currency, is_active, created_at, updated_at
 )

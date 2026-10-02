@@ -1,8 +1,10 @@
 import {
   canManageLeases,
+  canManageLeasesForUser,
   canManageOwners,
   canManageOwnersForUser,
   canManageTenants,
+  canManageTenantsForUser,
   canUserAccessModule,
   hasModuleAccess,
 } from "./permissions";
@@ -72,7 +74,63 @@ describe("canManageOwners", () => {
 describe("multi-role permissions", () => {
   it("recognizes internal capabilities held as a secondary role", () => {
     expect(
-      canManageOwnersForUser({ role: "owner", roles: ["owner", "staff"] }),
+      canManageOwnersForUser({
+        role: "owner",
+        roles: ["owner", "staff"],
+        permissions: { owners: true },
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    [canManageLeasesForUser, "leases"],
+    [canManageTenantsForUser, "tenants"],
+    [canManageOwnersForUser, "owners"],
+  ] as const)(
+    "requires the domain permission for an internal staff actor",
+    (canManage, moduleKey) => {
+      expect(canManage(null)).toBe(false);
+      expect(canManage({ role: "admin" })).toBe(true);
+      expect(canManage({ role: "owner" })).toBe(false);
+      expect(canManage({ role: "staff" })).toBe(false);
+      expect(
+        canManage({
+          role: "owner",
+          roles: ["owner", "staff"],
+          permissions: { [moduleKey]: false },
+        }),
+      ).toBe(false);
+      expect(
+        canManage({ role: "staff", permissions: { [moduleKey]: true } }),
+      ).toBe(true);
+      expect(canManage({ role: "tenant", roles: ["tenant", "admin"] })).toBe(
+        true,
+      );
+    },
+  );
+
+  it("does not bypass staff permissions through a second external role", () => {
+    expect(
+      canUserAccessModule(
+        {
+          role: "owner",
+          roles: ["owner", "staff"],
+          permissions: { properties: false },
+        },
+        ["admin", "staff", "owner"],
+        "properties",
+      ),
+    ).toBe(false);
+    expect(
+      canUserAccessModule(
+        {
+          role: "owner",
+          roles: ["owner", "staff"],
+          permissions: { properties: true },
+        },
+        ["admin", "staff", "owner"],
+        "properties",
+      ),
     ).toBe(true);
   });
 

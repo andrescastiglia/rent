@@ -70,7 +70,8 @@ históricas ni se inventan ajustes para conciliar datos anteriores.
 
 La mora no se agrega automáticamente: permanece como opción del servicio común.
 Se retiró el método batch no expuesto por CLI que modificaba el total de una factura
-ya emitida. Conceptos editables y mora auditada continúan pendientes en el plan.
+ya emitida. La [mora optativa guarda evidencia auditable](financial-corrections.md) y respeta
+gracia y tope; los reintentos no repiten el cargo.
 
 ## Documento y aviso
 

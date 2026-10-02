@@ -30,7 +30,7 @@ export async function generateSaleReceiptPdf(
       doc.text(`Recibo N°: ${receipt.receiptNumber}`);
       doc.text(`Cuota N°: ${receipt.installmentNumber}`);
       doc.text(
-        `Fecha de pago: ${new Date(receipt.paymentDate).toLocaleDateString('es-AR')}`,
+        `Fecha de pago: ${new Date(receipt.paymentDate).toLocaleDateString('es-AR', { timeZone: 'UTC' })}`,
       );
       doc.moveDown(0.5);
 

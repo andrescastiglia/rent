@@ -1,4 +1,9 @@
-import { loginAsAdmin, relaunchFreshApp, tapAndConfirmDeletion } from './helpers';
+import { openModule } from './helpers';
+import {
+  loginAsAdmin,
+  relaunchFreshApp,
+  tapAndConfirmDeletion,
+} from './helpers';
 
 describe('Tenants CRUD', () => {
   beforeAll(async () => {
@@ -11,7 +16,7 @@ describe('Tenants CRUD', () => {
     const email = `tenant.${uniqueBase}@example.com`;
     const updatedEmail = `tenant.updated.${uniqueBase}@example.com`;
 
-    await element(by.id('tab.tenants')).tap();
+    await openModule('tenants');
     await waitFor(element(by.id('tenants.new')))
       .toBeVisible()
       .withTimeout(15000);
@@ -21,17 +26,23 @@ describe('Tenants CRUD', () => {
     await element(by.id('tenantCreate.lastName')).replaceText('Tenant');
     await element(by.id('tenantCreate.email')).replaceText(email);
     await element(by.id('tenantCreate.phone')).replaceText('+5491112345678');
-    await element(by.id('tenantCreate.dni')).replaceText(uniqueBase.slice(0, 8));
+    await element(by.id('tenantCreate.dni')).replaceText(
+      uniqueBase.slice(0, 8),
+    );
     await waitFor(element(by.id('tenantCreate.submit')))
       .toBeVisible()
       .whileElement(by.id('tenantCreate.scroll'))
       .scroll(220, 'down');
     await element(by.id('tenantCreate.submit')).tap();
 
-    await waitFor(element(by.id('tenantDetail.edit'))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.id('tenantDetail.edit')))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await element(by.id('tenantDetail.edit')).tap();
-    await waitFor(element(by.id('tenantEdit.email'))).toBeVisible().withTimeout(10000);
+    await waitFor(element(by.id('tenantEdit.email')))
+      .toBeVisible()
+      .withTimeout(10000);
     await element(by.id('tenantEdit.email')).replaceText(updatedEmail);
     await waitFor(element(by.id('tenantEdit.submit')))
       .toBeVisible()
@@ -39,9 +50,13 @@ describe('Tenants CRUD', () => {
       .scroll(220, 'down');
     await element(by.id('tenantEdit.submit')).tap();
 
-    await waitFor(element(by.text(updatedEmail))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.text(updatedEmail)))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await tapAndConfirmDeletion('tenantDetail.delete');
-    await waitFor(element(by.id('tenants.new'))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.id('tenants.new')))
+      .toBeVisible()
+      .withTimeout(15000);
   });
 });

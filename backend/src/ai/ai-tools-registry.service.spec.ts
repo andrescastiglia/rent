@@ -14,6 +14,7 @@ describe('AiToolsRegistryService', () => {
           name: 'post_interested',
           description: 'Test date coercion schema',
           mutability: 'mutable',
+          supportsIdempotentRecovery: true,
           allowedRoles: [UserRole.ADMIN],
           parameters: z
             .object({
@@ -27,6 +28,7 @@ describe('AiToolsRegistryService', () => {
           name: 'post_whatsapp_webhook',
           description: 'Test unknown root schema',
           mutability: 'mutable',
+          supportsIdempotentRecovery: true,
           allowedRoles: [UserRole.ADMIN],
           parameters: z.unknown(),
           execute: jest.fn(),
@@ -66,6 +68,7 @@ describe('AiToolsRegistryService', () => {
           name: 'non_object_tool',
           description: 'Test non-object root schema',
           mutability: 'mutable',
+          supportsIdempotentRecovery: true,
           allowedRoles: [UserRole.ADMIN],
           parameters: z.string(),
           execute: jest.fn(),
@@ -154,6 +157,7 @@ describe('AiToolsRegistryService', () => {
           name: 'post_owners',
           description: 'Creates an owner',
           mutability: 'mutable',
+          supportsIdempotentRecovery: true,
           allowedRoles: [UserRole.ADMIN],
           parameters: z
             .object({ firstName: z.string(), lastName: z.string() })
@@ -200,6 +204,7 @@ describe('AiToolsRegistryService', () => {
           name: 'patch_users_profile_me',
           description: 'Updates the current user profile',
           mutability: 'mutable',
+          supportsIdempotentRecovery: true,
           allowedRoles: [UserRole.BUYER],
           parameters: z.object({ firstName: z.string() }).strict(),
           execute: jest.fn(),
@@ -276,6 +281,7 @@ describe('AiToolsRegistryService', () => {
           description:
             'Payload for PATCH /interested/:id/activities/:activityId',
           mutability: 'mutable',
+          supportsIdempotentRecovery: true,
           allowedRoles: [UserRole.ADMIN],
           parameters: UpdateInterestedActivityDto.zodSchema,
           execute: jest.fn(),
@@ -343,6 +349,7 @@ describe('AiToolsRegistryService', () => {
           name: 'create_user',
           description: 'Create user',
           mutability: 'mutable',
+          supportsIdempotentRecovery: true,
           allowedRoles: [UserRole.ADMIN],
           parameters: z
             .object({ email: z.string().regex(/^(?!blocked)[a-z]+$/) })

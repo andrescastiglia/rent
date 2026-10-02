@@ -36,9 +36,11 @@ export function canManageLeases(role: string | undefined): boolean {
 }
 
 export function canManageLeasesForUser(
-  user: Pick<NavigationUser, 'role' | 'roles'> | null | undefined,
+  user: NavigationUser | null | undefined,
 ): boolean {
-  return isInternalUser(user);
+  return Boolean(
+    user && isInternalUser(user) && canUserAccessPath(user, '/leases/new'),
+  );
 }
 
 export function canManageTenants(role: string | undefined): boolean {
@@ -46,9 +48,11 @@ export function canManageTenants(role: string | undefined): boolean {
 }
 
 export function canManageTenantsForUser(
-  user: Pick<NavigationUser, 'role' | 'roles'> | null | undefined,
+  user: NavigationUser | null | undefined,
 ): boolean {
-  return canManageLeasesForUser(user);
+  return Boolean(
+    user && isInternalUser(user) && canUserAccessPath(user, '/tenants/new'),
+  );
 }
 
 export function canManageOwners(role: string | undefined): boolean {
@@ -56,9 +60,11 @@ export function canManageOwners(role: string | undefined): boolean {
 }
 
 export function canManageOwnersForUser(
-  user: Pick<NavigationUser, 'role' | 'roles'> | null | undefined,
+  user: NavigationUser | null | undefined,
 ): boolean {
-  return canManageLeasesForUser(user);
+  return Boolean(
+    user && isInternalUser(user) && canUserAccessPath(user, '/owners/new'),
+  );
 }
 
 const routePolicies: Record<string, RoutePolicy> = {
@@ -89,7 +95,8 @@ const routePolicies: Record<string, RoutePolicy> = {
     roles: ['admin'],
     staffPermission: 'invoices',
   },
-  sales: { roles: ['admin'], staffPermission: 'sales' },
+  sales: { roles: ['admin', 'buyer'], staffPermission: 'sales' },
+  buyers: { roles: ['admin'], staffPermission: 'buyers' },
   reports: { roles: ['admin', 'owner'], staffPermission: 'reports' },
   maintenance: {
     roles: ['admin', 'owner', 'tenant'],
@@ -107,6 +114,11 @@ export const navigationItems: NavItem[] = [
     labelKey: 'dashboard',
     href: '/dashboard',
     roles: ['admin', 'owner', 'tenant', 'staff'],
+  },
+  {
+    labelKey: 'owners',
+    href: '/owners',
+    roles: ['admin', 'owner', 'staff'],
   },
   {
     labelKey: 'properties',
@@ -151,7 +163,7 @@ export const navigationItems: NavItem[] = [
   {
     labelKey: 'sales',
     href: '/sales',
-    roles: ['admin', 'staff'],
+    roles: ['admin', 'staff', 'buyer'],
   },
   {
     labelKey: 'users',
@@ -165,16 +177,14 @@ export const navigationItems: NavItem[] = [
   },
 ];
 
-export function getLandingPathForRole(role: string | undefined): string {
-  return role === 'buyer' ? '/ai' : '/dashboard';
+export function getLandingPathForRole(_role: string | undefined): string {
+  return '/home';
 }
 
 export function getLandingPathForUser(
-  user: Pick<NavigationUser, 'role' | 'roles'> | null | undefined,
+  _user: Pick<NavigationUser, 'role' | 'roles'> | null | undefined,
 ): string {
-  if (!user) return '/dashboard';
-  const roles = getUserRoles(user);
-  return roles.some((role) => role !== 'buyer') ? '/dashboard' : '/ai';
+  return '/home';
 }
 
 export function getNavigationForRole(role: string): NavItem[] {
@@ -189,12 +199,17 @@ export function canUserAccessPath(user: NavigationUser, path: string): boolean {
   const userRoles = getUserRoles(user);
   const normalizedPath = path.split('?')[0].replace(/\/$/, '');
   const staffOnlyMutationPath = [
+    /^\/properties\/new$/,
+    /^\/properties\/[^/]+\/edit$/,
+    /^\/properties\/[^/]+\/(visits|maintenance)\/new$/,
     /^\/leases\/new$/,
     /^\/leases\/[^/]+\/edit$/,
     /^\/tenants\/new$/,
     /^\/tenants\/[^/]+\/edit$/,
     /^\/tenants\/[^/]+\/payments\/new$/,
+    /^\/tenants\/[^/]+\/activities\/new$/,
     /^\/owners\/new$/,
+    /^\/owners\/[^/]+\/edit$/,
     /^\/owners\/[^/]+\/pay$/,
   ].some((pattern) => pattern.test(normalizedPath));
   if (
@@ -207,11 +222,17 @@ export function canUserAccessPath(user: NavigationUser, path: string): boolean {
     .split('?')[0]
     .split('/')
     .find((part) => part !== '' && !part.startsWith('('));
-  if (!segment || segment === 'settings') return true;
+  if (!segment || ['settings', 'home', 'tasks', 'more'].includes(segment))
+    return true;
   const policy = routePolicies[segment];
   if (!policy) return false;
   if (userRoles.includes('admin')) return true;
   if (userRoles.includes('staff')) {
+    if (staffOnlyMutationPath)
+      return Boolean(
+        policy.staffPermission &&
+        user.permissions?.[policy.staffPermission] === true,
+      );
     if (
       userRoles.some((role) => role !== 'staff' && policy.roles.includes(role))
     ) {

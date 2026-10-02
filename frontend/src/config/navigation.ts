@@ -15,7 +15,11 @@ import {
   HardHat,
   Wrench,
   HandCoins,
+  ContactRound,
 } from "lucide-react";
+
+export type NavigationGroup =
+  "home" | "operations" | "people" | "administration";
 
 export interface NavItem {
   labelKey: string; // Clave de traducción en messages/**.json bajo "nav"
@@ -24,15 +28,24 @@ export interface NavItem {
   moduleKey?: UserModulePermissionKey;
   icon?: LucideIcon;
   disabled?: boolean;
+  group?: NavigationGroup;
 }
 
 export const navigationItems: NavItem[] = [
+  {
+    labelKey: "buyerPortal",
+    href: "/portal/buyer",
+    roles: ["buyer"],
+    icon: HandCoins,
+    group: "operations",
+  },
   {
     labelKey: "dashboard",
     href: "/dashboard",
     roles: ["admin", "owner", "tenant", "staff"],
     moduleKey: "dashboard",
     icon: LayoutDashboard,
+    group: "home",
   },
   {
     labelKey: "properties",
@@ -40,6 +53,7 @@ export const navigationItems: NavItem[] = [
     roles: ["admin", "owner", "staff"],
     moduleKey: "properties",
     icon: Building2,
+    group: "operations",
   },
   {
     labelKey: "tenants",
@@ -47,6 +61,15 @@ export const navigationItems: NavItem[] = [
     roles: ["admin", "owner", "staff"],
     moduleKey: "tenants",
     icon: Users,
+    group: "people",
+  },
+  {
+    labelKey: "owners",
+    href: "/owners",
+    roles: ["admin", "owner", "staff"],
+    moduleKey: "owners",
+    icon: ContactRound,
+    group: "people",
   },
   {
     labelKey: "leases",
@@ -54,6 +77,7 @@ export const navigationItems: NavItem[] = [
     roles: ["admin", "owner", "tenant", "staff"],
     moduleKey: "leases",
     icon: FileText,
+    group: "operations",
   },
   {
     labelKey: "templates",
@@ -61,6 +85,7 @@ export const navigationItems: NavItem[] = [
     roles: ["admin", "staff"],
     moduleKey: "templates",
     icon: FileStack,
+    group: "administration",
   },
   {
     labelKey: "reports",
@@ -68,6 +93,7 @@ export const navigationItems: NavItem[] = [
     roles: ["admin", "owner", "staff"],
     moduleKey: "reports",
     icon: BarChart2,
+    group: "operations",
   },
   {
     labelKey: "payments",
@@ -75,6 +101,7 @@ export const navigationItems: NavItem[] = [
     roles: ["admin", "staff"],
     moduleKey: "payments",
     icon: CreditCard,
+    group: "operations",
   },
   {
     labelKey: "invoices",
@@ -82,6 +109,7 @@ export const navigationItems: NavItem[] = [
     roles: ["admin", "staff"],
     moduleKey: "invoices",
     icon: Receipt,
+    group: "operations",
   },
   {
     labelKey: "sales",
@@ -89,6 +117,15 @@ export const navigationItems: NavItem[] = [
     roles: ["admin", "staff"],
     moduleKey: "sales",
     icon: HandCoins,
+    group: "operations",
+  },
+  {
+    labelKey: "buyers",
+    href: "/buyers",
+    roles: ["admin", "owner", "staff"],
+    moduleKey: "sales",
+    icon: ContactRound,
+    group: "people",
   },
   {
     labelKey: "interested",
@@ -96,6 +133,7 @@ export const navigationItems: NavItem[] = [
     roles: ["admin", "staff"],
     moduleKey: "interested",
     icon: UserSearch,
+    group: "people",
   },
   {
     labelKey: "users",
@@ -103,12 +141,14 @@ export const navigationItems: NavItem[] = [
     roles: ["admin"],
     moduleKey: "users",
     icon: UserCog,
+    group: "administration",
   },
   {
     labelKey: "staff",
     href: "/staff",
     roles: ["admin"],
     icon: HardHat,
+    group: "administration",
   },
   {
     labelKey: "maintenance",
@@ -116,6 +156,7 @@ export const navigationItems: NavItem[] = [
     roles: ["admin", "staff"],
     moduleKey: "maintenance",
     icon: Wrench,
+    group: "operations",
   },
 ];
 
@@ -126,7 +167,7 @@ export function getNavigationForRole(role: string): NavItem[] {
 export function getLandingPathForRole(role: User["role"] | undefined): string {
   if (role === "tenant") return "/portal/tenant";
   if (role === "owner") return "/portal/owner";
-  if (role === "buyer") return "/settings";
+  if (role === "buyer") return "/portal/buyer";
   return "/dashboard";
 }
 
@@ -135,8 +176,10 @@ export function getLandingPathForUser(
 ): string {
   if (!user) return "/dashboard";
   const roles = user.roles?.length ? user.roles : [user.role];
-  if (roles.some((role) => role !== "buyer")) return "/dashboard";
-  return "/settings";
+  if (roles.includes("admin") || roles.includes("staff")) return "/dashboard";
+  if (roles.includes("owner")) return "/portal/owner";
+  if (roles.includes("tenant")) return "/portal/tenant";
+  return "/portal/buyer";
 }
 
 export function getNavigationForUser(

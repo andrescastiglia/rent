@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { useAuth } from '@/contexts/auth-context';
 import { leasesApi } from '@/api/leases';
 import { Screen } from '@/components/screen';
 import { H1 } from '@/components/ui';
@@ -11,6 +12,7 @@ import type { CreateLeaseInput } from '@/types/lease';
 
 export default function NewLeaseScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const params = useLocalSearchParams<{
     propertyId?: string;
     ownerId?: string;
@@ -25,7 +27,8 @@ export default function NewLeaseScreen() {
   const { t } = useTranslation();
 
   const mutation = useMutation({
-    mutationFn: (payload: CreateLeaseInput) => leasesApi.create(payload),
+    mutationFn: (payload: CreateLeaseInput) =>
+      leasesApi.create({ ...payload, companyId: user?.companyId }),
     onSuccess: async (created) => {
       await queryClient.invalidateQueries({ queryKey: ['leases'] });
       router.replace(`/(app)/leases/${created.id}`);
@@ -39,7 +42,10 @@ export default function NewLeaseScreen() {
   });
 
   return (
-    <Screen scrollViewTestID="leaseCreate.scroll">
+    <Screen
+      scrollViewTestID="leaseCreate.scroll"
+      guidanceBlocked={mutation.isPending || mutation.isError}
+    >
       <H1>{t('leases.newLease')}</H1>
       <LeaseForm
         mode="create"

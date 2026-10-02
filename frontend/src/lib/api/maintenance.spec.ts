@@ -99,32 +99,17 @@ describe("maintenanceApi", () => {
         expect(result).toHaveLength(0);
       });
 
-      it("filters by search term matching title", async () => {
-        const { maintenanceApi } = await loadMaintenanceApi(true);
-        const result = await resolveMockDelay(
-          maintenanceApi.getAll({ search: "cortocircuito" }),
-        );
-        expect(result).toHaveLength(1);
-        expect(result[0].id).toBe("mock-ticket-2");
-      });
-
-      it("filters by search term matching description", async () => {
-        const { maintenanceApi } = await loadMaintenanceApi(true);
-        const result = await resolveMockDelay(
-          maintenanceApi.getAll({ search: "enchufes" }),
-        );
-        expect(result).toHaveLength(1);
-        expect(result[0].id).toBe("mock-ticket-2");
-      });
-
-      it("filters by search term matching property address", async () => {
-        const { maintenanceApi } = await loadMaintenanceApi(true);
-        const result = await resolveMockDelay(
-          maintenanceApi.getAll({ search: "florida" }),
-        );
-        expect(result).toHaveLength(1);
-        expect(result[0].id).toBe("mock-ticket-2");
-      });
+      it.each(["cortocircuito", "enchufes", "florida"])(
+        "filters title, description or address by %s",
+        async (search) => {
+          const { maintenanceApi } = await loadMaintenanceApi(true);
+          const result = await resolveMockDelay(
+            maintenanceApi.getAll({ search }),
+          );
+          expect(result).toHaveLength(1);
+          expect(result[0].id).toBe("mock-ticket-2");
+        },
+      );
     });
 
     describe("getOne", () => {

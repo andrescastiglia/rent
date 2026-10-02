@@ -89,6 +89,9 @@ function DocumentContent({
     }
   };
   const status = state?.status;
+  let statusLabel = state?.available ? "available" : "unavailable";
+  if (status === "queued") statusLabel = "queued";
+  if (status === "dead_letter") statusLabel = "deadLetter";
   return (
     <section
       aria-label={t("title")}
@@ -97,19 +100,7 @@ function DocumentContent({
     >
       <h3 className="font-semibold">{t("title")}</h3>
       {error && <p role="alert">{t(error)}</p>}
-      {state && !error && (
-        <p role="status">
-          {t(
-            status === "queued"
-              ? "queued"
-              : status === "dead_letter"
-                ? "deadLetter"
-                : state.available
-                  ? "available"
-                  : "unavailable",
-          )}
-        </p>
-      )}
+      {state && !error && <output>{t(statusLabel)}</output>}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"

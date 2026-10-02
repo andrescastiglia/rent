@@ -25,6 +25,10 @@ describe('PendingActionsService', () => {
     payload: { name: 'Ana' },
     status: 'executing',
     execution_key: '22222222-2222-4222-8222-222222222222',
+    review: {
+      observedVersion: 'version',
+      expiresAt: new Date(Date.now() + 60000).toISOString(),
+    },
     payload_hash: createHash('sha256')
       .update(JSON.stringify({ name: 'Ana' }))
       .digest('hex'),
@@ -75,6 +79,7 @@ describe('PendingActionsService', () => {
         roles: undefined,
         permissions: undefined,
         idempotencyKey: pending.execution_key,
+        mutationReview: pending.review,
       },
     );
     expect(dataSource.query.mock.calls[2][1][1]).toBe(

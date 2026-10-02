@@ -1,4 +1,5 @@
-import { apiClient } from '@/api/client';
+import { fetchAllPages } from '@/api/pagination';
+import { ApiError, apiClient } from '@/api/client';
 import { IS_MOCK_MODE } from '@/api/env';
 import type { Buyer } from '@/types/buyer';
 
@@ -72,14 +73,7 @@ export const buyersApi = {
 
     const endpoint =
       query.toString().length > 0 ? `/buyers?${query.toString()}` : '/buyers';
-    const result = await apiClient.get<
-      | BackendBuyer[]
-      | { data: BackendBuyer[]; total: number; page: number; limit: number }
-    >(endpoint);
-
-    return Array.isArray(result)
-      ? result.map(mapBuyer)
-      : result.data.map(mapBuyer);
+    return fetchAllPages<BackendBuyer, Buyer>(endpoint, {}, mapBuyer);
   },
 
   async getById(id: string): Promise<Buyer | null> {
@@ -90,8 +84,9 @@ export const buyersApi = {
     try {
       const result = await apiClient.get<BackendBuyer>(`/buyers/${id}`);
       return mapBuyer(result);
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
     }
   },
 };

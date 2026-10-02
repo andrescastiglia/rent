@@ -72,12 +72,12 @@ export class CreateUnitDto {
   @IsInt()
   @Min(0)
   @IsOptional()
-  bedrooms?: number = 0;
+  bedrooms?: number;
 
   @IsNumber()
   @Min(0)
   @IsOptional()
-  bathrooms?: number = 0;
+  bathrooms?: number;
 
   @IsNumber()
   @Min(0.01)
@@ -91,7 +91,7 @@ export class CreateUnitDto {
 
   @IsString()
   @IsOptional()
-  currency?: string = 'ARS';
+  currency?: string;
 
   @IsString()
   @IsOptional()
@@ -99,19 +99,19 @@ export class CreateUnitDto {
 
   @IsBoolean()
   @IsOptional()
-  hasParking?: boolean = false;
+  hasParking?: boolean;
 
   @IsInt()
   @IsOptional()
-  parkingSpots?: number = 0;
+  parkingSpots?: number;
 
   @IsBoolean()
   @IsOptional()
-  hasStorage?: boolean = false;
+  hasStorage?: boolean;
 
   @IsBoolean()
   @IsOptional()
-  isFurnished?: boolean = false;
+  isFurnished?: boolean;
 
   @IsNumber()
   @IsOptional()
@@ -119,7 +119,7 @@ export class CreateUnitDto {
 
   @IsEnum(UnitStatus)
   @IsOptional()
-  status?: UnitStatus = UnitStatus.AVAILABLE;
+  status?: UnitStatus;
 
   @IsString()
   @IsOptional()

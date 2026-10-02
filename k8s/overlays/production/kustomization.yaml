@@ -15,5 +15,5 @@ patches:
   patch: "- op: replace\n  path: /spec/suspend\n  value: false\n"
 - target:
     kind: CronJob
-    name: process-settlements
+    name: billing|sync-indices|process-settlements
   patch: "- op: replace\n  path: /spec/suspend\n  value: true\n"

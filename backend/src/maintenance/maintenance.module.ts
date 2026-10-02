@@ -1,3 +1,4 @@
+import { CommunicationsModule } from '../communications/communications.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MaintenanceTicket } from './entities/maintenance-ticket.entity';
@@ -12,6 +13,7 @@ import { PropertiesModule } from '../properties/properties.module';
 @Module({
   imports: [
     PropertiesModule,
+    CommunicationsModule,
     TypeOrmModule.forFeature([
       MaintenanceTicket,
       MaintenanceTicketComment,

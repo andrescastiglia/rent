@@ -6,6 +6,7 @@ import {
   InternalServerErrorException,
   UnauthorizedException,
   ServiceUnavailableException,
+  ConflictException,
 } from '@nestjs/common';
 import {
   createHash,
@@ -14,7 +15,10 @@ import {
   timingSafeEqual,
 } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
+import { PaymentsService } from '../payments/payments.service';
+import { Payment, PaymentMethod } from '../payments/entities/payment.entity';
+import { paymentCents, paymentNumber } from '../payments/payment-amount';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
@@ -44,6 +48,7 @@ interface MercadoPagoPayment {
   currency_id?: string;
   payment_method_id?: string;
   installments?: number;
+  transaction_amount_refunded?: number;
 }
 
 export interface MercadoPagoWebhookSignatureContext {
@@ -72,6 +77,7 @@ export class PaymentGatewayService {
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
+    private readonly paymentsService: PaymentsService,
   ) {}
 
   async createPreference(
@@ -79,6 +85,7 @@ export class PaymentGatewayService {
     userId: string,
     dto: CreatePaymentPreferenceDto,
     actor?: UserContext | UserRole,
+    executionKey?: string,
   ): Promise<{
     initPoint: string;
     sandboxInitPoint: string;
@@ -93,24 +100,7 @@ export class PaymentGatewayService {
       throw new NotFoundException(`Invoice with ID ${dto.invoiceId} not found`);
     }
 
-    const tenantSelfService =
-      typeof actor === 'string'
-        ? actor === UserRole.TENANT
-        : Boolean(
-            actor && hasRole(actor, UserRole.TENANT) && !isAdminOrStaff(actor),
-          );
-    if (tenantSelfService) {
-      const invoiceTenantId = invoice.tenantAccount?.tenantId;
-      if (!invoiceTenantId) {
-        throw new ForbiddenException('Invoice does not belong to your account');
-      }
-      const tenant = await this.tenantRepo.findOne({
-        where: { userId, companyId },
-      });
-      if (!tenant || tenant.id !== invoiceTenantId) {
-        throw new ForbiddenException('Invoice does not belong to your account');
-      }
-    }
+    await this.authorizeInvoice(invoice, companyId, userId, actor);
 
     const accessToken = this.configService.get<string>(
       'MERCADOPAGO_ACCESS_TOKEN',
@@ -125,15 +115,93 @@ export class PaymentGatewayService {
     const successUrl = dto.successUrl ?? `${appUrl}/payment/success`;
     const failureUrl = dto.failureUrl ?? `${appUrl}/payment/failure`;
     const pendingUrl = dto.pendingUrl ?? `${appUrl}/payment/pending`;
-    const transactionId = randomUUID();
+    if (executionKey && !/^[0-9a-f-]{36}$/i.test(executionKey))
+      throw new BadRequestException('Idempotency-Key must be a UUID');
 
+    const intent = await this.dataSource.transaction(async (manager) => {
+      if (executionKey) {
+        await manager.query(
+          'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+          [`${companyId}:checkout:${executionKey}`],
+        );
+        const existing = await manager
+          .getRepository(PaymentGatewayTransaction)
+          .findOne({
+            where: { companyId, idempotencyKey: executionKey },
+          });
+        if (existing) {
+          if (
+            existing.invoiceId !== invoice.id ||
+            existing.metadata.requestedBy !== userId ||
+            existing.metadata.successUrl !== successUrl ||
+            existing.metadata.failureUrl !== failureUrl ||
+            existing.metadata.pendingUrl !== pendingUrl
+          )
+            throw new ConflictException(
+              'Checkout key was already used for another request',
+            );
+          return { transaction: existing, created: false };
+        }
+      }
+      const current = await manager.getRepository(Invoice).findOne({
+        where: { id: invoice.id, companyId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (
+        !current ||
+        ![
+          InvoiceStatus.PENDING,
+          InvoiceStatus.SENT,
+          InvoiceStatus.PARTIAL,
+          InvoiceStatus.OVERDUE,
+        ].includes(current.status)
+      )
+        throw new BadRequestException('Invoice is not payable');
+      const outstanding =
+        paymentCents(current.total) - paymentCents(current.amountPaid ?? 0);
+      if (outstanding <= 0n)
+        throw new BadRequestException('Invoice has no outstanding balance');
+      const repository = manager.getRepository(PaymentGatewayTransaction);
+      const transaction = await repository.save(
+        repository.create({
+          id: randomUUID(),
+          companyId,
+          invoiceId: invoice.id,
+          tenantId: invoice.tenantAccount?.tenantId ?? null,
+          status: PaymentGatewayTransactionStatus.PENDING,
+          amount: paymentNumber(outstanding),
+          currency: current.currencyCode ?? 'ARS',
+          idempotencyKey: executionKey ?? null,
+          metadata: {
+            requestedBy: userId,
+            successUrl,
+            failureUrl,
+            pendingUrl,
+            creationState: 'submitting',
+          },
+        }),
+      );
+      return { transaction, created: true };
+    });
+    const tx = intent.transaction;
+    if (!intent.created) {
+      if (tx.initPoint && tx.sandboxInitPoint)
+        return {
+          initPoint: tx.initPoint,
+          sandboxInitPoint: tx.sandboxInitPoint,
+          transactionId: tx.id,
+        };
+      throw new ConflictException(
+        `Checkout ${tx.id} requires provider reconciliation before retrying`,
+      );
+    }
     const preferenceBody = {
       items: [
         {
           title: `Alquiler - ${invoice.invoiceNumber}`,
           quantity: 1,
-          unit_price: Number(invoice.total),
-          currency_id: invoice.currencyCode ?? 'ARS',
+          unit_price: Number(tx.amount),
+          currency_id: tx.currency,
         },
       ],
       back_urls: {
@@ -143,51 +211,100 @@ export class PaymentGatewayService {
       },
       auto_return: 'approved',
       notification_url: `${appUrl}/payment-gateway/webhook`,
-      external_reference: transactionId,
+      external_reference: tx.id,
     };
-
-    const response = await firstValueFrom(
-      this.httpService.post(
-        'https://api.mercadopago.com/checkout/preferences',
-        preferenceBody,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          'https://api.mercadopago.com/checkout/preferences',
+          preferenceBody,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+              'X-Idempotency-Key': tx.id,
+            },
           },
-        },
-      ),
-    );
+        ),
+      );
+      const preference = response.data as {
+        id: string;
+        init_point: string;
+        sandbox_init_point: string;
+      };
+      if (
+        !preference.id ||
+        !preference.init_point ||
+        !preference.sandbox_init_point
+      )
+        throw new BadRequestException(
+          'Invalid MercadoPago preference response',
+        );
+      await this.dataSource.query(
+        `UPDATE payment_gateway_transactions SET external_id=$3,
+        init_point=$4,sandbox_init_point=$5,metadata=$6::jsonb,updated_at=now()
+        WHERE id=$1 AND company_id=$2`,
+        [
+          tx.id,
+          companyId,
+          preference.id,
+          preference.init_point,
+          preference.sandbox_init_point,
+          JSON.stringify({
+            ...tx.metadata,
+            preferenceId: preference.id,
+            creationState: 'ready',
+          }),
+        ],
+      );
+      return {
+        initPoint: preference.init_point,
+        sandboxInitPoint: preference.sandbox_init_point,
+        transactionId: tx.id,
+      };
+    } catch (error) {
+      await this.dataSource.query(
+        `UPDATE payment_gateway_transactions SET metadata=$3::jsonb,updated_at=now()
+        WHERE id=$1 AND company_id=$2`,
+        [
+          tx.id,
+          companyId,
+          JSON.stringify({ ...tx.metadata, creationState: 'uncertain' }),
+        ],
+      );
+      throw new ServiceUnavailableException(
+        `Checkout ${tx.id} has an uncertain provider result; keep the same request key`,
+        { cause: error },
+      );
+    }
+  }
 
-    const preference = response.data as {
-      id: string;
-      init_point: string;
-      sandbox_init_point: string;
-    };
-
-    const tenantId = invoice.tenantAccount?.tenantId ?? null;
-
-    const tx = this.txRepo.create({
-      id: transactionId,
-      companyId,
-      invoiceId: invoice.id,
-      tenantId,
-      status: PaymentGatewayTransactionStatus.PENDING,
-      externalId: preference.id,
-      amount: Number(invoice.total),
-      currency: invoice.currencyCode ?? 'ARS',
-      initPoint: preference.init_point,
-      sandboxInitPoint: preference.sandbox_init_point,
-      metadata: { preferenceId: preference.id },
-    });
-
-    const saved = await this.txRepo.save(tx);
-
-    return {
-      initPoint: preference.init_point,
-      sandboxInitPoint: preference.sandbox_init_point,
-      transactionId: saved.id,
-    };
+  private async authorizeInvoice(
+    invoice: Invoice,
+    companyId: string,
+    userId: string,
+    actor?: UserContext | UserRole,
+  ) {
+    const tenantSelfService =
+      typeof actor === 'string'
+        ? actor === UserRole.TENANT
+        : Boolean(
+            actor?.role &&
+            hasRole(actor, UserRole.TENANT) &&
+            !isAdminOrStaff(actor),
+          );
+    if (tenantSelfService) {
+      const invoiceTenantId = invoice.tenantAccount?.tenantId;
+      if (!invoiceTenantId) {
+        throw new ForbiddenException('Invoice does not belong to your account');
+      }
+      const tenant = await this.tenantRepo.findOne({
+        where: { userId, companyId },
+      });
+      if (tenant?.id !== invoiceTenantId) {
+        throw new ForbiddenException('Invoice does not belong to your account');
+      }
+    }
   }
 
   async processWebhook(
@@ -220,14 +337,9 @@ export class PaymentGatewayService {
       }
 
       const externalReference = payment.external_reference;
-      let tx = await this.txRepo.findOne({
+      const tx = await this.txRepo.findOne({
         where: { id: externalReference },
       });
-      if (!tx) {
-        tx = await this.txRepo.findOne({
-          where: { invoiceId: externalReference },
-        });
-      }
       if (!tx) {
         await this.completeWebhookEvent(eventKey);
         return;
@@ -290,7 +402,7 @@ export class PaymentGatewayService {
   ): void {
     if (
       payment.transaction_amount === undefined ||
-      Number(payment.transaction_amount) !== Number(tx.amount) ||
+      paymentCents(payment.transaction_amount) !== paymentCents(tx.amount) ||
       payment.currency_id?.toUpperCase() !== tx.currency.toUpperCase()
     ) {
       throw new BadRequestException(
@@ -304,39 +416,127 @@ export class PaymentGatewayService {
     payment: MercadoPagoPayment,
     newStatus: PaymentGatewayTransactionStatus,
   ): Promise<void> {
-    await this.dataSource.query(
-      `WITH transitioned AS (
-         UPDATE payment_gateway_transactions
-         SET status = $1,
-             external_payment_id = $2,
-             payment_method = $3,
-             installments = $4,
-             updated_at = NOW()
-         WHERE id = $5
-           AND company_id = $6
-           AND (
-             (status = 'pending' AND $1 IN ('approved', 'rejected', 'cancelled'))
-             OR (status = 'approved' AND $1 = 'refunded')
-           )
-         RETURNING invoice_id, company_id
-       )
-       UPDATE invoices
-       SET status = $7, updated_at = NOW()
-       WHERE id = $8
-         AND company_id = $6
-         AND $1 = 'approved'
-         AND EXISTS (SELECT 1 FROM transitioned)`,
+    await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(PaymentGatewayTransaction);
+      const current = await repository.findOne({
+        where: { id: tx.id, companyId: tx.companyId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!current) throw new NotFoundException('Checkout intention not found');
+      this.validatePaymentAgainstTransaction(payment, current);
+      if (
+        [
+          PaymentGatewayTransactionStatus.APPROVED,
+          PaymentGatewayTransactionStatus.REFUNDED,
+        ].includes(newStatus)
+      ) {
+        await this.applyApprovedPayment(manager, current, payment, newStatus);
+      } else if (current.status === PaymentGatewayTransactionStatus.PENDING) {
+        await repository.update(current.id, { status: newStatus });
+      }
+    });
+  }
+
+  private async applyApprovedPayment(
+    manager: EntityManager,
+    current: PaymentGatewayTransaction,
+    payment: MercadoPagoPayment,
+    newStatus: PaymentGatewayTransactionStatus,
+  ) {
+    const repository = manager.getRepository(PaymentGatewayTransaction);
+    if (
+      current.externalPaymentId &&
+      current.externalPaymentId !== String(payment.id)
+    )
+      throw new ConflictException(
+        'Checkout has another approved payment; reconcile the additional collection',
+      );
+    const paymentId = await this.canonicalPaymentId(manager, current, payment);
+    const cumulative =
+      newStatus === PaymentGatewayTransactionStatus.REFUNDED
+        ? paymentCents(current.amount)
+        : paymentCents(payment.transaction_amount_refunded ?? 0);
+    const previous = paymentCents(current.refundedAmount ?? 0);
+    if (
+      current.status === PaymentGatewayTransactionStatus.REFUNDED &&
+      newStatus === PaymentGatewayTransactionStatus.APPROVED
+    )
+      return;
+    if (cumulative < previous || cumulative > paymentCents(current.amount))
+      throw new ConflictException(
+        'Provider refund amount requires reconciliation',
+      );
+    if (cumulative > previous) {
+      await this.paymentsService.refundWithManager(
+        manager,
+        paymentId,
+        current.companyId,
+        {
+          amount: paymentNumber(cumulative - previous),
+          reference: `mercadopago:${payment.id}:${cumulative}`,
+          reason: 'Devolución confirmada por Mercado Pago',
+        },
+      );
+    }
+    await repository.update(current.id, {
+      status:
+        cumulative === paymentCents(current.amount)
+          ? PaymentGatewayTransactionStatus.REFUNDED
+          : PaymentGatewayTransactionStatus.APPROVED,
+      externalPaymentId: String(payment.id),
+      paymentId,
+      refundedAmount: paymentNumber(cumulative),
+      paymentMethod: payment.payment_method_id ?? null,
+      installments: payment.installments ?? 1,
+    });
+  }
+
+  private async canonicalPaymentId(
+    manager: EntityManager,
+    current: PaymentGatewayTransaction,
+    payment: MercadoPagoPayment,
+  ): Promise<string> {
+    if (current.paymentId) return current.paymentId;
+
+    if (
       [
-        newStatus,
-        String(payment.id),
-        payment.payment_method_id ?? null,
-        payment.installments ?? 1,
-        tx.id,
-        tx.companyId,
-        InvoiceStatus.PAID,
-        tx.invoiceId,
-      ],
+        PaymentGatewayTransactionStatus.APPROVED,
+        PaymentGatewayTransactionStatus.REFUNDED,
+      ].includes(current.status)
+    )
+      throw new ConflictException(
+        'Historical refund without accounting history requires review',
+      );
+    const invoice = await manager.getRepository(Invoice).findOne({
+      where: { id: current.invoiceId, companyId: current.companyId },
+    });
+    if (!invoice?.tenantAccountId)
+      throw new ConflictException('Checkout invoice has no tenant account');
+    const canonical = await this.paymentsService.createWithManager(
+      manager,
+      {
+        tenantAccountId: invoice.tenantAccountId,
+        amount: Number(current.amount),
+        currencyCode: current.currency,
+        paymentDate: new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'America/Argentina/Buenos_Aires',
+        }).format(new Date()),
+        method: PaymentMethod.DIGITAL_WALLET,
+        reference: `mercadopago:${payment.id}`,
+      },
+      undefined,
+      current.companyId,
     );
+    await manager.getRepository(Payment).update(canonical.id, {
+      invoiceId: current.invoiceId,
+      externalTransactionId: String(payment.id),
+    });
+    await this.paymentsService.confirmWithManager(
+      manager,
+      canonical.id,
+      current.companyId,
+    );
+    return canonical.id;
   }
 
   private buildWebhookEventKey(
@@ -588,11 +788,11 @@ export class PaymentGatewayService {
         `Payment gateway transaction with ID ${id} not found`,
       );
     }
-    if (user && hasRole(user, UserRole.TENANT) && !isAdminOrStaff(user)) {
+    if (user?.role && hasRole(user, UserRole.TENANT) && !isAdminOrStaff(user)) {
       const tenant = await this.tenantRepo.findOne({
         where: { userId: user.id, companyId },
       });
-      if (!tx.tenantId || !tenant || tenant.id !== tx.tenantId) {
+      if (!tx.tenantId || tenant?.id !== tx.tenantId) {
         throw new ForbiddenException(
           'Transaction does not belong to your account',
         );

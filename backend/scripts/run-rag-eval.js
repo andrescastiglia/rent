@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const { Client } = require('pg');
 const { JwtService } = require('@nestjs/jwt');
 const evaluationCases = require('../evals/rag-eval.dataset.json');
+const { evaluateQualityGates } = require('./rag-quality-gates.cjs');
+const { databaseTls } = require('../../shared/database-tls.cjs');
 
 const args = process.argv.slice(2);
 const valueOf = (name, fallback) => {
@@ -103,9 +105,10 @@ function dbConfig() {
   if (process.env.DATABASE_URL) {
     return {
       connectionString: process.env.DATABASE_URL,
-      ...(process.env.NODE_ENV === 'production'
-        ? { ssl: { rejectUnauthorized: false } }
-        : {}),
+      ...(databaseTls(process.env) ??
+        (process.env.NODE_ENV === 'production'
+          ? { ssl: { rejectUnauthorized: false } }
+          : {})),
     };
   }
   return {
@@ -117,6 +120,7 @@ function dbConfig() {
       process.env.PGPASSWORD ||
       process.env.DATABASE_PASSWORD,
     database: process.env.POSTGRES_DB || 'rent_db',
+    ...(databaseTls(process.env) ?? {}),
   };
 }
 
@@ -162,6 +166,31 @@ async function findUser(db, test) {
 }
 
 async function sourceAuthorized(db, source, test, userId) {
+  if (test.role === 'buyer') {
+    if (source.entityType === 'structured_query')
+      return source.entityId === test.companyId;
+    const receipt = source.entityType === 'sale_receipt';
+    if (!receipt && !['sale_agreement', 'lease'].includes(source.entityType))
+      return false;
+    const from = receipt
+      ? 'sale_receipts r JOIN sale_agreements sa ON sa.id=r.agreement_id JOIN leases l ON l.id=sa.contract_id'
+      : 'sale_agreements sa JOIN leases l ON l.id=sa.contract_id';
+    const identifier = receipt
+      ? 'r.id'
+      : source.entityType === 'lease'
+        ? 'l.id'
+        : 'sa.id';
+    const result = await db.query(
+      `SELECT count(*) n FROM ${from} JOIN buyers b ON b.id=sa.buyer_id
+       WHERE ${identifier}=$1::uuid AND sa.company_id=$2::uuid AND l.company_id=$2::uuid
+         AND b.company_id=$2::uuid AND b.user_id=$3::uuid AND b.deleted_at IS NULL
+         AND sa.deleted_at IS NULL AND l.deleted_at IS NULL AND l.contract_type='sale'`,
+      [source.entityId, test.companyId, userId],
+    );
+    return Number(result.rows[0].n) === 1;
+  }
+  // Unsupported roles must never inherit the company's staff/admin scope.
+  if (!['admin', 'staff', 'owner', 'tenant'].includes(test.role)) return false;
   const type = source.entityType;
   const entityId = source.entityId;
   if (type === 'structured_query' || type === 'dashboard') {
@@ -585,7 +614,14 @@ async function main() {
     for (const test of tests) {
       const user = await findUser(db, test);
       if (!user) {
-        results.push({ id: test.id, passed: false, error: 'no_active_user' });
+        results.push({
+          id: test.id,
+          role: test.role,
+          companyId: test.companyId,
+          category: test.category,
+          passed: false,
+          error: 'no_active_user',
+        });
         continue;
       }
       const token = await jwt.signAsync({ sub: user.id }, { expiresIn: '15m' });
@@ -632,6 +668,8 @@ async function main() {
             'tenant_account',
             'dashboard',
             'structured_query',
+            'sale_agreement',
+            'sale_receipt',
           ].includes(source.entityType),
         );
       const exactFinancialValueOk = await exactFinancialValueMatches(
@@ -682,6 +720,7 @@ async function main() {
       results.push({
         id: test.id,
         role: test.role,
+        companyId: test.companyId,
         category: test.category,
         passed,
         httpStatus: response.status,
@@ -801,12 +840,25 @@ async function main() {
         }).length / results.length,
       recallAtK:
         results
-          .filter((result) => result.recall !== null)
+          .filter((result) => Number.isFinite(result.recall))
           .reduce((sum, result) => sum + result.recall, 0) /
-        Math.max(results.filter((result) => result.recall !== null).length, 1),
+        Math.max(
+          results.filter((result) => Number.isFinite(result.recall)).length,
+          1,
+        ),
+      recallSamples: results.filter((result) => Number.isFinite(result.recall))
+        .length,
+      coveredRoles: [
+        ...new Set(
+          results
+            .filter((result) => Number.isFinite(result.latencyMs))
+            .map((result) => result.role),
+        ),
+      ],
       latencyMs: {
         p50: percentile(latencies, 0.5),
         p95: percentile(latencies, 0.95),
+        samples: latencies.length,
       },
       tokens: {
         inputTotal: totalInputTokens,
@@ -819,17 +871,42 @@ async function main() {
         1_000_000 /
         results.length,
     };
-    const report = { summary, results };
+    const companyIds = [...new Set(tests.map((test) => test.companyId))];
+    const freshness = await db.query(
+      `SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY
+          GREATEST(0, EXTRACT(EPOCH FROM (COALESCE(processed_at, NOW()) - source_updated_at)) * 1000)) AS p95,
+          count(*)::int AS samples
+         FROM ai_embedding_outbox WHERE company_id=ANY($1::uuid[])
+          AND created_at >= NOW() - INTERVAL '24 hours'`,
+      [companyIds],
+    );
+    summary.freshnessMs = {
+      p95: freshness.rows[0]?.samples ? Number(freshness.rows[0].p95) : null,
+      samples: freshness.rows[0]?.samples ?? 0,
+    };
+    summary.releaseTag =
+      process.env.RELEASE_TAG || process.env.GITHUB_SHA || 'local';
+    summary.qualityGates = evaluateQualityGates(summary);
+    const groups = {};
+    for (const result of results) {
+      const group = `${result.companyId}/${result.role}/${result.category}`;
+      groups[group] ??= { total: 0, failed: 0, leaks: 0 };
+      groups[group].total += 1;
+      groups[group].failed += result.passed ? 0 : 1;
+      groups[group].leaks += result.leaks || 0;
+    }
+    const report = { summary, groups, results };
     const reportPath = valueOf('--report', '');
     if (reportPath)
       fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
     console.log(JSON.stringify(summary, null, 2));
     if (
-      has('--strict') &&
-      (summary.crossScopeLeaks > 0 ||
-        summary.financialViolations > 0 ||
-        summary.groundednessRate < 1 ||
-        summary.failed > 0)
+      !summary.qualityGates.passed ||
+      (has('--strict') &&
+        (summary.crossScopeLeaks > 0 ||
+          summary.financialViolations > 0 ||
+          summary.groundednessRate < 1 ||
+          summary.failed > 0))
     ) {
       process.exitCode = 1;
     }
@@ -845,4 +922,9 @@ if (require.main === module) {
   });
 }
 
-module.exports = { evaluationEndpoint, validateEvaluationDataset };
+module.exports = {
+  evaluationEndpoint,
+  validateEvaluationDataset,
+  sourceAuthorized,
+  dbConfig,
+};

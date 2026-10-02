@@ -18,6 +18,35 @@ env:
   NODE_VERSION: "22.22.1"
 
 jobs:
+  migration-atomicity:
+    name: Migration atomicity and concurrency
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.5-alpine@sha256:47e961a569fd52ff31f0fe205ed91eeab17d9f5fff6722e6d7ea6b588748b293
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: rent_test
+        options: >-
+          --health-cmd "pg_isready -U test -d rent_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Verify atomic failures, executor serialization and checksums
+        run: python3 -m unittest discover -s migrations/tests -v
+        env:
+          MIGRATION_TESTS_INTEGRATION: "true"
+          MIGRATIONS_CONTAINER_NAME: ${{ job.services.postgres.id }}
+          POSTGRES_USER: test
+
   observability-rules:
     name: Observability rules
     runs-on: ubuntu-latest
@@ -1061,6 +1090,11 @@ jobs:
           path: mobile/coverage
           retention-days: 1
 
+  mobile-ios:
+    name: Mobile E2E (iOS)
+    needs: mobile-lint
+    uses: ./.github/workflows/mobile-ios.yml
+
   mobile-e2e:
     name: Mobile E2E (Detox)
     runs-on: ubuntu-latest
@@ -1163,5 +1197,6 @@ jobs:
           kubectl kustomize k8s/overlays/production > /tmp/rent-kubernetes.yaml
           python3 scripts/k8s/validate-manifests.py /tmp/rent-kubernetes.yaml
           python3 scripts/k8s/verify-render.py
+          python3 -m unittest discover -s scripts/k8s/tests -v
           python3 -m compileall -q scripts/k8s
           bash -n scripts/k8s/*.sh

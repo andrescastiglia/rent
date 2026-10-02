@@ -101,6 +101,7 @@ export function InvoiceCard({ invoice }: InvoiceCardProps) {
       <div className="px-5 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
         <div className="flex flex-wrap items-center gap-2">
           <Link
+            data-guide="invoice-open"
             href={`/${locale}/invoices/${invoice.id}`}
             className="btn btn-secondary btn-sm"
           >

@@ -8,12 +8,21 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { PropertyType, PropertyStatus } from '../entities/property.entity';
+import {
+  PropertyType,
+  PropertyStatus,
+  PropertyOperation,
+  PropertyOperationState,
+} from '../entities/property.entity';
 import { Type } from 'class-transformer';
 import { z } from 'zod';
 
 const propertyFiltersZodSchema = z
   .object({
+    search: z.string().trim().max(200).optional(),
+    operation: z.enum(PropertyOperation).optional(),
+    operationState: z.enum(PropertyOperationState).optional(),
+    order: z.enum(['address', 'newest']).optional(),
     ownerId: z.uuid().optional().describe('Filter by owner UUID'),
     addressCity: z.string().min(1).optional(),
     addressState: z.string().min(1).optional(),
@@ -56,6 +65,22 @@ const propertyFiltersZodSchema = z
 
 export class PropertyFiltersDto {
   static readonly zodSchema = propertyFiltersZodSchema;
+
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @IsEnum(PropertyOperation)
+  @IsOptional()
+  operation?: PropertyOperation;
+
+  @IsEnum(PropertyOperationState)
+  @IsOptional()
+  operationState?: PropertyOperationState;
+
+  @IsEnum(['address', 'newest'])
+  @IsOptional()
+  order?: 'address' | 'newest';
 
   @IsUUID()
   @IsOptional()

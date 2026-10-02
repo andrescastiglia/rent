@@ -1,14 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
-} from 'react-native';
+} from '@/components/themed-native';
+import { Pagination } from '@/components/pagination';
+import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { leasesApi } from '@/api/leases';
@@ -33,7 +34,7 @@ function formatAmount(payment: Payment) {
     return new Intl.NumberFormat(i18n.language || 'es', {
       style: 'currency',
       currency: payment.currencyCode || 'ARS',
-      maximumFractionDigits: 0,
+      maximumFractionDigits: 2,
     }).format(payment.amount);
   } catch {
     return `${payment.currencyCode} ${payment.amount}`;
@@ -161,6 +162,7 @@ function SummaryCard({
 export default function PaymentsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
@@ -185,6 +187,8 @@ export default function PaymentsScreen() {
     queryKey: [
       'payments',
       'operations',
+      page,
+      searchTerm,
       propertyFilter,
       leaseFilter,
       statusFilter,
@@ -192,6 +196,9 @@ export default function PaymentsScreen() {
     ],
     queryFn: () =>
       paymentsApi.getAllWithFilters({
+        page,
+        limit: 20,
+        search: searchTerm,
         propertyId: propertyFilter === 'all' ? undefined : propertyFilter,
         leaseId: leaseFilter === 'all' ? undefined : leaseFilter,
         status: statusFilter === 'all' ? undefined : statusFilter,
@@ -223,25 +230,7 @@ export default function PaymentsScreen() {
     );
   }, [leasesQuery.data, propertyFilter]);
 
-  const filteredPayments = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    const items = paymentsQuery.data?.data ?? [];
-    if (!term) return items;
-    return items.filter((payment) => {
-      const context = getPaymentContext(payment, leasesById, propertiesById);
-      return [
-        context.propertyName,
-        context.tenantName,
-        context.leaseLabel,
-        payment.reference ?? '',
-        payment.receipt?.receiptNumber ?? '',
-        activityTypeLabel(payment.activityType),
-      ]
-        .join(' ')
-        .toLowerCase()
-        .includes(term);
-    });
-  }, [leasesById, paymentsQuery.data?.data, propertiesById, searchTerm]);
+  const filteredPayments = paymentsQuery.data?.data ?? [];
 
   const loading =
     paymentsQuery.isLoading ||
@@ -287,7 +276,7 @@ export default function PaymentsScreen() {
   ];
 
   return (
-    <Screen>
+    <Screen guidanceReady={!loading} guidanceBlocked={Boolean(error)}>
       <View style={styles.header}>
         <Text style={styles.headerEyebrow}>
           Sistema de Gestión Inmobiliaria
@@ -306,7 +295,10 @@ export default function PaymentsScreen() {
 
       <TextInput
         value={searchTerm}
-        onChangeText={setSearchTerm}
+        onChangeText={(value) => {
+          setSearchTerm(value);
+          setPage(1);
+        }}
         placeholder="Buscar por propiedad, inquilino, contrato o referencia"
         style={styles.searchInput}
         autoCapitalize="none"
@@ -327,13 +319,19 @@ export default function PaymentsScreen() {
         title="Contrato"
         options={leaseOptions}
         value={leaseFilter}
-        onChange={setLeaseFilter}
+        onChange={(value) => {
+          setLeaseFilter(value);
+          setPage(1);
+        }}
       />
 
       <ChoiceGroup
         label={t('common.filter')}
         value={statusFilter}
-        onChange={setStatusFilter}
+        onChange={(value) => {
+          setStatusFilter(value);
+          setPage(1);
+        }}
         options={statusOptions}
         testID="payments.status"
       />
@@ -341,7 +339,10 @@ export default function PaymentsScreen() {
       <ChoiceGroup
         label="Actividad"
         value={activityFilter}
-        onChange={setActivityFilter}
+        onChange={(value) => {
+          setActivityFilter(value);
+          setPage(1);
+        }}
         options={activityOptions}
         testID="payments.activity"
       />
@@ -352,9 +353,12 @@ export default function PaymentsScreen() {
       {loading ? null : (
         <>
           <View style={styles.summaryGrid}>
-            <SummaryCard label="Listados" value={filteredPayments.length} />
             <SummaryCard
-              label="Pendientes"
+              label="Total filtrado"
+              value={paymentsQuery.data?.total ?? '-'}
+            />
+            <SummaryCard
+              label="Pendientes en esta página"
               value={
                 filteredPayments.filter(
                   (payment) => payment.status === 'pending',
@@ -363,7 +367,7 @@ export default function PaymentsScreen() {
               tone="warning"
             />
             <SummaryCard
-              label="Realizados"
+              label="Realizados en esta página"
               value={
                 filteredPayments.filter(
                   (payment) => payment.status === 'completed',
@@ -443,6 +447,11 @@ export default function PaymentsScreen() {
           </View>
         </>
       )}
+      <Pagination
+        result={paymentsQuery.data}
+        loading={paymentsQuery.isFetching}
+        onPage={setPage}
+      />
     </Screen>
   );
 }

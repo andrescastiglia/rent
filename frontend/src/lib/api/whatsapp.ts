@@ -1,5 +1,6 @@
 import { apiClient, IS_MOCK_MODE } from "../api";
 import { getToken } from "../auth";
+import { recoverDomainRequest } from "../domain-request";
 
 export type SendWhatsappInput = {
   to: string;
@@ -70,10 +71,17 @@ export const whatsappApi = {
     }
 
     const token = getToken();
-    return apiClient.post<CreateWhatsappActivityResponse>(
-      "/whatsapp/activities",
-      input,
-      token ?? undefined,
+    const { requestId: _requestId, ...command } = input;
+    return recoverDomainRequest(
+      `/whatsapp/activities/${input.personType}/${input.personId}`,
+      "POST",
+      command,
+      (requestId) =>
+        apiClient.post<CreateWhatsappActivityResponse>(
+          "/whatsapp/activities",
+          { ...command, requestId },
+          token ?? undefined,
+        ),
     );
   },
 

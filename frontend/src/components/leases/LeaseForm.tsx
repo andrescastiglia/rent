@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   useForm,
   useWatch,
@@ -17,6 +23,9 @@ import { propertiesApi } from "@/lib/api/properties";
 import { ownersApi } from "@/lib/api/owners";
 import { interestedApi } from "@/lib/api/interested";
 import { buyersApi } from "@/lib/api/buyers";
+import { tenantsApi } from "@/lib/api/tenants";
+import { collectPages } from "@/lib/pagination";
+import type { Tenant } from "@/types/tenant";
 import { InterestedProfile } from "@/types/interested";
 import { Buyer } from "@/types/buyer";
 import { Property } from "@/types/property";
@@ -27,6 +36,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { createLeaseSchema, LeaseFormData } from "@/lib/validation-schemas";
 import { CurrencySelect } from "@/components/common/CurrencySelect";
 import { useSearchParams } from "next/navigation";
+import { Button, StatePanel } from "@/components/ui";
 
 interface LeaseFormProps {
   readonly initialData?: Lease;
@@ -174,9 +184,29 @@ function formatProfileLabel(profile: InterestedProfile): string {
 
 function buildTenantOptions(
   profiles: InterestedProfile[],
+  tenants: Tenant[],
 ): LeaseTenantOption[] {
-  const tenantProfiles = profiles.filter((profile) =>
-    getProfileOperations(profile).includes("rent"),
+  const nativeTenants: LeaseTenantOption[] = tenants.map((tenant) => ({
+    id: tenant.id,
+    profileId: "",
+    tenantId: tenant.tenantEntityId ?? tenant.id,
+    label:
+      `${tenant.firstName} ${tenant.lastName}`.trim() ||
+      tenant.phone ||
+      tenant.id,
+    firstName: tenant.firstName,
+    lastName: tenant.lastName,
+    email: tenant.email,
+    phone: tenant.phone,
+    isConverted: true,
+  }));
+  const knownIds = new Set(
+    nativeTenants.flatMap((tenant) => [tenant.id, tenant.tenantId]),
+  );
+  const tenantProfiles = profiles.filter(
+    (profile) =>
+      getProfileOperations(profile).includes("rent") &&
+      !knownIds.has(profile.convertedToTenantId),
   );
 
   const mapped = tenantProfiles.map((profile) => {
@@ -198,10 +228,13 @@ function buildTenantOptions(
     };
   });
 
-  return mapped.filter(
-    (option, index, all) =>
-      all.findIndex((item) => item.id === option.id) === index,
-  );
+  return [
+    ...nativeTenants,
+    ...mapped.filter(
+      (option, index, all) =>
+        all.findIndex((item) => item.id === option.id) === index,
+    ),
+  ];
 }
 
 function buildBuyerOptions(
@@ -493,7 +526,7 @@ type ResolveBuyerSelectionParams = Readonly<{
   data: LeaseFormData;
   hydrateInterestedOptions: (
     profiles: InterestedProfile[],
-    nextBuyers?: Buyer[],
+    nextBuyers: Buyer[],
   ) => void;
   interestedProfiles: InterestedProfile[];
   resolvedContractType: "rental" | "sale";
@@ -982,7 +1015,9 @@ function ContractPartyFields({
             </label>
             <select
               id="tenantId"
+              required
               {...register("tenantId")}
+              value={selectedTenantOption?.id ?? ""}
               className={inputClass}
             >
               <option value="">{t("selectTenant")}</option>
@@ -1002,6 +1037,7 @@ function ContractPartyFields({
             </label>
             <input
               id="startDate"
+              required
               type="date"
               {...register("startDate")}
               className={inputClass}
@@ -1014,6 +1050,7 @@ function ContractPartyFields({
             </label>
             <input
               id="endDate"
+              required
               type="date"
               {...register("endDate")}
               className={inputClass}
@@ -1045,7 +1082,13 @@ function ContractPartyFields({
           <label htmlFor="buyerId" className={labelClass}>
             {t("fields.buyer")}
           </label>
-          <select id="buyerId" {...register("buyerId")} className={inputClass}>
+          <select
+            required
+            id="buyerId"
+            {...register("buyerId")}
+            value={selectedBuyerOption?.id ?? ""}
+            className={inputClass}
+          >
             <option value="">{t("selectBuyer")}</option>
             {buyerOptions.map((buyer) => (
               <option key={buyer.id} value={buyer.id}>
@@ -1079,6 +1122,7 @@ interface PropertyFieldProps {
   readonly inputClass: string;
   readonly readOnlyInputClass: string;
   readonly selectedPropertyDisplayName: string;
+  readonly selectedPropertyId: string | undefined;
   readonly filteredProperties: readonly Property[];
   readonly errors: FieldErrors<LeaseFormData>;
   readonly t: (key: string) => string;
@@ -1091,6 +1135,7 @@ function PropertyField({
   inputClass,
   readOnlyInputClass,
   selectedPropertyDisplayName,
+  selectedPropertyId,
   filteredProperties,
   errors,
   t,
@@ -1115,7 +1160,9 @@ function PropertyField({
       </label>
       <select
         id="propertyId"
+        required
         {...register("propertyId")}
+        value={selectedPropertyId ?? ""}
         className={inputClass}
       >
         <option value="">{t("selectProperty")}</option>
@@ -1221,6 +1268,7 @@ function TemplateField({
         <select
           id="templateId"
           {...register("templateId")}
+          value={selectedTemplate?.id ?? ""}
           className={inputClass}
         >
           <option value="">{t("templates.select")}</option>
@@ -1638,7 +1686,12 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     [owners, selectedOwnerId],
   );
   const selectedTenantOption = useMemo(
-    () => tenantOptions.find((item) => item.id === formValues.tenantId),
+    () =>
+      tenantOptions.find(
+        (item) =>
+          item.id === formValues.tenantId ||
+          item.tenantId === formValues.tenantId,
+      ),
     [formValues.tenantId, tenantOptions],
   );
   const selectedBuyerOption = useMemo(
@@ -1664,13 +1717,16 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
     hasResolvableContractTypeFromProperty,
     t as (key: string) => string,
   );
+  const tenantCatalog = useRef<Tenant[]>([]);
+  const [formLoadError, setFormLoadError] = useState(false);
+  const [formLoadRevision, setFormLoadRevision] = useState(0);
   const hydrateInterestedOptions = useCallback(
-    (profiles: InterestedProfile[], nextBuyers: Buyer[] = buyers) => {
+    (profiles: InterestedProfile[], nextBuyers: Buyer[]) => {
       setInterestedProfiles(profiles);
-      setTenantOptions(buildTenantOptions(profiles));
+      setTenantOptions(buildTenantOptions(profiles, tenantCatalog.current));
       setBuyerOptions(buildBuyerOptions(profiles, nextBuyers));
     },
-    [buyers],
+    [],
   );
   const selectedExistingLease = useMemo(() => {
     if (isEditing || !selectedPropertyId) return undefined;
@@ -1714,7 +1770,9 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
   ]);
 
   useEffect(() => {
+    let cancelled = false;
     const loadData = async () => {
+      setFormLoadError(false);
       try {
         const [
           props,
@@ -1723,13 +1781,15 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           owns,
           leaseTemplates,
           existingLeases,
+          tenants,
         ] = await Promise.all([
           propertiesApi.getAll(),
-          interestedApi.getAll({ limit: 100 }),
+          collectPages((page) => interestedApi.getAll({ page, limit: 100 })),
           buyersApi.getAll({ limit: 100 }),
           ownersApi.getAll(),
           leasesApi.getTemplates(),
           leasesApi.getAll({ includeFinalized: true }),
+          tenantsApi.getAll(),
         ]);
 
         const resolvedProperties = await ensurePropertyLoaded(
@@ -1745,18 +1805,24 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
           owns,
         );
 
+        if (cancelled) return;
+        tenantCatalog.current = tenants;
         setProperties(resolvedProperties);
         setBuyers(buyerResponse);
-        hydrateInterestedOptions(interestedResponse.data, buyerResponse);
+        hydrateInterestedOptions(interestedResponse, buyerResponse);
         setOwners(resolvedOwners);
         setTemplates(leaseTemplates);
         setAllLeases(existingLeases);
       } catch (error) {
         console.error("Failed to load form data", error);
+        if (!cancelled) setFormLoadError(true);
       }
     };
     loadData();
-  }, [hydrateInterestedOptions, preselectedPropertyId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrateInterestedOptions, preselectedPropertyId, formLoadRevision]);
 
   useEffect(() => {
     const ownerIdToFetch = findOwnerIdToFetch(selectedProperty, owners);
@@ -2032,7 +2098,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
       });
 
       const updatedProfiles = [created, ...interestedProfiles];
-      hydrateInterestedOptions(updatedProfiles);
+      hydrateInterestedOptions(updatedProfiles, buyers);
 
       if (contractType === "sale") {
         setValue("buyerId", `${INTERESTED_BUYER_PREFIX}${created.id}`, {
@@ -2053,6 +2119,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
       setCreatingInterested(false);
     }
   }, [
+    buyers,
     contractType,
     hydrateInterestedOptions,
     interestedProfiles,
@@ -2136,6 +2203,20 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
       onSubmit={handleSubmit(onSubmit)}
       className="space-y-8 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xs border border-gray-100 dark:border-gray-700"
     >
+      {formLoadError && (
+        <StatePanel
+          error
+          title={tCommon("error")}
+          action={
+            <Button
+              variant="secondary"
+              onClick={() => setFormLoadRevision((value) => value + 1)}
+            >
+              {tCommon("retry")}
+            </Button>
+          }
+        />
+      )}
       {/* Basic Lease Details */}
       <div className={sectionClass}>
         <h2 className={sectionTitleClass}>{t("leaseDetails")}</h2>
@@ -2148,6 +2229,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
             inputClass={inputClass}
             readOnlyInputClass={readOnlyInputClass}
             selectedPropertyDisplayName={selectedPropertyDisplayName}
+            selectedPropertyId={selectedPropertyId}
             filteredProperties={filteredProperties}
             errors={errors}
             t={t as (key: string) => string}

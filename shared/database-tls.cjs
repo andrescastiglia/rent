@@ -5,7 +5,7 @@ const { readFileSync } = require("node:fs");
 function databaseTls(environment) {
   const mode = environment.DATABASE_SSL_MODE;
   if (!mode) return undefined;
-  if (mode === "disable") return false;
+  if (mode === "disable") return { ssl: false };
   if (mode !== "verify-full")
     throw new Error("DATABASE_SSL_MODE must be disable or verify-full");
   const caFile = environment.DATABASE_SSL_CA_FILE;
@@ -21,7 +21,7 @@ function databaseTls(environment) {
       "Configure database TLS through DATABASE_SSL_MODE, not DATABASE_URL parameters",
     );
   }
-  return { rejectUnauthorized: true, ca: readFileSync(caFile, "utf8") };
+  return { ssl: { rejectUnauthorized: true, ca: readFileSync(caFile, "utf8") } };
 }
 
 module.exports = { databaseTls };

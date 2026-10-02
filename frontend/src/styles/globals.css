@@ -1,78 +1,221 @@
-@import 'tailwindcss';
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-primary: var(--primary);
+  --color-primary-contrast: var(--primary-contrast);
+  --color-brand: var(--brand);
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
 }
 
-/*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
 @layer base {
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
-  }
-}
-
-
-@layer utilities {
-  .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors focus:outline-hidden focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
-  }
-  .btn-sm {
-    @apply px-3 py-1.5 text-xs;
-  }
-  .btn-primary {
-    @apply border-transparent bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500;
-  }
-  .btn-success {
-    @apply border-transparent bg-green-600 text-white hover:bg-green-700 focus:ring-green-500;
-  }
-  .btn-danger {
-    @apply border-transparent bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
-  }
-  .btn-secondary {
-    @apply border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600;
-  }
-  .btn-ghost {
-    @apply border-transparent bg-transparent text-blue-600 hover:bg-blue-50 focus:ring-blue-500 dark:text-blue-300 dark:hover:bg-blue-900/20;
-  }
-  .action-link {
-    @apply inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors;
-  }
-  .action-link-primary {
-    @apply text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/20;
-  }
-  .action-link-success {
-    @apply text-green-700 hover:bg-green-50 dark:text-green-300 dark:hover:bg-green-900/20;
-  }
-}
-
-@layer utilities {
   :root {
-    --background: #ffffff;
-    --foreground: #171717;
+    --background: #f5f5f2;
+    --foreground: #202b37;
+    --surface: #ffffff;
+    --surface-muted: #f2f4f5;
+    --muted: #586574;
+    --line: #dce2e6;
+    --primary: #245b83;
+    --primary-hover: #184568;
+    --primary-contrast: #ffffff;
+    --brand: #ffdd55;
+    --focus: #2563eb;
+    --radius-control: 0.625rem;
+    --radius-surface: 0.875rem;
+    --space-small: 0.5rem;
+    --space-medium: 1rem;
+    --space-large: 1.5rem;
+    --space-section: 2rem;
+    --shadow-surface: 0 2px 8px rgb(24 39 53 / 0.035);
     color-scheme: light;
   }
-
   .dark {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #141c24;
+    --foreground: #e9edf1;
+    --surface: #1d2833;
+    --surface-muted: #24323f;
+    --muted: #b2bdc8;
+    --line: #3b4b59;
+    --primary: #92c5ef;
+    --primary-hover: #b0d6f4;
+    --primary-contrast: #152b3e;
+    --focus: #93c5fd;
+    --shadow-surface: 0 2px 8px rgb(0 0 0 / 0.12);
     color-scheme: dark;
   }
-
+  *,
+  ::before,
+  ::after,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--line);
+  }
   body {
-    color: var(--foreground);
+    margin: 0;
     background: var(--background);
-    font-family: Arial, Helvetica, sans-serif;
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.025em;
+  }
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+  button:not(:disabled),
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+  ::selection {
+    background: var(--brand);
+    color: #202b37;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select,
+  textarea {
+    background: var(--surface);
+    color: var(--foreground);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    min-height: 2.75rem;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted);
+    opacity: 1;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 border px-4 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+    border-radius: var(--radius-control);
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-sm;
+  }
+  .btn-primary {
+    background: var(--primary);
+    color: var(--primary-contrast);
+    border-color: transparent;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--primary-hover);
+  }
+  .btn-success {
+    @apply border-transparent bg-emerald-700 text-white hover:bg-emerald-800;
+  }
+  .btn-danger {
+    @apply border-transparent bg-red-700 text-white hover:bg-red-800;
+  }
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--foreground);
+    border-color: var(--line);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--surface-muted);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--primary);
+    border-color: transparent;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--surface-muted);
+  }
+  .action-link {
+    @apply inline-flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors;
+  }
+  .action-link-primary {
+    color: var(--primary);
+  }
+  .action-link-success {
+    @apply text-emerald-700 dark:text-emerald-300;
+  }
+  .action-link:hover {
+    background: var(--surface-muted);
+  }
+  .ui-surface {
+    min-width: 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-surface);
+    box-shadow: var(--shadow-surface);
+  }
+  .ui-field {
+    @apply block w-full px-3 py-2 text-sm;
+  }
+  .ui-field[aria-invalid="true"] {
+    border-color: #b91c1c;
+  }
+  .ui-table {
+    @apply w-full text-sm;
+  }
+  .ui-table th {
+    @apply px-4 py-3 text-left text-xs font-semibold;
+    color: var(--muted);
+    background: var(--surface-muted);
+  }
+  .ui-table td {
+    @apply px-4 py-4 align-top;
+    border-top: 1px solid var(--line);
+  }
+  .ui-table tbody tr:hover {
+    background: color-mix(in srgb, var(--surface-muted) 45%, transparent);
+  }
+  .ui-table .money {
+    @apply text-right font-semibold tabular-nums whitespace-nowrap;
+  }
+  .skip-link {
+    @apply sr-only;
+  }
+  .skip-link:focus {
+    @apply not-sr-only fixed left-4 top-4 z-[100] rounded-lg bg-surface px-4 py-3 font-semibold text-foreground shadow-lg;
+  }
+  [data-guidance-target] {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 70%, transparent);
+  }
+}
+
+/* Legacy muted text classes follow the same accessible semantic palette. */
+@layer utilities {
+  .text-gray-400,
+  .text-gray-500,
+  .dark .dark\:text-gray-400,
+  .dark .dark\:text-gray-500 {
+    color: var(--muted);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

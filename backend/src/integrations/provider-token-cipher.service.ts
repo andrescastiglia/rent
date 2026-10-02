@@ -30,10 +30,11 @@ export class ProviderTokenCipherService {
     try {
       const [version, iv, tag, data, ...extra] = envelope.split('.');
       if (version !== 'v1' || extra.length || !iv || !tag || !data)
-        throw new Error();
+        throw new Error('Invalid encrypted provider credential envelope');
       const nonce = Buffer.from(iv, 'base64');
       const authTag = Buffer.from(tag, 'base64');
-      if (nonce.length !== 12 || authTag.length !== 16) throw new Error();
+      if (nonce.length !== 12 || authTag.length !== 16)
+        throw new Error('Invalid encrypted provider credential envelope');
       const decipher = createDecipheriv('aes-256-gcm', this.key(), nonce);
       decipher.setAAD(Buffer.from(context));
       decipher.setAuthTag(authTag);

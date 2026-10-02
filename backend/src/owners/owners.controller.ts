@@ -1,6 +1,5 @@
-import { ApiOkResponse } from '@nestjs/swagger';
-import { OwnerSummaryDto } from './dto/owner-summary.dto';
 import {
+  Headers,
   Body,
   Controller,
   Get,
@@ -14,6 +13,10 @@ import {
   Res,
   NotFoundException,
 } from '@nestjs/common';
+import { ApiHeader, ApiOkResponse } from '@nestjs/swagger';
+
+import { OwnerSummaryDto } from './dto/owner-summary.dto';
+
 import { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -29,6 +32,8 @@ import { RegisterOwnerSettlementPaymentDto } from './dto/register-owner-settleme
 import { ListOwnerSettlementsDto } from './dto/list-owner-settlements.dto';
 import { ListOwnerSettlementPaymentsDto } from './dto/list-owner-settlement-payments.dto';
 import { Authenticated } from '../common/decorators/authenticated.decorator';
+import { OwnerListQueryDto } from './dto/owner-list-query.dto';
+import { OwnerPageDto } from './dto/owner-page.dto';
 
 interface AuthenticatedRequest {
   user: {
@@ -89,13 +94,29 @@ export class OwnersController {
     return this.ownersService.findAllScoped(req.user);
   }
 
+  @Get('page')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @ApiOkResponse({ type: OwnerPageDto })
+  async getPage(
+    @Request() req: AuthenticatedRequest,
+    @Query() query: OwnerListQueryDto,
+  ): Promise<OwnerPageDto> {
+    return this.ownersService.getPage(req.user, query);
+  }
+
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Post()
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   async create(
     @Body() dto: CreateOwnerDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ): Promise<Owner> {
-    return this.ownersService.create(dto, req.user.companyId);
+    return this.ownersService.create(dto, req.user.companyId, executionKey);
   }
 
   /**
@@ -136,13 +157,19 @@ export class OwnersController {
     return this.ownersService.findOneScoped(id, req.user);
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Patch(':id')
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOwnerDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ): Promise<Owner> {
-    return this.ownersService.updateScoped(id, dto, req.user);
+    return this.ownersService.updateScoped(id, dto, req.user, executionKey);
   }
 
   @Get(':id/settlements')
@@ -184,27 +211,40 @@ export class OwnersController {
     return this.ownersService.listActivitiesScoped(id, req.user);
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Post(':id/activities')
   async createActivity(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateOwnerActivityDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ): Promise<OwnerActivity> {
-    return this.ownersService.createActivity(id, dto, req.user);
+    return this.ownersService.createActivity(id, dto, req.user, executionKey);
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Patch(':id/activities/:activityId')
   async updateActivity(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('activityId', ParseUUIDPipe) activityId: string,
     @Body() dto: UpdateOwnerActivityDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ): Promise<OwnerActivity> {
     return this.ownersService.updateActivityScoped(
       id,
       activityId,
       dto,
       req.user,
+      executionKey,
     );
   }
 }

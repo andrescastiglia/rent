@@ -1,3 +1,9 @@
+import { Pressable, Text, View } from '@/components/themed-native';
+import {
+  GuidanceControlHint,
+  useGuidanceControl,
+  useGuidanceBlocker,
+} from '@/components/guidance';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState, useEffect } from 'react';
@@ -9,9 +15,9 @@ import {
   type UseFormSetValue,
 } from 'react-hook-form';
 import DateTimePicker, {
-  DateTimePickerEvent,
+  DateTimePickerChangeEvent,
 } from '@react-native-community/datetimepicker';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
@@ -368,6 +374,7 @@ const syncTemplateSelection = ({
   templateId?: string;
   setValue: UseFormSetValue<FormValues>;
 }): void => {
+  if (mode === 'edit') return;
   if (singleTemplate) {
     if (templateId !== singleTemplate.id) {
       setValue('templateId', singleTemplate.id, { shouldValidate: true });
@@ -375,13 +382,9 @@ const syncTemplateSelection = ({
     return;
   }
 
-  if (mode !== 'edit') {
-    const valid = templatesForType.some(
-      (template) => template.id === templateId,
-    );
-    if (!valid && templatesForType[0]) {
-      setValue('templateId', templatesForType[0].id, { shouldValidate: true });
-    }
+  const valid = templatesForType.some((template) => template.id === templateId);
+  if (!valid && templatesForType[0]) {
+    setValue('templateId', templatesForType[0].id, { shouldValidate: true });
   }
 };
 
@@ -671,6 +674,7 @@ function LeaseHeaderFields({
             label={t('leases.fields.status')}
             value={field.value}
             onChange={field.onChange}
+            disabled
             options={statusOptions.map((option) => ({
               value: option.value,
               label: t(`leases.status.${option.value}`),
@@ -710,13 +714,25 @@ function DatePickerField({
   testID: string;
   value: string;
 }>) {
+  const hinted = useGuidanceControl({
+    id: testID,
+    label,
+    kind: 'field',
+    enabled: true,
+    complete: Boolean(value),
+  });
   return (
     <View style={styles.fieldContainer}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <Pressable onPress={onPress} style={styles.selectTrigger} testID={testID}>
+      <Pressable
+        onPress={onPress}
+        style={[styles.selectTrigger, hinted && styles.guidanceTarget]}
+        testID={testID}
+      >
         <Text style={styles.selectTriggerText}>{value || label}</Text>
         <Text style={styles.selectIndicator}>▾</Text>
       </Pressable>
+      <GuidanceControlHint active={hinted} label={label} />
     </View>
   );
 }
@@ -1212,13 +1228,13 @@ function FormErrorsList({
 }>) {
   return (
     <>
-      {Object.values(errors).map((item) => {
+      {Object.entries(errors).map(([fieldName, item]) => {
         if (!item?.message) {
           return null;
         }
         const message = resolveErrorMessage(item.message);
         return (
-          <Text key={`${item.message}-${message}`} style={styles.error}>
+          <Text key={fieldName} style={styles.error}>
             {message}
           </Text>
         );
@@ -1238,6 +1254,14 @@ function SelectField({
   testID,
 }: Readonly<SelectFieldProps>) {
   const [open, setOpen] = useState(false);
+  const hinted = useGuidanceControl({
+    id: testID ?? `select:${label}`,
+    label,
+    kind: 'field',
+    enabled: !disabled && options.length > 0,
+    complete: Boolean(value),
+  });
+  useGuidanceBlocker(`${testID ?? label}.options`, open);
   const selectedLabel =
     options.find((item) => item.value === value)?.label ??
     (value || placeholder);
@@ -1251,7 +1275,11 @@ function SelectField({
             setOpen((current) => !current);
           }
         }}
-        style={[styles.selectTrigger, disabled && styles.selectTriggerDisabled]}
+        style={[
+          styles.selectTrigger,
+          disabled && styles.selectTriggerDisabled,
+          hinted && styles.guidanceTarget,
+        ]}
         testID={testID}
       >
         <Text
@@ -1267,6 +1295,7 @@ function SelectField({
         )}
       </Pressable>
       {helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
+      <GuidanceControlHint active={hinted} label={label} />
       {open && !disabled ? (
         <View style={styles.selectMenu}>
           {options.map((option, index) => {
@@ -1478,7 +1507,7 @@ export function LeaseForm({
   });
   const interestedQuery = useQuery({
     queryKey: ['interested'],
-    queryFn: interestedApi.getAll,
+    queryFn: interestedApi.getAllProfiles,
   });
   const buyersQuery = useQuery({
     queryKey: ['buyers'],
@@ -1552,7 +1581,7 @@ export function LeaseForm({
     [ownersQuery.data, values.ownerId],
   );
 
-  const interestedProfiles = interestedQuery.data?.data ?? [];
+  const interestedProfiles = interestedQuery.data ?? [];
 
   const tenantOptions = useMemo(() => {
     const source = interestedProfiles
@@ -1625,6 +1654,7 @@ export function LeaseForm({
   }, [selectedProperty, setValue, values.ownerId]);
 
   useEffect(() => {
+    if (mode === 'edit') return;
     syncContractTypeFromSelectedProperty({
       selectedProperty,
       shouldLockContractTypeByInterested,
@@ -1635,6 +1665,7 @@ export function LeaseForm({
       setValue,
     });
   }, [
+    mode,
     hasPreselectedBuyer,
     hasPreselectedTenant,
     selectedProperty,
@@ -1655,6 +1686,7 @@ export function LeaseForm({
   }, [mode, setValue, singleTemplate, templatesForType, values.templateId]);
 
   useEffect(() => {
+    if (mode === 'edit' && values.templateId === initial?.templateId) return;
     syncRenderedTemplateTerms({
       selectedTemplate,
       selectedProperty,
@@ -1669,6 +1701,9 @@ export function LeaseForm({
       setValue,
     });
   }, [
+    mode,
+    initial?.templateId,
+    values.templateId,
     buyerOptions,
     preselectedOwnerName,
     preselectedPropertyName,
@@ -1727,13 +1762,13 @@ export function LeaseForm({
   };
 
   const handleDateChange = (
-    event: DateTimePickerEvent,
+    _event: DateTimePickerChangeEvent,
     selectedDate?: Date,
   ) => {
     if (Platform.OS === 'android') {
       setDatePickerTarget(null);
     }
-    if (event.type === 'dismissed' || !selectedDate || !datePickerTarget) {
+    if (!selectedDate || !datePickerTarget) {
       return;
     }
 
@@ -1775,8 +1810,41 @@ export function LeaseForm({
     }
   };
 
+  const selectorQueries = [
+    propertiesQuery,
+    interestedQuery,
+    buyersQuery,
+    ownersQuery,
+    templatesQuery,
+    currenciesQuery,
+  ];
+  const selectorError = selectorQueries.some((query) => query.isError);
+  const selectorsLoading = selectorQueries.some((query) => query.isLoading);
+  useGuidanceBlocker(
+    `${testIDPrefix}.validation`,
+    Object.keys(formState.errors).length > 0 ||
+      selectorsLoading ||
+      Boolean(selectorError) ||
+      Boolean(datePickerTarget),
+  );
+
   return (
     <View>
+      {selectorError ? (
+        <View>
+          <Text style={styles.error} accessibilityRole="alert">
+            {t('common.loadError')}
+          </Text>
+          <AppButton
+            title={t('common.retry')}
+            testID={`${testIDPrefix}.retry`}
+            onPress={() => {
+              for (const query of selectorQueries)
+                if (query.isError) void query.refetch();
+            }}
+          />
+        </View>
+      ) : null}
       <LeaseHeaderFields
         control={control}
         hasPreselectedProperty={hasPreselectedProperty}
@@ -1785,7 +1853,7 @@ export function LeaseForm({
         propertyOptions={propertyOptions}
         shouldLockContractTypeByInterested={shouldLockContractTypeByInterested}
         shouldShowContractTypeSelect={shouldShowContractTypeSelect}
-        singleTemplate={singleTemplate}
+        singleTemplate={mode === 'create' ? singleTemplate : null}
         t={t}
         templatesForType={templatesForType}
         testIDPrefix={testIDPrefix}
@@ -1836,9 +1904,11 @@ export function LeaseForm({
 
       <AppButton
         title={submitLabel}
-        onPress={submit}
+        onPress={() => {
+          void submit().catch(() => undefined);
+        }}
         loading={submitting}
-        disabled={submitting}
+        disabled={submitting || selectorsLoading || Boolean(selectorError)}
         testID={`${testIDPrefix}.submit`}
       />
       {datePickerTarget ? (
@@ -1846,7 +1916,8 @@ export function LeaseForm({
           value={datePickerValue}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleDateChange}
+          onValueChange={handleDateChange}
+          onDismiss={() => setDatePickerTarget(null)}
           testID={`${testIDPrefix}.${datePickerTarget}.picker`}
         />
       ) : null}
@@ -1855,6 +1926,7 @@ export function LeaseForm({
 }
 
 const styles = StyleSheet.create({
+  guidanceTarget: { borderWidth: 2, borderColor: '#2563eb' },
   sectionTitle: {
     color: '#0f172a',
     fontWeight: '700',

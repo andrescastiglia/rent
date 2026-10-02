@@ -163,6 +163,15 @@ export class Payment {
   @OneToMany(() => PaymentAllocation, (allocation) => allocation.payment)
   allocations: PaymentAllocation[];
 
+  @Column({
+    name: 'refunded_amount',
+    type: 'decimal',
+    precision: 14,
+    scale: 2,
+    default: 0,
+  })
+  refundedAmount: number;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

@@ -1,6 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { ZodValidationPipe } from '../src/common/pipes/zod-validation.pipe';
 import { Company, PlanType } from '../src/companies/entities/company.entity';
 import { Admin } from '../src/users/entities/admin.entity';
@@ -25,6 +25,9 @@ export async function createTestCompany(
   return companyRepository.save(
     companyRepository.create({
       plan: PlanType.BASIC,
+      settings: {
+        financial: { commissionTaxRate: 21, commissionTaxRateSource: 'test' },
+      },
       ...values,
     }),
   );
@@ -78,4 +81,34 @@ export async function loginTestUser(
     .expect(200);
 
   return response.body.accessToken as string;
+}
+
+/** Disposable test data only: immutable financial evidence cannot be purged through domain APIs. */
+export async function purgeFinancialCorrections(
+  db: DataSource,
+  companyId: string,
+) {
+  await db.transaction(async (manager) => {
+    await manager.query("SET LOCAL session_replication_role='replica'");
+    for (const table of [
+      'payment_refunds',
+      'settlement_source_compensations',
+      'invoice_cancellations',
+      'commission_invoice_corrections',
+      'sale_receipt_cancellations',
+      'company_financial_settings_audit',
+      'domain_operation_receipts',
+    ])
+      await manager.query(`DELETE FROM ${table} WHERE company_id=$1`, [
+        companyId,
+      ]);
+    await manager.query(
+      'DELETE FROM payment_gateway_transactions WHERE company_id=$1',
+      [companyId],
+    );
+    await manager.query(
+      'DELETE FROM payment_gateway_webhook_events WHERE company_id=$1',
+      [companyId],
+    );
+  });
 }

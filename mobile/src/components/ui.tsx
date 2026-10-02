@@ -1,17 +1,24 @@
-import DateTimePicker, {
-  DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
-import { useSegments } from 'expo-router';
-import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
-} from 'react-native';
+} from '@/components/themed-native';
+import { useTheme } from '@/contexts/theme-context';
+import {
+  GuidanceControlHint,
+  useGuidanceBlocker,
+  useGuidanceControl,
+  useGuidanceInteraction,
+} from '@/components/guidance';
+import { designTokens as tokens } from '@/config/design-tokens';
+import DateTimePicker, {
+  DateTimePickerChangeEvent,
+} from '@react-native-community/datetimepicker';
+import { useSegments } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { Platform, StyleSheet } from 'react-native';
 
 type ButtonProps = {
   title: string;
@@ -30,39 +37,54 @@ export function AppButton({
   variant = 'primary',
   testID,
 }: Readonly<ButtonProps>) {
+  const interact = useGuidanceInteraction();
   const isDisabled = disabled || loading;
+  const hinted = useGuidanceControl({
+    id: testID ?? `action:${title}`,
+    label: title,
+    kind: 'action',
+    enabled: !isDisabled,
+    complete: true,
+  });
   return (
-    <Pressable
-      testID={testID}
-      style={[
-        styles.button,
-        variant === 'secondary' && styles.secondaryButton,
-        isDisabled && styles.buttonDisabled,
-      ]}
-      onPress={onPress}
-      disabled={isDisabled}
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      accessibilityState={{
-        disabled: Boolean(isDisabled),
-        busy: Boolean(loading),
-      }}
-    >
-      {loading ? (
-        <ActivityIndicator
-          color={variant === 'secondary' ? '#1f2a37' : '#ffffff'}
-        />
-      ) : (
-        <Text
-          style={[
-            styles.buttonText,
-            variant === 'secondary' && styles.secondaryButtonText,
-          ]}
-        >
-          {title}
-        </Text>
-      )}
-    </Pressable>
+    <View>
+      <Pressable
+        testID={testID}
+        style={[
+          styles.button,
+          variant === 'secondary' && styles.secondaryButton,
+          isDisabled && styles.buttonDisabled,
+          hinted && styles.guidanceTarget,
+        ]}
+        onPress={() => {
+          interact();
+          onPress();
+        }}
+        disabled={isDisabled}
+        accessibilityRole="button"
+        accessibilityLabel={title}
+        accessibilityState={{
+          disabled: Boolean(isDisabled),
+          busy: Boolean(loading),
+        }}
+      >
+        {loading ? (
+          <ActivityIndicator
+            color={variant === 'secondary' ? '#1f2a37' : '#ffffff'}
+          />
+        ) : (
+          <Text
+            style={[
+              styles.buttonText,
+              variant === 'secondary' && styles.secondaryButtonText,
+            ]}
+          >
+            {title}
+          </Text>
+        )}
+      </Pressable>
+      <GuidanceControlHint active={hinted} label={title} />
+    </View>
   );
 }
 
@@ -89,14 +111,29 @@ export function Field({
   keyboardType = 'default',
   testID,
 }: Readonly<FieldProps>) {
+  const interact = useGuidanceInteraction();
+  const hinted = useGuidanceControl({
+    id: testID ?? `field:${label}`,
+    label,
+    kind: 'field',
+    enabled: editable,
+    complete: Boolean(value.trim()),
+  });
   return (
     <View style={styles.fieldContainer}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <TextInput
         testID={testID}
-        style={[styles.input, !editable && styles.inputDisabled]}
+        style={[
+          styles.input,
+          !editable && styles.inputDisabled,
+          hinted && styles.guidanceTarget,
+        ]}
         value={value}
-        onChangeText={onChangeText}
+        onChangeText={(value) => {
+          interact();
+          onChangeText(value);
+        }}
         placeholder={placeholder}
         editable={editable}
         secureTextEntry={secureTextEntry}
@@ -105,6 +142,7 @@ export function Field({
         accessibilityLabel={label}
         accessibilityState={{ disabled: !editable }}
       />
+      <GuidanceControlHint active={hinted} label={label} />
     </View>
   );
 }
@@ -148,18 +186,30 @@ export function DateField({
   placeholder = 'YYYY-MM-DD',
   testID,
 }: Readonly<DateFieldProps>) {
+  const { mode } = useTheme();
   const [showPicker, setShowPicker] = useState(false);
+  const hinted = useGuidanceControl({
+    id: testID ?? `date:${label}`,
+    label,
+    kind: 'field',
+    enabled: true,
+    complete: Boolean(value),
+  });
+  useGuidanceBlocker(`${testID ?? label}.picker`, showPicker);
 
   const selectedDate = useMemo(
     () => parseDateInput(value) ?? new Date(),
     [value],
   );
 
-  const handlePickerChange = (event: DateTimePickerEvent, selected?: Date) => {
+  const handlePickerChange = (
+    _event: DateTimePickerChangeEvent,
+    selected?: Date,
+  ) => {
     if (Platform.OS === 'android') {
       setShowPicker(false);
     }
-    if (event.type === 'dismissed' || !selected) {
+    if (!selected) {
       return;
     }
     onChange(formatDateInput(selected));
@@ -173,7 +223,7 @@ export function DateField({
       <Text style={styles.fieldLabel}>{label}</Text>
       <Pressable
         testID={testID}
-        style={styles.input}
+        style={[styles.input, hinted && styles.guidanceTarget]}
         onPress={() => setShowPicker(true)}
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -184,12 +234,15 @@ export function DateField({
           {value || placeholder}
         </Text>
       </Pressable>
+      <GuidanceControlHint active={hinted} label={label} />
       {showPicker ? (
         <DateTimePicker
+          themeVariant={mode}
           value={selectedDate}
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handlePickerChange}
+          onValueChange={handlePickerChange}
+          onDismiss={() => setShowPicker(false)}
           testID={testID ? `${testID}.picker` : undefined}
         />
       ) : null}
@@ -234,6 +287,14 @@ export function ChoiceGroup<T extends string>({
   onChange,
   testID,
 }: Readonly<ChoiceGroupProps<T>>) {
+  const interact = useGuidanceInteraction();
+  const hinted = useGuidanceControl({
+    id: testID ?? `choice:${label}`,
+    label,
+    kind: 'field',
+    enabled: options.length > 0,
+    complete: Boolean(value),
+  });
   return (
     <View style={styles.fieldContainer}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -248,8 +309,15 @@ export function ChoiceGroup<T extends string>({
             <Pressable
               testID={testID ? `${testID}.${option.value}` : undefined}
               key={option.value}
-              style={[styles.choiceChip, selected && styles.choiceChipSelected]}
-              onPress={() => onChange(option.value)}
+              style={[
+                styles.choiceChip,
+                selected && styles.choiceChipSelected,
+                hinted && styles.guidanceTarget,
+              ]}
+              onPress={() => {
+                interact();
+                onChange(option.value);
+              }}
               accessibilityRole="radio"
               accessibilityLabel={option.label}
               accessibilityState={{ checked: selected }}
@@ -266,6 +334,7 @@ export function ChoiceGroup<T extends string>({
           );
         })}
       </View>
+      <GuidanceControlHint active={hinted} label={label} />
     </View>
   );
 }
@@ -332,6 +401,7 @@ export function MultiChoiceGroup<T extends string>({
 }
 
 const styles = StyleSheet.create({
+  guidanceTarget: { borderWidth: 2, borderColor: tokens.colors.primary },
   h1: {
     fontSize: 28,
     fontWeight: '700',
@@ -357,6 +427,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    minHeight: tokens.touchTarget,
     backgroundColor: '#ffffff',
     color: '#111827',
   },
@@ -402,6 +473,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    minHeight: tokens.touchTarget,
+    justifyContent: 'center',
     backgroundColor: '#ffffff',
   },
   choiceChipSelected: {

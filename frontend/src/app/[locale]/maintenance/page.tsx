@@ -1,6 +1,12 @@
 "use client";
 
-import { SyntheticEvent, useCallback, useEffect, useState } from "react";
+import {
+  SyntheticEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { maintenanceApi } from "@/lib/api/maintenance";
 import type {
   MaintenanceTicket,
@@ -18,7 +24,8 @@ import { useTranslations } from "next-intl";
 import { Loader2, MessageSquare, Plus, X } from "lucide-react";
 import { RoleGuard } from "@/components/common/RoleGuard";
 import { useAuth } from "@/contexts/auth-context";
-import { isInternalUser } from "@/lib/permissions";
+import MaintenanceAttachments from "@/components/documents/MaintenanceAttachments";
+import { canUserAccessModule } from "@/lib/permissions";
 
 const STATUSES = Object.values(MaintenanceTicketStatus);
 const PRIORITIES = Object.values(MaintenanceTicketPriority);
@@ -268,7 +275,7 @@ function TicketDetailPanel({
       const updated = await maintenanceApi.update(ticket.id, input);
       onUpdated(updated);
     } catch {
-      // status update failure is non-critical; parent will reload on next action
+      setCommentError(t("errors.updateStatus"));
     } finally {
       setUpdatingStatus(false);
     }
@@ -491,6 +498,9 @@ function TicketDetailPanel({
       )}
 
       <div className="mt-6">
+        <MaintenanceAttachments ticketId={ticket.id} />
+      </div>
+      <div className="mt-6">
         <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
           <MessageSquare className="h-4 w-4" />
           {t("comments")}
@@ -541,6 +551,7 @@ function TicketDetailPanel({
         <form onSubmit={handleAddComment} className="mt-3 space-y-2">
           <textarea
             rows={2}
+            aria-label={t("addComment")}
             placeholder={t("addComment")}
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
@@ -595,10 +606,18 @@ export default function MaintenancePage() {
 
   const [selectedTicket, setSelectedTicket] =
     useState<MaintenanceTicket | null>(null);
+  const currentLoad = useRef(0);
 
-  const canManage = isInternalUser(user);
+  const canManage = Boolean(
+    user && canUserAccessModule(user, ["admin", "staff"], "maintenance"),
+  );
 
   const load = useCallback(async () => {
+    const requestId = ++currentLoad.current;
+    if (!canManage) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -607,18 +626,21 @@ export default function MaintenancePage() {
         priority: filterPriority || undefined,
         search: filterSearch || undefined,
       });
-      setTickets(data);
+      if (requestId === currentLoad.current) setTickets(data);
     } catch (err) {
       console.error("Failed to load tickets", err);
-      setError(t("errors.load"));
+      if (requestId === currentLoad.current) setError(t("errors.load"));
     } finally {
-      setLoading(false);
+      if (requestId === currentLoad.current) setLoading(false);
     }
-  }, [filterStatus, filterPriority, filterSearch, t]);
+  }, [canManage, filterStatus, filterPriority, filterSearch, t]);
 
   useEffect(() => {
     load().catch(console.error);
-  }, [load]);
+    return () => {
+      currentLoad.current++;
+    };
+  }, [load, user?.id, user?.companyId]);
 
   const clearMessages = () => {
     setError(null);
@@ -680,7 +702,7 @@ export default function MaintenancePage() {
     new Date(dateStr).toLocaleDateString("es-AR");
 
   return (
-    <RoleGuard allowedRoles={["admin", "staff"]}>
+    <RoleGuard allowedRoles={["admin", "staff"]} requiredModule="maintenance">
       <section className="space-y-5">
         <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">
@@ -699,8 +721,18 @@ export default function MaintenancePage() {
         </header>
 
         {error ? (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">
+          <p
+            role="alert"
+            className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400"
+          >
             {error}
+            <button
+              type="button"
+              onClick={() => void load()}
+              className="ml-3 min-h-11 underline"
+            >
+              {tCommon("retry")}
+            </button>
           </p>
         ) : null}
         {success ? (
@@ -779,14 +811,16 @@ export default function MaintenancePage() {
           !showForm && (
             <>
               {tickets.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-gray-300 p-10 text-center dark:border-gray-600">
-                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    {t("noTickets")}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                    {t("noTicketsDescription")}
-                  </p>
-                </div>
+                !error && (
+                  <div className="rounded-lg border border-dashed border-gray-300 p-10 text-center dark:border-gray-600">
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      {t("noTickets")}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                      {t("noTicketsDescription")}
+                    </p>
+                  </div>
+                )
               ) : (
                 <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
                   <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -825,7 +859,14 @@ export default function MaintenancePage() {
                           className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
                         >
                           <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                            {tk.title}
+                            <button
+                              type="button"
+                              data-guide="maintenance-open"
+                              aria-expanded={selectedTicket?.id === tk.id}
+                              className="min-h-11 text-left"
+                            >
+                              {tk.title}
+                            </button>
                           </td>
                           <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                             {tk.property?.address ?? tk.propertyId}

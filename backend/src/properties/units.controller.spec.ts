@@ -42,6 +42,6 @@ describe('UnitsController', () => {
     await expect(controller.remove('u1', req)).resolves.toEqual({
       message: 'Unit deleted successfully',
     });
-    expect(unitsService.remove).toHaveBeenCalledWith('u1', req.user);
+    expect(unitsService.remove).toHaveBeenCalledWith('u1', req.user, undefined);
   });
 });

@@ -16,6 +16,15 @@ import {
 import { apiClient } from "../api";
 import { getToken } from "../auth";
 
+export type PaymentRefund = {
+  id: string;
+  amount: string | number;
+  currency: string;
+  document_number: string;
+  reason: string;
+  created_at: string;
+};
+
 // Use mock data only in explicit mock/test contexts.
 const IS_MOCK_MODE =
   process.env.NODE_ENV === "test" ||
@@ -331,7 +340,22 @@ const applyMockPaymentFilters = (
     (current, predicate) => current.filter(predicate),
     [...payments],
   );
-  return sortPaymentsByRecency(filtered);
+  const term = filters?.search?.trim().toLocaleLowerCase();
+  const searched = term
+    ? filtered.filter((payment) =>
+        [
+          payment.reference,
+          payment.receipt?.receiptNumber,
+          payment.tenantAccount?.lease?.property?.name,
+          payment.tenantAccount?.lease?.tenant?.firstName,
+          payment.tenantAccount?.lease?.tenant?.lastName,
+        ]
+          .join(" ")
+          .toLocaleLowerCase()
+          .includes(term),
+      )
+    : filtered;
+  return sortPaymentsByRecency(searched);
 };
 
 const toTenantReceiptSummary = (payment: Payment): TenantReceiptSummary => {
@@ -373,6 +397,44 @@ const collectMockReceiptsByTenant = (
 };
 
 export const paymentsApi = {
+  refund: async (
+    paymentId: string,
+    payload: { amount: number; reason: string },
+    idempotencyKey: string,
+  ): Promise<Payment> =>
+    apiClient.post<Payment>(
+      `/payments/${encodeURIComponent(paymentId)}/refunds`,
+      payload,
+      getToken() ?? undefined,
+      { "Idempotency-Key": idempotencyKey },
+    ),
+  listRefunds: async (paymentId: string): Promise<PaymentRefund[]> =>
+    apiClient.get<PaymentRefund[]>(
+      `/payments/${encodeURIComponent(paymentId)}/refunds`,
+      getToken() ?? undefined,
+    ),
+  downloadRefund: async (
+    paymentId: string,
+    refund: PaymentRefund,
+  ): Promise<void> => {
+    const response = await fetch(
+      `${API_URL}/payments/${encodeURIComponent(paymentId)}/refunds/${encodeURIComponent(refund.id)}/pdf`,
+      { headers: { Authorization: `Bearer ${getToken() ?? ""}` } },
+    );
+    if (!response.ok)
+      throw new Error("The refund document could not be downloaded");
+    const url = URL.createObjectURL(await response.blob());
+    const anchor = document.createElement("a");
+    try {
+      anchor.href = url;
+      anchor.download = `devolucion-${refund.document_number}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+    } finally {
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    }
+  },
   /**
    * Lista pagos con filtros
    */
@@ -382,9 +444,11 @@ export const paymentsApi = {
     if (shouldUseMock()) {
       await delay(DELAY);
       const sortedData = applyMockPaymentFilters(MOCK_PAYMENTS, filters);
+      const page = filters?.page ?? 1,
+        limit = filters?.limit ?? 10;
 
       return {
-        data: sortedData,
+        data: sortedData.slice((page - 1) * limit, page * limit),
         total: sortedData.length,
         page: filters?.page || 1,
         limit: filters?.limit || 10,
@@ -393,6 +457,8 @@ export const paymentsApi = {
 
     const token = getToken();
     const queryParams = new URLSearchParams();
+    if (filters?.search?.trim())
+      queryParams.append("search", filters.search.trim());
     if (filters?.tenantId) queryParams.append("tenantId", filters.tenantId);
     if (filters?.status) queryParams.append("status", filters.status);
     if (filters?.method) queryParams.append("method", filters.method);
@@ -432,8 +498,10 @@ export const paymentsApi = {
         `/payments/${id}`,
         token ?? undefined,
       );
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof Error && "status" in error && error.status === 404)
+        return null;
+      throw error;
     }
   },
 
@@ -639,8 +707,18 @@ export const invoicesApi = {
         filtered = filtered.filter((i) => i.leaseId === filters.leaseId);
       }
 
+      if (filters?.search?.trim()) {
+        const term = filters.search.trim().toLocaleLowerCase();
+        filtered = filtered.filter((invoice) =>
+          `${invoice.invoiceNumber} ${invoice.notes ?? ""}`
+            .toLocaleLowerCase()
+            .includes(term),
+        );
+      }
+      const page = filters?.page ?? 1,
+        limit = filters?.limit ?? 10;
       return {
-        data: filtered,
+        data: filtered.slice((page - 1) * limit, page * limit),
         total: filtered.length,
         page: filters?.page || 1,
         limit: filters?.limit || 10,
@@ -649,6 +727,8 @@ export const invoicesApi = {
 
     const token = getToken();
     const queryParams = new URLSearchParams();
+    if (filters?.search?.trim())
+      queryParams.append("search", filters.search.trim());
     if (filters?.status) queryParams.append("status", filters.status);
     if (filters?.leaseId) queryParams.append("leaseId", filters.leaseId);
     if (filters?.page) queryParams.append("page", String(filters.page));
@@ -674,8 +754,10 @@ export const invoicesApi = {
         `/invoices/${id}`,
         token ?? undefined,
       );
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof Error && "status" in error && error.status === 404)
+        return null;
+      throw error;
     }
   },
 
@@ -793,8 +875,10 @@ export const tenantAccountsApi = {
         `/tenant-accounts/lease/${leaseId}`,
         token ?? undefined,
       );
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof Error && "status" in error && error.status === 404)
+        return null;
+      throw error;
     }
   },
 

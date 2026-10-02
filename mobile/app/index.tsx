@@ -1,5 +1,5 @@
+import { ActivityIndicator, View } from '@/components/themed-native';
 import { Redirect, type Href } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
 
 import { useAuth } from '@/contexts/auth-context';
 import { getLandingPathForUser } from '@/config/navigation';

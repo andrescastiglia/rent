@@ -12,6 +12,7 @@ const segmentTranslationMap: Record<
 > = {
   dashboard: { namespace: "nav", key: "dashboard" },
   properties: { namespace: "nav", key: "properties" },
+  owners: { namespace: "nav", key: "owners" },
   tenants: { namespace: "nav", key: "tenants" },
   leases: { namespace: "nav", key: "leases" },
   templates: { namespace: "nav", key: "templates" },
@@ -93,23 +94,24 @@ export default function Breadcrumbs() {
     pathSegments[1] === "owners" &&
     pathSegments[3] === "payments" &&
     pathSegments[4] === "new";
+  const localePrefix = hasLocale ? `/${segments[0]}` : "";
   const crumbs = isOwnerPayout
     ? [
         {
-          path: `${hasLocale ? `/${segments[0]}` : ""}/properties`,
-          name: tNav("properties"),
+          path: localePrefix + "/owners",
+          name: tNav("owners"),
         },
         { path: pathname, name: tPayouts("title") },
       ]
     : pathSegments.map((segment, index) => ({
-        path: `/${hasLocale ? segments.slice(0, index + 2).join("/") : segments.slice(0, index + 1).join("/")}`,
+        path: "/" + segments.slice(0, index + (hasLocale ? 2 : 1)).join("/"),
         name: getSegmentName(segment),
       }));
 
   return (
     <nav
       aria-label={tBreadcrumbs("ariaLabel")}
-      className="flex flex-wrap items-center gap-y-2 space-x-2 text-sm text-gray-500 dark:text-gray-400 mb-4"
+      className="flex flex-wrap items-center gap-y-2 space-x-2 text-sm text-gray-600 dark:text-gray-400 mb-4"
     >
       <Link
         href="/"

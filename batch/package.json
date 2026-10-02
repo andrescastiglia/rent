@@ -85,16 +85,16 @@
     ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
-    "globals": {
-      "ts-jest": {
-        "tsconfig": {
-          "esModuleInterop": true,
-          "allowSyntheticDefaultImports": true
-        }
-      }
-    },
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.(t|j)s$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "esModuleInterop": true,
+            "allowSyntheticDefaultImports": true
+          }
+        }
+      ]
     },
     "transformIgnorePatterns": [
       "node_modules/(?!(node-html-parser|entities|commander)/)"
@@ -103,11 +103,15 @@
     "testEnvironment": "node",
     "coverageThreshold": {
       "global": {
-        "statements": 80,
-        "lines": 80,
-        "functions": 80,
-        "branches": 70
+        "statements": 85,
+        "lines": 90,
+        "functions": 85,
+        "branches": 80
       }
-    }
+    },
+    "collectCoverageFrom": [
+      "**/*.ts",
+      "!**/*.d.ts"
+    ]
   }
 }

@@ -7,12 +7,9 @@ export function parseIndexPoint(
     ? date.split("/").reverse().join("-")
     : date;
   const parsed = new Date(`${normalized}T00:00:00Z`);
-  const number =
-    typeof value === "number"
-      ? value
-      : typeof value === "string" && value.trim()
-        ? Number(value)
-        : NaN;
+  let number = Number.NaN;
+  if (typeof value === "number") number = value;
+  else if (typeof value === "string" && value.trim()) number = Number(value);
   if (
     !/^\d{4}-\d{2}-\d{2}$/.test(normalized) ||
     !Number.isFinite(parsed.getTime()) ||

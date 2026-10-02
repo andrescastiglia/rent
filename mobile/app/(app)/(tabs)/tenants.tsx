@@ -1,18 +1,19 @@
-import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
-} from 'react-native';
+} from '@/components/themed-native';
+import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { tenantsApi } from '@/api/tenants';
 import { Screen } from '@/components/screen';
+import { Pagination } from '@/components/pagination';
 import { H1 } from '@/components/ui';
 import { canManageTenantsForUser } from '@/config/navigation';
 import { useAuth } from '@/contexts/auth-context';
@@ -36,25 +37,28 @@ export default function TenantsScreen() {
   const { user } = useAuth();
   const canManage = canManageTenantsForUser(user);
   const { t } = useTranslation();
+  const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   useEffect(() => {
     const handle = setTimeout(() => {
       setDebouncedSearch(searchTerm.trim());
+      setPage(1);
     }, 300);
     return () => clearTimeout(handle);
   }, [searchTerm]);
 
   const tenantsQuery = useQuery({
-    queryKey: ['tenants', debouncedSearch],
+    queryKey: ['tenants', debouncedSearch, page],
     queryFn: () =>
-      tenantsApi.getAll(
-        debouncedSearch ? { name: debouncedSearch } : undefined,
-      ),
+      tenantsApi.getPage({ name: debouncedSearch, page, limit: 20 }),
   });
 
-  const tenants = useMemo(() => tenantsQuery.data ?? [], [tenantsQuery.data]);
+  const tenants = useMemo(
+    () => tenantsQuery.data?.data ?? [],
+    [tenantsQuery.data],
+  );
 
   const toDisplayName = (
     firstName?: string,
@@ -80,7 +84,10 @@ export default function TenantsScreen() {
   };
 
   return (
-    <Screen>
+    <Screen
+      guidanceReady={!tenantsQuery.isFetching}
+      guidanceBlocked={tenantsQuery.isError}
+    >
       <H1>{t('tenants.title')}</H1>
 
       <TextInput
@@ -147,15 +154,17 @@ export default function TenantsScreen() {
                   />
                 </>
               ) : null}
-              <ActionChip
-                title={t('tenants.activities.add')}
-                onPress={() =>
-                  router.push(
-                    `/(app)/tenants/${tenant.id}/activities/new` as never,
-                  )
-                }
-                testID={`tenant.activity.new.${tenant.id}`}
-              />
+              {canManage ? (
+                <ActionChip
+                  title={t('tenants.activities.add')}
+                  onPress={() =>
+                    router.push(
+                      `/(app)/tenants/${tenant.id}/activities/new` as never,
+                    )
+                  }
+                  testID={`tenant.activity.new.${tenant.id}`}
+                />
+              ) : null}
             </View>
           </View>
         ))}
@@ -163,6 +172,11 @@ export default function TenantsScreen() {
           <Text style={styles.empty}>{t('tenants.noTenantsDescription')}</Text>
         ) : null}
       </View>
+      <Pagination
+        result={tenantsQuery.data}
+        loading={tenantsQuery.isFetching}
+        onPage={setPage}
+      />
     </Screen>
   );
 }

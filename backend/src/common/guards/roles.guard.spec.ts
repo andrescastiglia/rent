@@ -43,6 +43,62 @@ describe('RolesGuard', () => {
     jest.clearAllMocks();
   });
 
+  it.each([false, true])(
+    'does not let an external role bypass staff module permissions (role-protected=%s)',
+    (roleProtected) => {
+      const guard = new RolesGuard(reflector);
+      setPolicy({
+        authenticated: 'maintenance',
+        roles: roleProtected
+          ? [UserRole.ADMIN, UserRole.STAFF, UserRole.OWNER]
+          : undefined,
+      });
+      const user = {
+        role: UserRole.OWNER,
+        roles: [UserRole.OWNER, UserRole.STAFF],
+        permissions: { maintenance: false },
+      };
+      expect(
+        guard.canActivate(makeContext({ path: '/maintenance/tickets', user })),
+      ).toBe(false);
+      user.permissions.maintenance = true;
+      expect(
+        guard.canActivate(makeContext({ path: '/maintenance/tickets', user })),
+      ).toBe(true);
+    },
+  );
+
+  it('preserves external multirole and administrator access without staff inheritance', () => {
+    const guard = new RolesGuard(reflector);
+    setPolicy({
+      authenticated: 'leases',
+      roles: [UserRole.ADMIN, UserRole.OWNER],
+    });
+    expect(
+      guard.canActivate(
+        makeContext({
+          path: '/amendments',
+          user: {
+            role: UserRole.TENANT,
+            roles: [UserRole.TENANT, UserRole.OWNER],
+          },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        makeContext({
+          path: '/amendments',
+          user: {
+            role: UserRole.STAFF,
+            roles: [UserRole.STAFF, UserRole.ADMIN],
+            permissions: {},
+          },
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it('allows public routes without a user', () => {
     const guard = new RolesGuard(reflector);
     setPolicy({ isPublic: true });
@@ -244,7 +300,7 @@ describe('RolesGuard', () => {
     ).toBe(true);
   });
 
-  it('keeps an external directly authenticated role when staff is secondary', () => {
+  it('requires the staff capability when an external identity also has a staff role', () => {
     const guard = new RolesGuard(reflector);
     setPolicy({ authenticated: 'leases' });
     expect(
@@ -258,6 +314,6 @@ describe('RolesGuard', () => {
           },
         }),
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 });

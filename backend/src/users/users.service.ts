@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
 import { User } from './entities/user.entity';
@@ -48,12 +48,20 @@ export class UsersService {
     page: number = 1,
     limit: number = 10,
     companyId: string = '',
+    search?: string,
   ): Promise<{ data: User[]; total: number; page: number; limit: number }> {
     const [data, total] = await this.usersRepository.findAndCount({
-      where: { companyId },
+      where: search?.trim()
+        ? ['firstName', 'lastName', 'email'].map((field) => ({
+            companyId,
+            [field]: ILike(
+              '%' + search.trim().replace(/[\\%_]/g, String.raw`\$&`) + '%',
+            ),
+          }))
+        : { companyId },
       skip: (page - 1) * limit,
       take: limit,
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'ASC' },
     });
 
     return {
@@ -224,22 +232,7 @@ export class UsersService {
       user.phone = updateUserDto.phone.trim();
     }
 
-    if (updateUserDto.whatsappEnabled !== undefined) {
-      if (!allowWhatsappConsent) {
-        throw new BadRequestException(
-          'WhatsApp consent can only be changed by the account owner',
-        );
-      }
-      if (updateUserDto.whatsappEnabled && !user.phone?.trim()) {
-        throw new BadRequestException(
-          'A phone number is required to enable WhatsApp',
-        );
-      }
-      user.whatsappEnabled = updateUserDto.whatsappEnabled;
-      user.whatsappEnabledAt = updateUserDto.whatsappEnabled
-        ? new Date()
-        : null;
-    }
+    this.applyWhatsappConsent(user, updateUserDto, allowWhatsappConsent);
 
     if (updateUserDto.language !== undefined) {
       user.language = updateUserDto.language;
@@ -263,6 +256,29 @@ export class UsersService {
 
     if (updateUserDto.permissions !== undefined) {
       user.permissions = updateUserDto.permissions;
+    }
+  }
+
+  private applyWhatsappConsent(
+    user: User,
+    updateUserDto: UpdateUserDto,
+    allowWhatsappConsent: boolean,
+  ): void {
+    if (updateUserDto.whatsappEnabled !== undefined) {
+      if (!allowWhatsappConsent) {
+        throw new BadRequestException(
+          'WhatsApp consent can only be changed by the account owner',
+        );
+      }
+      if (updateUserDto.whatsappEnabled && !user.phone?.trim()) {
+        throw new BadRequestException(
+          'A phone number is required to enable WhatsApp',
+        );
+      }
+      user.whatsappEnabled = updateUserDto.whatsappEnabled;
+      user.whatsappEnabledAt = updateUserDto.whatsappEnabled
+        ? new Date()
+        : null;
     }
   }
 

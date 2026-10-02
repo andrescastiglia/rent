@@ -37,8 +37,9 @@ describe('self-service mutation policy', () => {
 
 describe('buyer navigation', () => {
   it('routes buyers to AI without exposing the company dashboard', () => {
-    expect(getLandingPathForRole('buyer')).toBe('/ai');
+    expect(getLandingPathForRole('buyer')).toBe('/home');
     expect(getNavigationForRole('buyer').map((item) => item.href)).toEqual([
+      '/sales',
       '/ai',
     ]);
     expect(canUserAccessPath({ role: 'buyer' }, '/dashboard')).toBe(false);
@@ -50,12 +51,16 @@ describe('multi-role navigation', () => {
   it('routes a buyer with an operational role to the task dashboard', () => {
     expect(
       getLandingPathForUser({ role: 'buyer', roles: ['buyer', 'staff'] }),
-    ).toBe('/dashboard');
+    ).toBe('/home');
   });
 
   it('recognizes management granted by a secondary staff role', () => {
     expect(
-      canManageOwnersForUser({ role: 'owner', roles: ['owner', 'staff'] }),
+      canManageOwnersForUser({
+        role: 'owner',
+        roles: ['owner', 'staff'],
+        permissions: { owners: true },
+      }),
     ).toBe(true);
   });
 });
@@ -141,9 +146,21 @@ describe('permission-aware navigation', () => {
     ).toBe(false);
     expect(canUserAccessPath({ role: 'owner' }, '/owners/new')).toBe(false);
     expect(canUserAccessPath({ role: 'owner' }, '/owners/o1/pay')).toBe(false);
-    expect(canUserAccessPath({ role: 'owner' }, '/owners/o1/edit')).toBe(true);
+    expect(canUserAccessPath({ role: 'owner' }, '/owners/o1/edit')).toBe(false);
     expect(canUserAccessPath({ role: 'tenant' }, '/payments')).toBe(false);
     expect(canUserAccessPath({ role: 'tenant' }, '/invoices/i1')).toBe(false);
     expect(canUserAccessPath({ role: 'tenant' }, '/unknown')).toBe(false);
   });
+});
+
+it('does not let a secondary external role bypass staff mutation permissions', () => {
+  const user = { role: 'owner', roles: ['owner', 'staff'], permissions: {} };
+  expect(canUserAccessPath(user, '/owners/new')).toBe(false);
+  expect(canManageOwnersForUser(user)).toBe(false);
+  expect(
+    canUserAccessPath(
+      { ...user, permissions: { owners: true } },
+      '/owners/new',
+    ),
+  ).toBe(true);
 });

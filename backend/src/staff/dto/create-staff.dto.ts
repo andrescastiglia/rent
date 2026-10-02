@@ -18,7 +18,7 @@ export const createStaffZodSchema = z
     firstName: z.string().min(1).max(100),
     lastName: z.string().min(1).max(100),
     email: z
-      .union([z.string().email().max(USER_EMAIL_MAX_LENGTH), z.literal('')])
+      .union([z.email().max(USER_EMAIL_MAX_LENGTH), z.literal('')])
       .optional()
       .transform((value) => {
         if (!value) return undefined;
@@ -26,7 +26,7 @@ export const createStaffZodSchema = z
         return trimmed.length > 0 ? trimmed : undefined;
       }),
     phone: z.string().optional(),
-    specialization: z.nativeEnum(StaffSpecialization),
+    specialization: z.enum(StaffSpecialization),
     hourlyRate: z.coerce.number().min(0).optional(),
     currency: z.string().optional().default('ARS'),
     serviceAreas: z.array(z.string()).optional(),

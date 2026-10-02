@@ -209,7 +209,8 @@ it("recovers incident read failures with a local refresh", async () => {
   render(<PortalPublicationReview propertyId="property" />);
   await screen.findByRole("alert");
   fireEvent.click(screen.getByRole("button", { name: "read" }));
-  await screen.findByText("status.needs_review");
+  expect(await screen.findByText("status.needs_review")).toBeVisible();
+  expect(api.operation).toHaveBeenCalledTimes(2);
 });
 it("preserves failed candidate errors without exposing provider messages", async () => {
   api.candidate.mockRejectedValue(new Error("private provider details"));

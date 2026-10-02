@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Authenticated } from '../common/decorators/authenticated.decorator';
+import { SelfServiceAction } from '../common/decorators/self-service-action.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { UserModulePermissions, UserRole } from '../users/entities/user.entity';
 import { AiChatRequestDto } from './dto/ai-chat-request.dto';
@@ -37,6 +38,7 @@ export class AiRagController {
   constructor(private readonly rollout: AiRagRolloutService) {}
 
   @Post('respond')
+  @SelfServiceAction('ai.read')
   respond(@Body() dto: AiChatRequestDto, @Request() req: AuthenticatedRequest) {
     if (!req.user.companyId) {
       throw new ServiceUnavailableException(

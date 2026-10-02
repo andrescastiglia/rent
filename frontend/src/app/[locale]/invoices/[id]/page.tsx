@@ -20,6 +20,9 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { Button, StatePanel } from "@/components/ui";
+import { canUserAccessModule } from "@/lib/permissions";
+import { useWorkflowMutation } from "@/hooks/useWorkflowMutation";
 
 export default function InvoiceDetailPage() {
   const { user, loading } = useAuth();
@@ -47,17 +50,29 @@ function InvoiceDetailContent() {
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
-  const [creatingPayment, setCreatingPayment] = useState(false);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const tw = useTranslations("paymentWorkflow");
+  const canCheckout = Boolean(
+    user && canUserAccessModule(user, ["admin", "tenant"], "payments"),
+  );
+  const canRegister = Boolean(
+    user && canUserAccessModule(user, ["admin", "staff"], "payments"),
+  );
+  const [readError, setReadError] = useState(false);
+  const checkout = useWorkflowMutation<string>(async (id) => {
+    const preference = await paymentGatewayApi.createPreference(id);
+    window.location.assign(preference.initPoint);
+  });
+  const creatingPayment = checkout.busy;
   const autoPaymentStarted = useRef(false);
 
   const loadInvoice = useCallback(async () => {
     try {
+      setReadError(false);
       if (!invoiceId) return;
       const data = await invoicesApi.getById(invoiceId);
       setInvoice(data);
-    } catch (error) {
-      console.error("Failed to load invoice", error);
+    } catch {
+      setReadError(true);
     } finally {
       setLoading(false);
     }
@@ -71,22 +86,13 @@ function InvoiceDetailContent() {
   }, [loadInvoice, authLoading]);
 
   const handleMercadoPago = useCallback(async () => {
-    if (!invoiceId || creatingPayment) return;
-
-    try {
-      setCreatingPayment(true);
-      setPaymentError(null);
-      const preference = await paymentGatewayApi.createPreference(invoiceId);
-      window.location.assign(preference.initPoint);
-    } catch (error) {
-      console.error("Failed to create MercadoPago preference", error);
-      setPaymentError(t("mercadoPagoError"));
-      setCreatingPayment(false);
-    }
-  }, [creatingPayment, invoiceId, t]);
+    if (!invoiceId || creatingPayment || !canCheckout) return;
+    await checkout.submit(invoiceId);
+  }, [creatingPayment, invoiceId, canCheckout, checkout.submit]);
 
   useEffect(() => {
     if (
+      !canCheckout ||
       searchParams.get("pay") !== "mercadopago" ||
       !invoice ||
       !["pending", "sent", "partial", "overdue"].includes(invoice.status) ||
@@ -97,7 +103,7 @@ function InvoiceDetailContent() {
 
     autoPaymentStarted.current = true;
     void handleMercadoPago();
-  }, [handleMercadoPago, invoice, searchParams]);
+  }, [handleMercadoPago, invoice, searchParams, canCheckout]);
 
   if (loading) {
     return (
@@ -106,6 +112,17 @@ function InvoiceDetailContent() {
       </div>
     );
   }
+
+  if (readError && !invoice)
+    return (
+      <StatePanel
+        error
+        title={tw("readError")}
+        action={
+          <Button onClick={() => void loadInvoice()}>{tw("retry")}</Button>
+        }
+      />
+    );
 
   if (!invoice) {
     return (
@@ -305,40 +322,63 @@ function InvoiceDetailContent() {
             </div>
           )}
 
+          {readError && (
+            <StatePanel
+              error
+              title={tw("readError")}
+              action={
+                <Button onClick={() => void loadInvoice()}>
+                  {tw("retry")}
+                </Button>
+              }
+            />
+          )}
           {/* Actions */}
           {(invoice.status === "pending" ||
             invoice.status === "sent" ||
             invoice.status === "partial" ||
             invoice.status === "overdue") && (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-              <button
-                type="button"
-                onClick={() => void handleMercadoPago()}
-                disabled={creatingPayment}
-                className="btn btn-primary w-full mb-3"
-              >
-                {creatingPayment ? (
-                  <Loader2 size={18} className="mr-2 animate-spin" />
-                ) : (
-                  <WalletCards size={18} className="mr-2" />
-                )}
-                {creatingPayment ? tCommon("loading") : t("payMercadoPago")}
-              </button>
-              {paymentError && (
+              {canCheckout && (
+                <button
+                  type="button"
+                  onClick={() => void handleMercadoPago()}
+                  disabled={creatingPayment || Boolean(checkout.pending)}
+                  className="btn btn-primary w-full mb-3"
+                >
+                  {creatingPayment ? (
+                    <Loader2 size={18} className="mr-2 animate-spin" />
+                  ) : (
+                    <WalletCards size={18} className="mr-2" />
+                  )}
+                  {creatingPayment ? tCommon("loading") : t("payMercadoPago")}
+                </button>
+              )}
+              {checkout.error && (
                 <p
                   role="alert"
                   className="mb-3 flex items-start gap-2 text-sm text-red-600 dark:text-red-400"
                 >
                   <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                  {paymentError}
+                  {tw(checkout.error)}
                 </p>
               )}
-              <Link
-                href={`/${locale}/payments/new?leaseId=${invoice.leaseId}`}
-                className="btn btn-secondary w-full"
-              >
-                {t("registerPayment")}
-              </Link>
+              {checkout.pending && (
+                <Button
+                  disabled={checkout.busy}
+                  onClick={() => void checkout.submit(checkout.pending!)}
+                >
+                  {tw("recover")}
+                </Button>
+              )}
+              {canRegister && (
+                <Link
+                  href={`/${locale}/payments/new?leaseId=${invoice.leaseId}`}
+                  className="btn btn-secondary w-full"
+                >
+                  {t("registerPayment")}
+                </Link>
+              )}
             </div>
           )}
         </div>

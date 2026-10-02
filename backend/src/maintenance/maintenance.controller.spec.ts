@@ -104,6 +104,7 @@ describe('MaintenanceController', () => {
       expect(mockMaintenanceService.create).toHaveBeenCalledWith(
         mockRequest.user,
         dto,
+        undefined,
       );
       expect(result).toEqual(mockTicket);
     });
@@ -127,6 +128,7 @@ describe('MaintenanceController', () => {
         'ticket-uuid-1',
         mockRequest.user,
         dto,
+        undefined,
       );
       expect(result).toMatchObject({
         status: MaintenanceTicketStatus.IN_PROGRESS,
@@ -143,6 +145,7 @@ describe('MaintenanceController', () => {
       expect(mockMaintenanceService.remove).toHaveBeenCalledWith(
         'ticket-uuid-1',
         mockRequest.user,
+        undefined,
       );
     });
   });
@@ -192,6 +195,7 @@ describe('MaintenanceController', () => {
         'ticket-uuid-1',
         mockRequest.user,
         dto,
+        undefined,
       );
       expect(result).toEqual(comment);
     });

@@ -217,11 +217,10 @@ export class PortalPublicationOutboxService {
         this.client.validateListing(job.payload.item),
       );
     const status =
-      job.operation === 'pause'
-        ? 'paused'
-        : job.operation === 'remove'
-          ? 'closed'
-          : 'active';
+      new Map<string, 'paused' | 'closed'>([
+        ['pause', 'paused'],
+        ['remove', 'closed'],
+      ]).get(job.operation) ?? 'active';
     return this.client.setStatus(job.company_id, itemId, status);
   }
 

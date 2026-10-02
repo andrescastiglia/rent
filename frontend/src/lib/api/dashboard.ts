@@ -2,6 +2,10 @@ import { apiClient } from "../api";
 import { getToken } from "../auth";
 import { interestedApi } from "./interested";
 import { ownersApi } from "./owners";
+import {
+  parsePendingActionReview,
+  type PendingActionReview,
+} from "../pending-action-review";
 
 export interface DashboardStats {
   totalProperties: number;
@@ -148,6 +152,15 @@ export interface ReportRunsResponse {
 }
 
 export const dashboardApi = {
+  getPendingActionReview: async (
+    actionId: string,
+  ): Promise<PendingActionReview> => {
+    const result = await apiClient.get<{ review: unknown }>(
+      `/pending-actions/${encodeURIComponent(actionId)}`,
+      getToken() ?? undefined,
+    );
+    return parsePendingActionReview(result.review);
+  },
   getStats: async (): Promise<DashboardStats> => {
     const token = getToken();
     return apiClient.get<DashboardStats>(

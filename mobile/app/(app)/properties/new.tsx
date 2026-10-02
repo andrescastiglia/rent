@@ -30,7 +30,10 @@ export default function NewPropertyScreen() {
   });
 
   return (
-    <Screen scrollViewTestID="propertyCreate.scroll">
+    <Screen
+      scrollViewTestID="propertyCreate.scroll"
+      guidanceBlocked={mutation.isPending || mutation.isError}
+    >
       <H1>{t('properties.newProperty')}</H1>
       <PropertyForm
         mode="create"

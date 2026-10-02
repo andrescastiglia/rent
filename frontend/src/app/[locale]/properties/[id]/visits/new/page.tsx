@@ -11,10 +11,15 @@ import { propertiesApi } from "@/lib/api/properties";
 import { CreatePropertyVisitInput, Property } from "@/types/property";
 import { interestedApi } from "@/lib/api/interested";
 import { InterestedProfile } from "@/types/interested";
-import { isInternalUser } from "@/lib/permissions";
+import { canUserAccessModule } from "@/lib/permissions";
+import { collectPages } from "@/lib/pagination";
+import { Button, StatePanel } from "@/components/ui";
 
 export default function CreatePropertyVisitPage() {
   const { loading: authLoading, user } = useAuth();
+  const canManage = Boolean(
+    user && canUserAccessModule(user, ["admin", "staff"], "properties"),
+  );
   const t = useTranslations("properties");
   const tc = useTranslations("common");
   const locale = useLocale();
@@ -25,6 +30,8 @@ export default function CreatePropertyVisitPage() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [readFailed, setReadFailed] = useState(false);
+  const [revision, setRevision] = useState(0);
   const [interestedProfiles, setInterestedProfiles] = useState<
     InterestedProfile[]
   >([]);
@@ -48,20 +55,31 @@ export default function CreatePropertyVisitPage() {
 
   useEffect(() => {
     if (authLoading || !propertyId) return;
+    if (!canManage) {
+      setLoading(false);
+      return;
+    }
 
     const loadProperty = async () => {
+      setLoading(true);
+      setReadFailed(false);
       try {
         const data = await propertiesApi.getById(propertyId);
         setProperty(data);
-        if (isInternalUser(user)) {
-          const profiles = await interestedApi.getAll({
-            operation: "sale",
-            limit: 100,
-          });
-          setInterestedProfiles(profiles.data);
+        if (data) {
+          const profiles = await collectPages((page) =>
+            interestedApi.getAll({
+              operation:
+                data.operations?.length === 1 ? data.operations[0] : undefined,
+              page,
+              limit: 100,
+            }),
+          );
+          setInterestedProfiles(profiles);
         }
       } catch (loadError) {
         console.error("Failed to load property for visit creation", loadError);
+        setReadFailed(true);
       } finally {
         setLoading(false);
       }
@@ -70,21 +88,21 @@ export default function CreatePropertyVisitPage() {
     loadProperty().catch((loadError) => {
       console.error("Failed to load property for visit creation", loadError);
     });
-  }, [authLoading, propertyId, user]);
+  }, [authLoading, propertyId, canManage, revision]);
 
   const handleSubmit = async (event: React.SyntheticEvent) => {
     event.preventDefault();
-    if (!propertyId) return;
+    if (!propertyId || !canManage || readFailed) return;
 
     setError(null);
     if (!form.interestedName.trim()) {
-      setError("El nombre del interesado es obligatorio.");
+      setError(t("visitForm.nameRequired"));
       return;
     }
 
     const parsedVisitedAt = new Date(form.visitedAt);
     if (Number.isNaN(parsedVisitedAt.getTime())) {
-      setError("La fecha de visita no es válida.");
+      setError(t("visitForm.invalidDate"));
       return;
     }
 
@@ -98,8 +116,13 @@ export default function CreatePropertyVisitPage() {
       offerCurrency: form.hasOffer ? form.offerCurrency : undefined,
     };
 
-    if (form.hasOffer && (!payload.offerAmount || payload.offerAmount <= 0)) {
-      setError("Si la visita tiene oferta, el monto debe ser mayor a cero.");
+    if (
+      form.hasOffer &&
+      (!payload.offerAmount ||
+        !Number.isFinite(payload.offerAmount) ||
+        payload.offerAmount <= 0)
+    ) {
+      setError(t("visitForm.invalidOffer"));
       return;
     }
 
@@ -123,6 +146,23 @@ export default function CreatePropertyVisitPage() {
       </div>
     );
   }
+
+  if (!canManage) return <StatePanel error title={tc("accessDeniedMessage")} />;
+  if (readFailed)
+    return (
+      <StatePanel
+        error
+        title={tc("error")}
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => setRevision((value) => value + 1)}
+          >
+            {tc("retry")}
+          </Button>
+        }
+      />
+    );
 
   if (!property || !propertyId) {
     return (
@@ -154,7 +194,7 @@ export default function CreatePropertyVisitPage() {
 
       <div className="max-w-3xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Registrar visita
+          {t("visitForm.title")}
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
           {property.name}
@@ -170,7 +210,7 @@ export default function CreatePropertyVisitPage() {
                 htmlFor="interestedProfileId"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Interesado registrado
+                {t("visitForm.registeredPerson")}
               </label>
               <select
                 id="interestedProfileId"
@@ -191,7 +231,7 @@ export default function CreatePropertyVisitPage() {
                 }}
                 className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
               >
-                <option value="">Carga manual</option>
+                <option value="">{t("visitForm.manual")}</option>
                 {interestedProfiles.map((profile) => (
                   <option key={profile.id} value={profile.id}>
                     {[profile.firstName, profile.lastName]
@@ -206,11 +246,12 @@ export default function CreatePropertyVisitPage() {
                 htmlFor="visitDate"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Fecha de visita
+                {t("visitForm.date")}
               </label>
               <input
                 id="visitDate"
                 type="date"
+                required
                 value={form.visitedAt}
                 onChange={(event) =>
                   setForm((prev) => ({
@@ -226,10 +267,11 @@ export default function CreatePropertyVisitPage() {
                 htmlFor="interestedName"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Interesado
+                {t("visitForm.person")}
               </label>
               <input
                 id="interestedName"
+                required
                 value={form.interestedName}
                 onChange={(event) =>
                   setForm((prev) => ({
@@ -238,7 +280,7 @@ export default function CreatePropertyVisitPage() {
                   }))
                 }
                 className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
-                placeholder="Nombre y apellido"
+                placeholder={t("visitForm.namePlaceholder")}
                 disabled={Boolean(form.interestedProfileId)}
               />
             </div>
@@ -249,7 +291,7 @@ export default function CreatePropertyVisitPage() {
               htmlFor="visitComments"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Comentarios
+              {t("visitForm.comments")}
             </label>
             <textarea
               id="visitComments"
@@ -259,7 +301,7 @@ export default function CreatePropertyVisitPage() {
               }
               rows={4}
               className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-xs focus:border-blue-500 focus:ring-blue-500 sm:text-sm border p-2 dark:bg-gray-700 dark:text-white"
-              placeholder="Interés, condiciones, observaciones de la visita"
+              placeholder={t("visitForm.commentsPlaceholder")}
             />
           </div>
 
@@ -275,7 +317,7 @@ export default function CreatePropertyVisitPage() {
                 setForm((prev) => ({ ...prev, hasOffer: event.target.checked }))
               }
             />
-            {"La visita incluyó una oferta"}
+            {t("visitForm.hasOffer")}
           </label>
 
           {form.hasOffer ? (
@@ -285,7 +327,7 @@ export default function CreatePropertyVisitPage() {
                   htmlFor="offerAmount"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
-                  Monto de oferta
+                  {t("visitForm.offerAmount")}
                 </label>
                 <input
                   id="offerAmount"
@@ -307,7 +349,7 @@ export default function CreatePropertyVisitPage() {
                   htmlFor="offerCurrency"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
-                  Moneda
+                  {t("visitForm.currency")}
                 </label>
                 <select
                   id="offerCurrency"
@@ -327,7 +369,11 @@ export default function CreatePropertyVisitPage() {
             </div>
           ) : null}
 
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? (
+            <p role="alert" className="text-sm text-red-600">
+              {error}
+            </p>
+          ) : null}
 
           <div className="flex justify-end gap-3">
             <button
@@ -348,7 +394,7 @@ export default function CreatePropertyVisitPage() {
                   {tc("saving")}
                 </>
               ) : (
-                "Registrar visita"
+                t("visitForm.title")
               )}
             </button>
           </div>

@@ -127,12 +127,14 @@ export class AmendmentsService {
     id: string,
     user: AmendmentActor,
     executionKey?: string,
+    expectedUpdatedAt?: string,
   ): Promise<LeaseAmendment> {
     return this.transition(
       id,
       user,
       AmendmentStatus.PENDING_APPROVAL,
       executionKey,
+      expectedUpdatedAt,
     );
   }
 
@@ -140,16 +142,30 @@ export class AmendmentsService {
     id: string,
     user: AmendmentActor,
     executionKey?: string,
+    expectedUpdatedAt?: string,
   ): Promise<LeaseAmendment> {
-    return this.transition(id, user, AmendmentStatus.APPROVED, executionKey);
+    return this.transition(
+      id,
+      user,
+      AmendmentStatus.APPROVED,
+      executionKey,
+      expectedUpdatedAt,
+    );
   }
 
   reject(
     id: string,
     user: AmendmentActor,
     executionKey?: string,
+    expectedUpdatedAt?: string,
   ): Promise<LeaseAmendment> {
-    return this.transition(id, user, AmendmentStatus.REJECTED, executionKey);
+    return this.transition(
+      id,
+      user,
+      AmendmentStatus.REJECTED,
+      executionKey,
+      expectedUpdatedAt,
+    );
   }
 
   private transition(
@@ -157,6 +173,7 @@ export class AmendmentsService {
     user: AmendmentActor,
     target: AmendmentStatus,
     executionKey?: string,
+    expectedUpdatedAt?: string,
   ): Promise<LeaseAmendment> {
     this.requireCompany(user);
     return this.amendmentsRepository.manager.transaction(async (manager) => {
@@ -173,7 +190,7 @@ export class AmendmentsService {
         user.companyId,
         executionKey,
         `amendment.${target}`,
-        { id },
+        { id, ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}) },
         async () => {
           const repository = manager.getRepository(LeaseAmendment);
           const existing = await repository.findOne({
@@ -194,6 +211,13 @@ export class AmendmentsService {
           if (amendment.leaseId !== lease.id)
             throw new ConflictException(
               'Amendment lease changed; reload before continuing',
+            );
+          if (
+            expectedUpdatedAt &&
+            amendment.updatedAt.toISOString() !== expectedUpdatedAt
+          )
+            throw new ConflictException(
+              'Amendment changed; reload before deciding',
             );
           const submitting = target === AmendmentStatus.PENDING_APPROVAL;
           const required = submitting
@@ -275,7 +299,7 @@ export class AmendmentsService {
             where: { id, companyId: user.companyId, deletedAt: IsNull() },
             lock: { mode: 'for_no_key_update' },
           });
-          if (!amendment || amendment.leaseId !== lease.id)
+          if (amendment?.leaseId !== lease.id)
             throw new ConflictException(
               'Amendment changed; reload before reviewing',
             );

@@ -1,4 +1,11 @@
-import { apiClient } from '@/api/client';
+import {
+  fetchAllPages,
+  fetchPage,
+  mockPage,
+  type ListQuery,
+  type Page,
+} from '@/api/pagination';
+import { ApiError, apiClient } from '@/api/client';
 import { IS_MOCK_MODE } from '@/api/env';
 import type {
   CreatePropertyInput,
@@ -35,6 +42,7 @@ type BackendProperty = {
   status?: string | null;
   addressStreet?: string | null;
   addressNumber?: string | null;
+  addressApartment?: string | null;
   addressCity?: string | null;
   addressState?: string | null;
   addressPostalCode?: string | null;
@@ -46,6 +54,9 @@ type BackendProperty = {
   saleCurrency?: string | null;
   operations?: string[] | string | null;
   operationState?: string | null;
+  allowsPets?: boolean | null;
+  acceptedGuaranteeTypes?: string[] | null;
+  maxOccupants?: number | null;
   images?: string[] | null;
   features?: Array<{ id?: string; name: string; value?: string | null }> | null;
   createdAt?: string | Date;
@@ -244,6 +255,7 @@ const mapProperty = (raw: BackendProperty): Property => ({
   address: {
     street: raw.addressStreet ?? '',
     number: raw.addressNumber ?? '',
+    unit: raw.addressApartment ?? undefined,
     city: raw.addressCity ?? '',
     state: raw.addressState ?? '',
     zipCode: raw.addressPostalCode ?? '',
@@ -271,6 +283,9 @@ const mapProperty = (raw: BackendProperty): Property => ({
   saleCurrency: raw.saleCurrency ?? undefined,
   operations: mapOperations(raw.operations),
   operationState: mapOperationState(raw.operationState),
+  allowsPets: raw.allowsPets ?? undefined,
+  acceptedGuaranteeTypes: raw.acceptedGuaranteeTypes ?? undefined,
+  maxOccupants: raw.maxOccupants ?? undefined,
   createdAt: toIso(raw.createdAt),
   updatedAt: toIso(raw.updatedAt),
 });
@@ -344,31 +359,28 @@ const toCreatePayload = (value: CreatePropertyInput) => ({
 });
 
 const toUpdatePayload = (value: UpdatePropertyInput) => ({
-  ...toCreatePayload({
-    name: value.name ?? '',
-    type: value.type ?? 'OTHER',
-    address:
-      value.address ??
-      ({
-        street: '',
-        number: '',
-        city: '',
-        state: '',
-        zipCode: '',
-        country: '',
-      } as CreatePropertyInput['address']),
-    description: value.description,
-    ownerId: value.ownerId,
-    ownerWhatsapp: value.ownerWhatsapp,
-    rentPrice: value.rentPrice,
-    salePrice: value.salePrice,
-    saleCurrency: value.saleCurrency,
-    operations: value.operations,
-    operationState: value.operationState,
-    allowsPets: value.allowsPets,
-    acceptedGuaranteeTypes: value.acceptedGuaranteeTypes,
-    maxOccupants: value.maxOccupants,
-  }),
+  name: value.name,
+  description: value.description,
+  propertyType: value.type ? toBackendType(value.type) : undefined,
+  addressStreet: value.address?.street,
+  addressNumber: value.address?.number,
+  addressApartment: value.address?.unit,
+  addressCity: value.address?.city,
+  addressState: value.address?.state,
+  addressPostalCode: value.address?.zipCode,
+  addressCountry: value.address?.country,
+  ownerId: value.ownerId,
+  ownerWhatsapp: value.ownerWhatsapp,
+  images: value.images,
+  features: value.features,
+  rentPrice: value.rentPrice,
+  salePrice: value.salePrice,
+  saleCurrency: value.saleCurrency,
+  operations: value.operations,
+  operationState: value.operationState,
+  allowsPets: value.allowsPets,
+  acceptedGuaranteeTypes: value.acceptedGuaranteeTypes,
+  maxOccupants: value.maxOccupants,
   status: value.status ? toBackendStatus(value.status) : undefined,
 });
 
@@ -378,12 +390,30 @@ export const propertiesApi = {
       return [...MOCK_PROPERTIES];
     }
 
-    const result = await apiClient.get<
-      BackendProperty[] | PaginatedResponse<BackendProperty>
-    >('/properties');
-    return Array.isArray(result)
-      ? result.map(mapProperty)
-      : result.data.map(mapProperty);
+    return fetchAllPages<BackendProperty, Property>(
+      '/properties',
+      {},
+      mapProperty,
+    );
+  },
+
+  async getPage(query: ListQuery = {}): Promise<Page<Property>> {
+    if (IS_MOCK_MODE) {
+      const term = String(query.search ?? '').toLowerCase();
+      return mockPage(
+        MOCK_PROPERTIES.filter((property) =>
+          `${property.name} ${property.address.street} ${property.address.number} ${property.address.city}`
+            .toLowerCase()
+            .includes(term),
+        ),
+        query,
+      );
+    }
+    return fetchPage<BackendProperty, Property>(
+      '/properties',
+      query,
+      mapProperty,
+    );
   },
 
   async getById(id: string): Promise<Property | null> {
@@ -394,8 +424,9 @@ export const propertiesApi = {
     try {
       const result = await apiClient.get<BackendProperty>(`/properties/${id}`);
       return mapProperty(result);
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
     }
   },
 

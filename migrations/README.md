@@ -7,6 +7,9 @@ Este directorio contiene las migraciones incrementales que se aplican sobre el s
 - `scripts/init-db.sql` es el snapshot completo usado para crear una base local desde cero.
 - `migrations/*.sql` contiene cambios incrementales para bases ya existentes.
 - `schema_migrations` registra qué archivos ya fueron aplicados.
+- Cada archivo nuevo se registra con SHA-256 en la misma transacción que su
+  SQL. Una única sesión PostgreSQL serializa los ejecutores con un advisory
+  lock; un fallo revierte tanto los cambios como su registro.
 - `scripts/reset-db.sh` recrea la DB local, ejecuta el snapshot, registra las
   migraciones incluidas hasta `090_add_ai_rag_shadow_comparisons.sql` y ejecuta
   normalmente toda migración posterior.
@@ -60,6 +63,10 @@ Si no hay un cliente `psql` local, `MIGRATIONS_CONTAINER_NAME` selecciona el
 contenedor PostgreSQL donde se ejecutarán las consultas (por defecto,
 `rent-postgres`).
 
+El entorno exportado tiene prioridad sobre el archivo dotenv. Los valores se
+leen como datos, sin ejecutar código shell. `MIGRATIONS_LOCK_TIMEOUT_SECONDS`
+limita la espera por otro ejecutor (30 segundos por defecto, entre 1 y 3600).
+
 ## Crear Una Migración
 
 1. Buscar el último número:
@@ -89,9 +96,32 @@ CREATE TABLE IF NOT EXISTS example_table (
 ## Reglas Prácticas
 
 - No editar migraciones ya aplicadas en ambientes compartidos; crear una nueva.
+- El runner rechaza un checksum cambiado o un archivo aplicado que falta en la
+  release antes de ejecutar SQL pendiente. Las migraciones históricas sin
+  checksum siguen identificadas como `legacy-unverified`: revisar sus originales
+  contra la versión efectivamente aplicada y luego registrar los checksums con
+  `./migrations/run-migrations.sh --adopt-legacy-checksums`. Esta opción conserva la fecha original de
+  ejecución; no demuestra por sí sola que el SQL histórico coincide.
 - Si se actualiza `scripts/init-db.sql` para incluir una migración, verificar que `reset-db.sh` sigue dejando `schema_migrations` coherente.
 - Para cambios con datos reales, tomar backup antes y usar SQL reversible/idempotente cuando sea razonable.
 - Las funciones de `updated_at` viven en el schema `functions`; usar `functions.update_updated_at_column()` en tablas nuevas.
+- El runner administra la transacción. Admite un único par histórico
+  `BEGIN`/`COMMIT`, que integra a su propia transacción; rechaza otras instrucciones
+  de control transaccional y comandos de psql dentro de los archivos.
+
+## Pruebas del runner
+
+```bash
+python3 -m unittest discover -s migrations/tests -v
+
+# Usa bases temporales aisladas, eliminadas al finalizar cada caso.
+MIGRATION_TESTS_INTEGRATION=true POSTGRES_USER=test \
+MIGRATIONS_CONTAINER_NAME=rent-plan-postgres \
+python3 -m unittest discover -s migrations/tests -v
+```
+
+La suite verifica parser SQL, rollback de cambios y registro, ejecuciones
+simultáneas, checksums, actualización aditiva, baseline y consultas sin escritura.
 
 ## Troubleshooting
 

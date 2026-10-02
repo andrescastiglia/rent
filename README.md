@@ -1,14 +1,18 @@
 # Sistema de Gestión Inmobiliaria
 
-[![Status](https://img.shields.io/badge/status-planning-blue)]()
+[![Status](https://img.shields.io/badge/status-validation-blue)]()
 [![Version](https://img.shields.io/badge/version-1.0-green)]()
 [![Docs](https://img.shields.io/badge/docs-complete-success)]()
 [![CI](https://github.com/andrescastiglia/rent/actions/workflows/ci.yml/badge.svg)](https://github.com/andrescastiglia/rent/actions/workflows/ci.yml)
-[![Backend Coverage](https://img.shields.io/badge/backend%20coverage-70.03%25-yellowgreen)](#estado-tecnico-actual)
-[![Batch Coverage](https://img.shields.io/badge/batch%20coverage-79.82%25-brightgreen)](#estado-tecnico-actual)
-[![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-78.18%25-brightgreen)](#estado-tecnico-actual)
+[![Backend Coverage](https://img.shields.io/badge/backend%20coverage-90.97%25-yellowgreen)](#estado-tecnico-actual)
+[![Batch Coverage](https://img.shields.io/badge/batch%20coverage-90.43%25-brightgreen)](#estado-tecnico-actual)
+[![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-86.52%25-brightgreen)](#estado-tecnico-actual)
 [![Frontend E2E](https://img.shields.io/badge/frontend%20e2e-playwright-blue)](.github/workflows/ci.yml)
-[![Última Compilación](https://img.shields.io/badge/last%20build-2026--02--19%20OK-success)](#estado-tecnico-actual)
+[![Última Compilación](https://img.shields.io/badge/last%20build-2026--10--02%20OK-success)](#estado-tecnico-actual)
+
+## Estado técnico actual
+
+Validación local del 2026-10-02: cobertura de líneas UT backend 90,97%, web 86,52%, batch 90,43% y mobile 93,69%. Las suites completas pasan y los umbrales aumentaron. La [evidencia del plan](docs/technical/validacion-plan-2026-10-02.md) conserva resultados, capturas con API real y gates pendientes de la publicación. Un build local aprobado no acredita un despliegue.
 
 ## 📋 Descripción
 
@@ -124,7 +128,7 @@ PROMETHEUS_PUSHGATEWAY_INSTANCE=rent-batch-dev
 
 ## 📚 Documentación
 
-> **Estado documental (2026-08-27):** la [auditoría integral](docs/auditoria-integral-2026-08-27.md) describe el baseline actual y el [Plan de trabajo](docs/plan-de-trabajo.md) reúne únicamente los pendientes vigentes. El DRF, la arquitectura, C4, DER y secuencias se conservan como antecedentes hasta su reescritura.
+> **Estado documental (2026-10-02):** la [auditoría integral](docs/auditoria-integral-2026-08-27.md) es el antecedente de agosto y el [Plan de trabajo](docs/plan-de-trabajo.md) reúne únicamente los pendientes vigentes. El DRF, la arquitectura, C4, DER y secuencias se conservan como antecedentes hasta su reescritura.
 
 ### Documentación Funcional
 
@@ -409,8 +413,8 @@ Este es un proyecto de documentación completo y detallado. Para implementación
 ## 📝 Notas
 
 - **Versión**: 1.0
-- **Estado**: Documentación completa - Listo para implementación
-- **Próximos pasos**: Fase 0 - Preparación e Infraestructura
+- **Estado**: Aplicación implementada; verificación de entrega en curso
+- **Publicación**: [Kubernetes mediante release inmutable](docs/deployment/kubernetes.md)
 
 ## 📧 Contacto
 

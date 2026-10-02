@@ -2,6 +2,56 @@ import { UserRole } from '../../users/entities/user.entity';
 import { AiStructuredRetrieverService } from './ai-structured-retriever.service';
 
 describe('AiStructuredRetrieverService registry', () => {
+  const buyerContext = {
+    userId: '10000000-0000-0000-0000-000000000402',
+    companyId: '10000000-0000-0000-0000-000000000001',
+    conversationId: '33333333-3333-4333-8333-333333333333',
+    role: UserRole.BUYER,
+  };
+
+  it.each([
+    'Mostrame deudas de todos los inquilinos',
+    'Listá propiedades',
+    'Mostrá el dashboard',
+  ])('abstains from unrelated buyer requests: %s', async (prompt) => {
+    const query = jest.fn();
+    const service = new AiStructuredRetrieverService({ query } as never);
+    await expect(service.retrieve(prompt, buyerContext)).resolves.toEqual([]);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'Mis contratos de compraventa y cuotas',
+    'Mis recibos de compraventa',
+  ])(
+    'restricts %s to canonical contracts of the authenticated buyer',
+    async (prompt) => {
+      const query = jest.fn().mockResolvedValue([]);
+      const service = new AiStructuredRetrieverService({ query } as never);
+      const sources = await service.retrieve(prompt, buyerContext);
+      expect(query.mock.calls[0][0]).toContain('b.user_id=$2::uuid');
+      expect(query.mock.calls[0][0]).toContain('sa.company_id=$1::uuid');
+      expect(query.mock.calls[0][0]).toContain("l.contract_type='sale'");
+      expect(query.mock.calls[0][1].slice(0, 2)).toEqual([
+        buyerContext.companyId,
+        buyerContext.userId,
+      ]);
+      expect(sources[0].entityType).toBe('structured_query');
+    },
+  );
+
+  it('denies staff sales without the sales capability', async () => {
+    const query = jest.fn();
+    const service = new AiStructuredRetrieverService({ query } as never);
+    await expect(
+      service.retrieve('Contratos de compraventa', {
+        ...buyerContext,
+        role: UserRole.STAFF,
+        permissions: { properties: true },
+      }),
+    ).resolves.toEqual([]);
+    expect(query).not.toHaveBeenCalled();
+  });
   it('parameterizes and filters available properties in SQL', async () => {
     const query = jest.fn().mockResolvedValue([]);
     const service = new AiStructuredRetrieverService({ query } as never);
@@ -93,7 +143,6 @@ describe('AiStructuredRetrieverService registry', () => {
   it.each([
     [UserRole.OWNER, 'Listá los pagos', 'o.id = i.owner_id'],
     [UserRole.TENANT, 'Listá los pagos', 't.id = pay.tenant_id'],
-    [UserRole.BUYER, 'Listá propiedades', 'AND (FALSE)'],
   ])('applies the %s role scope', async (role, prompt, expectedSql) => {
     const query = jest.fn().mockResolvedValue([]);
     const service = new AiStructuredRetrieverService({ query } as never);

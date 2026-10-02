@@ -29,7 +29,10 @@ export default function NewUserScreen() {
   });
 
   return (
-    <Screen scrollViewTestID="userCreate.scroll">
+    <Screen
+      scrollViewTestID="userCreate.scroll"
+      guidanceBlocked={mutation.isPending || mutation.isError}
+    >
       <H1>{t('users.newUser')}</H1>
       <UserForm
         mode="create"

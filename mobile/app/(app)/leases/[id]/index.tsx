@@ -1,7 +1,9 @@
+import { Text, TextInput, View } from '@/components/themed-native';
+import { useConfirmationDialog } from '@/components/use-confirmation-dialog';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { leasesApi } from '@/api/leases';
@@ -22,7 +24,7 @@ const formatMoney = (amount?: number, currencyCode = 'ARS'): string =>
     : new Intl.NumberFormat(i18n.language || 'es', {
         style: 'currency',
         currency: currencyCode,
-        maximumFractionDigits: 0,
+        maximumFractionDigits: 2,
       }).format(amount);
 
 const formatDate = (value?: string): string => {
@@ -230,22 +232,21 @@ function LeaseDocumentsCard({
       <Text style={styles.sectionTitle}>{t('leases.documents')}</Text>
       {lease.documents.length > 0 ? (
         lease.documents.map((doc, index) => (
-          <Text key={`${doc}-${index}`} style={styles.linkLike}>
-            {`${t('leases.document')} ${index + 1}: ${doc}`}
-          </Text>
+          <Text
+            key={`${doc}-${index}`}
+            style={styles.linkLike}
+          >{`${t('leases.document')} ${index + 1}: ${doc}`}</Text>
         ))
       ) : (
-        <View style={styles.inlineActions}>
-          <Text style={styles.detail}>{t('leases.noDocuments')}</Text>
-          <AppButton
-            title={t('leases.downloadContract')}
-            variant="secondary"
-            loading={downloadingContract}
-            testID="leaseDetail.downloadContract"
-            onPress={onDownloadContract}
-          />
-        </View>
+        <Text style={styles.detail}>{t('leases.noDocuments')}</Text>
       )}
+      <AppButton
+        title={t('leases.downloadContract')}
+        variant="secondary"
+        loading={downloadingContract}
+        testID="leaseDetail.downloadContract"
+        onPress={onDownloadContract}
+      />
     </View>
   );
 }
@@ -282,6 +283,7 @@ function LeaseActions({
 }
 
 export default function LeaseDetailScreen() {
+  const dialog = useConfirmationDialog();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -417,7 +419,7 @@ export default function LeaseDetailScreen() {
     router.push(`/(app)/leases/${leaseId}/edit`);
   };
   const handleDeleteLease = () => {
-    Alert.alert(t('leases.deleteLease'), t('leases.confirmDelete'), [
+    dialog.confirm(t('leases.deleteLease'), t('leases.confirmDelete'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.delete'),
@@ -428,13 +430,30 @@ export default function LeaseDetailScreen() {
   };
 
   return (
-    <Screen scrollViewTestID="leaseDetail.scroll">
+    <Screen
+      scrollViewTestID="leaseDetail.scroll"
+      guidanceReady={!leaseQuery.isLoading}
+      guidanceBlocked={
+        dialog.open ||
+        leaseQuery.isError ||
+        renderDraftMutation.isPending ||
+        saveDraftMutation.isPending ||
+        confirmMutation.isPending ||
+        deleteMutation.isPending ||
+        downloadMutation.isPending ||
+        renderDraftMutation.isError ||
+        saveDraftMutation.isError ||
+        confirmMutation.isError ||
+        deleteMutation.isError ||
+        downloadMutation.isError
+      }
+    >
       <H1>{t('leases.leaseDetails')}</H1>
       {leaseQuery.isLoading ? <Text>{t('common.loading')}</Text> : null}
       {leaseQuery.error ? (
         <Text style={styles.error}>{errorMessage}</Text>
       ) : null}
-      {!leaseQuery.isLoading && !lease ? (
+      {!leaseQuery.isLoading && !leaseQuery.error && !lease ? (
         <Text>{t('leases.notFound')}</Text>
       ) : null}
 

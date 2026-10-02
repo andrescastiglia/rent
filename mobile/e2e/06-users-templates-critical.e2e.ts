@@ -15,11 +15,11 @@ describe('Users and templates critical flows', () => {
     const stamp = Date.now().toString();
     const email = `e2e.user.${stamp}@example.com`;
 
-    await element(by.id('tab.settings')).tap();
-    await waitFor(element(by.id('settings.goto.users')))
+    await element(by.id('tab.more')).tap();
+    await waitFor(element(by.id('more.users')))
       .toBeVisible()
       .withTimeout(15000);
-    await element(by.id('settings.goto.users')).tap();
+    await element(by.id('more.users')).tap();
 
     await waitFor(element(by.id('users.new')))
       .toBeVisible()
@@ -77,11 +77,11 @@ describe('Users and templates critical flows', () => {
     const templateName = `Template E2E ${stamp}`;
     const updatedTemplateName = `${templateName} Updated`;
 
-    await element(by.id('tab.settings')).tap();
-    await waitFor(element(by.id('settings.goto.templates')))
+    await element(by.id('tab.more')).tap();
+    await waitFor(element(by.id('more.templates')))
       .toBeVisible()
       .withTimeout(15000);
-    await element(by.id('settings.goto.templates')).tap();
+    await element(by.id('more.templates')).tap();
 
     await waitFor(element(by.id('templates.new')))
       .toBeVisible()

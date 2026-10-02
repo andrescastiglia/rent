@@ -7,7 +7,7 @@ import { useParams } from "next/navigation";
 import { Lease, LeaseTemplateFormat } from "@/types/lease";
 import { leasesApi } from "@/lib/api/leases";
 import { LeaseAmendments } from "@/components/leases/LeaseAmendments";
-import { canUserAccessModule } from "@/lib/permissions";
+import { canUserAccessModule, canManageLeasesForUser } from "@/lib/permissions";
 import { ContractDocument } from "@/components/leases/ContractDocument";
 import { BfaStamps } from "@/components/leases/BfaStamps";
 import { LeaseStatusBadge } from "@/components/leases/LeaseStatusBadge";
@@ -29,8 +29,9 @@ import {
 import { useTranslations, useLocale } from "next-intl";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useAuth } from "@/contexts/auth-context";
-import { canManageLeasesForUser } from "@/lib/permissions";
 import { formatMoneyByCode } from "@/lib/format-money";
+import { formatCalendarDate } from "@/lib/calendar-date";
+import { Button, StatePanel } from "@/components/ui";
 import {
   buildPathWithQuery,
   encodeRouteSegment,
@@ -51,7 +52,7 @@ function PersonInfo({ lease }: Readonly<{ lease: Lease }>) {
             ? `${lease.tenant.firstName} ${lease.tenant.lastName}`
             : t("unknownTenant")}
         </p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className="break-words text-sm text-gray-600 dark:text-gray-400">
           {lease.tenant?.email}
         </p>
         <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -70,7 +71,9 @@ function PersonInfo({ lease }: Readonly<{ lease: Lease }>) {
   return (
     <>
       <p className="font-medium text-gray-900 dark:text-white">{displayName}</p>
-      <p className="text-sm text-gray-500 dark:text-gray-400">{buyer?.email}</p>
+      <p className="break-words text-sm text-gray-600 dark:text-gray-400">
+        {buyer?.email}
+      </p>
       <p className="text-sm text-gray-500 dark:text-gray-400">{buyer?.phone}</p>
     </>
   );
@@ -87,16 +90,18 @@ function FinancialInfo({ lease }: Readonly<{ lease: Lease }>) {
           <span className="text-gray-600 dark:text-gray-300 flex items-center">
             <DollarSign size={16} className="mr-2" /> {t("rentAmount")}
           </span>
-          <span className="font-bold text-gray-900 dark:text-white text-lg">
-            ${Number(lease.rentAmount ?? 0).toLocaleString(locale)}
+          <span className="shrink-0 whitespace-nowrap font-bold tabular-nums text-gray-900 dark:text-white">
+            {lease.rentAmount === undefined
+              ? "—"
+              : formatMoneyByCode(lease.rentAmount, lease.currency, locale)}
           </span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-gray-600 dark:text-gray-300 flex items-center">
             <DollarSign size={16} className="mr-2" /> {t("securityDeposit")}
           </span>
-          <span className="font-medium text-gray-900 dark:text-white">
-            ${lease.depositAmount.toLocaleString(locale)}
+          <span className="shrink-0 whitespace-nowrap font-medium tabular-nums text-gray-900 dark:text-white">
+            {formatMoneyByCode(lease.depositAmount, lease.currency, locale)}
           </span>
         </div>
       </>
@@ -108,8 +113,10 @@ function FinancialInfo({ lease }: Readonly<{ lease: Lease }>) {
       <span className="text-gray-600 dark:text-gray-300 flex items-center">
         <DollarSign size={16} className="mr-2" /> {t("fields.fiscalValue")}
       </span>
-      <span className="font-bold text-gray-900 dark:text-white text-lg">
-        ${Number(lease.fiscalValue ?? 0).toLocaleString(locale)}
+      <span className="shrink-0 whitespace-nowrap font-bold tabular-nums text-gray-900 dark:text-white">
+        {lease.fiscalValue === undefined
+          ? "—"
+          : formatMoneyByCode(lease.fiscalValue, lease.currency, locale)}
       </span>
     </div>
   );
@@ -118,12 +125,10 @@ function FinancialInfo({ lease }: Readonly<{ lease: Lease }>) {
 const formatOptionalDate = (
   value: string | undefined,
   locale: string,
-): string => (value ? new Date(value).toLocaleDateString(locale) : "-");
+): string => formatCalendarDate(value, locale);
 
-const getOwnerDisplayName = (owner: Owner | null): string =>
-  owner
-    ? `${owner.firstName} ${owner.lastName}`.trim()
-    : "Sin locador/propietario";
+const getOwnerDisplayName = (owner: Owner | null, fallback: string): string =>
+  owner ? `${owner.firstName} ${owner.lastName}`.trim() : fallback;
 
 function getPrimaryPartyName(lease: Lease, t: (key: string) => string): string {
   if (lease.contractType === "rental") {
@@ -150,14 +155,16 @@ function getCollectionsHeadline({
   lease,
   loadingCollections,
   locale,
+  t,
 }: {
   balanceInfo: AccountBalance | null;
   lease: Lease;
   loadingCollections: boolean;
   locale: string;
+  t: LeaseTranslator;
 }): string {
   if (loadingCollections) {
-    return "Cargando...";
+    return t("detail.loading");
   }
   if (lease.contractType === "rental" && balanceInfo) {
     return formatMoneyByCode(balanceInfo.total, lease.currency, locale);
@@ -176,18 +183,22 @@ function getCollectionsSubtitle({
   lastPayment,
   lease,
   locale,
+  t,
 }: {
   lastPayment?: Payment;
   lease: Lease;
   locale: string;
+  t: LeaseTranslator;
 }): string {
   if (lease.contractType !== "rental") {
-    return "Seguimiento comercial del acuerdo";
+    return t("detail.saleFollowup");
   }
   if (!lastPayment) {
-    return "Sin pagos registrados";
+    return t("detail.noPayments");
   }
-  return `Ultimo pago: ${new Date(lastPayment.paymentDate).toLocaleDateString(locale)}`;
+  return t("detail.lastPayment", {
+    date: formatCalendarDate(lastPayment.paymentDate, locale),
+  });
 }
 
 function LeaseHeader({
@@ -225,7 +236,7 @@ function LeaseHeader({
           {t(`signatureStatus.${lease.signatureStatus ?? "NOT_STARTED"}`)}
         </p>
       </div>
-      <div className="flex space-x-2">
+      <div className="flex flex-wrap gap-2">
         {canManage && lease.contractType === "rental" ? (
           <Link
             href={buildPathWithQuery(`/${locale}/payments/new`, {
@@ -233,7 +244,7 @@ function LeaseHeader({
             })}
             className="btn btn-primary"
           >
-            Registrar pago
+            {t("detail.registerPayment")}
           </Link>
         ) : null}
         {canManage ? (
@@ -245,10 +256,12 @@ function LeaseHeader({
               <Edit size={16} className="mr-2" />
               {editLabel}
             </Link>
-            <button onClick={onDelete} className="btn btn-danger">
-              <Trash2 size={16} className="mr-2" />
-              {tCommon("delete")}
-            </button>
+            {lease.status === "DRAFT" && (
+              <button onClick={onDelete} className="btn btn-danger">
+                <Trash2 size={16} className="mr-2" />
+                {tCommon("delete")}
+              </button>
+            )}
           </>
         ) : null}
       </div>
@@ -279,19 +292,19 @@ function LeaseOverviewCards({
     <div className="mb-8 grid grid-cols-1 gap-4 xl:grid-cols-4">
       <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
         <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-          Persona principal
+          {t("detail.primaryParty")}
         </p>
         <p className="mt-2 font-semibold text-slate-900 dark:text-white">
           {getPrimaryPartyName(lease, t as (key: string) => string)}
         </p>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 break-words text-sm text-slate-600 dark:text-slate-400">
           {getPrimaryPartyContact(lease)}
         </p>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
         <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-          Propietario / vendedor
+          {t("detail.ownerSeller")}
         </p>
         <p className="mt-2 font-semibold text-slate-900 dark:text-white">
           {ownerDisplayName}
@@ -303,20 +316,22 @@ function LeaseOverviewCards({
 
       <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
         <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-          Propiedad y fechas
+          {t("detail.propertyDates")}
         </p>
         <p className="mt-2 font-semibold text-slate-900 dark:text-white">
           {lease.property?.name || t("unknownProperty")}
         </p>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          {formatOptionalDate(lease.startDate, locale)} a{" "}
-          {formatOptionalDate(lease.endDate, locale)}
+          {t("detail.dateRange", {
+            start: formatOptionalDate(lease.startDate, locale),
+            end: formatOptionalDate(lease.endDate, locale),
+          })}
         </p>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
         <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-          Cobranza
+          {t("detail.collections")}
         </p>
         <p className="mt-2 font-semibold text-slate-900 dark:text-white">
           {getCollectionsHeadline({
@@ -324,10 +339,11 @@ function LeaseOverviewCards({
             lease,
             loadingCollections,
             locale,
+            t,
           })}
         </p>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          {getCollectionsSubtitle({ lastPayment, lease, locale })}
+          {getCollectionsSubtitle({ lastPayment, lease, locale, t })}
         </p>
       </section>
     </div>
@@ -345,21 +361,26 @@ function DraftEditor({
   onDraftInput: (event: React.SyntheticEvent<HTMLDivElement>) => void;
   onDraftTextChange: (value: string) => void;
 }>) {
+  const t = useTranslations("leases.detail");
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        El formato enriquecido se conserva al editar este borrador.
+        {t("richTextHint")}
       </p>
       <div
         ref={editorRef}
         contentEditable
+        role="textbox"
+        aria-multiline="true"
+        aria-label={t("draftText")}
+        tabIndex={0}
         suppressContentEditableWarning
         onInput={onDraftInput}
         className="min-h-[360px] rounded-md border border-gray-300 bg-white p-3 text-sm text-slate-900 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
       />
       <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
         <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-          Vista previa HTML
+          {t("htmlPreview")}
         </p>
         <div
           className="prose prose-sm max-w-none dark:prose-invert"
@@ -369,6 +390,7 @@ function DraftEditor({
         />
       </div>
       <textarea
+        aria-label={t("htmlSource")}
         rows={4}
         value={draftText}
         onChange={(event) => onDraftTextChange(event.target.value)}
@@ -516,6 +538,7 @@ function DraftSection({
               />
             ) : (
               <textarea
+                aria-label={t("draft.title")}
                 rows={14}
                 value={draftText}
                 onChange={(event) => onDraftTextChange(event.target.value)}
@@ -574,7 +597,7 @@ function PropertyAndPartySection({
         </div>
         <div className="flex items-start border-t border-gray-200 dark:border-gray-600 pt-4">
           <User size={18} className="text-gray-400 mr-3 mt-1" />
-          <div>
+          <div className="min-w-0">
             <PersonInfo lease={lease} />
           </div>
         </div>
@@ -619,6 +642,9 @@ function LeaseFinancialSidebar({
     <section>
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
         {t("financialDetails")}
+        <span className="ml-2 text-sm font-normal text-muted">
+          {lease.currency}
+        </span>
       </h2>
       <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
         <FinancialInfo lease={lease} />
@@ -626,14 +652,16 @@ function LeaseFinancialSidebar({
           <>
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-300">
-                Saldo actual
+                {t("detail.currentBalance")}
               </span>
               <span className="font-medium text-gray-900 dark:text-white">
                 {formatMoneyByCode(balanceInfo.balance, lease.currency, locale)}
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-300">Mora</span>
+              <span className="text-gray-600 dark:text-gray-300">
+                {t("detail.lateFees")}
+              </span>
               <span className="font-medium text-gray-900 dark:text-white">
                 {formatMoneyByCode(balanceInfo.lateFee, lease.currency, locale)}
               </span>
@@ -743,6 +771,7 @@ function RecentPaymentsSection({
   locale: string;
   paymentHistory: Payment[];
 }>) {
+  const t = useTranslations("leases.detail");
   if (lease.contractType !== "rental") {
     return null;
   }
@@ -750,7 +779,7 @@ function RecentPaymentsSection({
   return (
     <section>
       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-        Cobros recientes
+        {t("recentPayments")}
       </h2>
       <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
         {paymentHistory.length > 0 ? (
@@ -761,7 +790,7 @@ function RecentPaymentsSection({
             >
               <div>
                 <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {new Date(payment.paymentDate).toLocaleDateString(locale)}
+                  {formatCalendarDate(payment.paymentDate, locale)}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {payment.reference || payment.method}
@@ -779,14 +808,14 @@ function RecentPaymentsSection({
                   href={`/${locale}/payments/${payment.id}`}
                   className="text-xs text-blue-600 hover:underline"
                 >
-                  Ver pago
+                  {t("viewPayment")}
                 </Link>
               </div>
             </div>
           ))
         ) : (
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            No hay pagos registrados para este contrato.
+            {t("noPayments")}
           </p>
         )}
       </div>
@@ -808,6 +837,11 @@ export default function LeaseDetailPage() {
   const [paymentHistory, setPaymentHistory] = useState<Payment[]>([]);
   const [balanceInfo, setBalanceInfo] = useState<AccountBalance | null>(null);
   const [loadingCollections, setLoadingCollections] = useState(false);
+  const [collectionsError, setCollectionsError] = useState(false);
+  const [collectionsRevision, setCollectionsRevision] = useState(0);
+  const [loadError, setLoadError] = useState(false);
+  const [ownerError, setOwnerError] = useState(false);
+  const [ownerRevision, setOwnerRevision] = useState(0);
   const [draftText, setDraftText] = useState("");
   const [renderingDraft, setRenderingDraft] = useState(false);
   const [savingDraftText, setSavingDraftText] = useState(false);
@@ -831,12 +865,16 @@ export default function LeaseDetailPage() {
 
     ownersApi
       .getById(lease.ownerId)
-      .then((data) => setOwner(data ?? null))
+      .then((data) => {
+        setOwner(data ?? null);
+        setOwnerError(false);
+      })
       .catch((error) => {
         console.error("Failed to load owner", error);
         setOwner(null);
+        setOwnerError(true);
       });
-  }, [lease?.ownerId]);
+  }, [lease?.ownerId, ownerRevision]);
 
   useEffect(() => {
     if (lease?.contractType !== "rental") {
@@ -848,6 +886,7 @@ export default function LeaseDetailPage() {
     const loadCollections = async () => {
       try {
         setLoadingCollections(true);
+        setCollectionsError(false);
         const [paymentsResult, accountResult] = await Promise.all([
           paymentsApi.getAll({ leaseId: lease.id, limit: 50 }),
           tenantAccountsApi.getByLease(lease.id),
@@ -865,13 +904,14 @@ export default function LeaseDetailPage() {
         console.error("Failed to load lease collections", error);
         setPaymentHistory([]);
         setBalanceInfo(null);
+        setCollectionsError(true);
       } finally {
         setLoadingCollections(false);
       }
     };
 
     void loadCollections();
-  }, [lease]);
+  }, [lease, collectionsRevision]);
 
   useEffect(() => {
     if (!editorRef.current) {
@@ -882,18 +922,22 @@ export default function LeaseDetailPage() {
       return;
     }
 
-    if (editorRef.current.innerHTML !== draftText) {
-      editorRef.current.innerHTML = draftText || "<p></p>";
+    const safeHtml = DOMPurify.sanitize(draftText || "<p></p>");
+    if (editorRef.current.innerHTML !== safeHtml) {
+      editorRef.current.innerHTML = safeHtml;
     }
   }, [draftText, lease?.draftContractFormat]);
 
   const loadLease = async (id: string) => {
+    setLoading(true);
+    setLoadError(false);
     try {
       const data = await leasesApi.getById(id);
       setLease(data);
       setDraftText(data?.draftContractText ?? "");
     } catch (error) {
       console.error("Failed to load lease", error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -967,7 +1011,7 @@ export default function LeaseDetailPage() {
     }
   };
 
-  const ownerDisplayName = getOwnerDisplayName(owner);
+  const ownerDisplayName = getOwnerDisplayName(owner, t("detail.noOwner"));
   const lastPayment = paymentHistory[0];
   const draftFormat: LeaseTemplateFormat =
     lease?.draftContractFormat ?? "plain_text";
@@ -992,8 +1036,19 @@ export default function LeaseDetailPage() {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          {t("notFound")}
+          {loadError ? t("detail.loadError") : t("notFound")}
         </h1>
+        {loadError && (
+          <Button
+            variant="secondary"
+            disabled={!leaseId}
+            onClick={() => {
+              if (leaseId) void loadLease(leaseId);
+            }}
+          >
+            {tCommon("retry")}
+          </Button>
+        )}
         <Link
           href={`/${locale}/leases`}
           className="text-blue-600 hover:underline mt-4 inline-block"
@@ -1009,7 +1064,7 @@ export default function LeaseDetailPage() {
       <div className="mb-6">
         <Link
           href={`/${locale}/leases`}
-          className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          className="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
         >
           <ArrowLeft size={16} className="mr-1" />
           {t("backToList")}
@@ -1039,6 +1094,34 @@ export default function LeaseDetailPage() {
             ownerDisplayName={ownerDisplayName}
             t={t}
           />
+          {collectionsError && (
+            <StatePanel
+              error
+              title={t("detail.collectionsError")}
+              action={
+                <Button
+                  variant="secondary"
+                  onClick={() => setCollectionsRevision((value) => value + 1)}
+                >
+                  {tCommon("retry")}
+                </Button>
+              }
+            />
+          )}
+          {ownerError && (
+            <StatePanel
+              error
+              title={t("detail.ownerError")}
+              action={
+                <Button
+                  variant="secondary"
+                  onClick={() => setOwnerRevision((value) => value + 1)}
+                >
+                  {tCommon("retry")}
+                </Button>
+              }
+            />
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-6">
@@ -1103,6 +1186,24 @@ export default function LeaseDetailPage() {
                     ["admin", "staff"],
                     "leases",
                   )}
+                  workflow={
+                    canUserAccessModule(
+                      user,
+                      ["admin", "owner", "staff"],
+                      "leases",
+                    )
+                      ? {
+                          scope: {
+                            companyId: user.companyId,
+                            userId: user.id,
+                            leaseId: lease.id,
+                          },
+                          active: lease.status === "ACTIVE",
+                          rental: lease.contractType === "rental",
+                          currency: lease.currency,
+                        }
+                      : undefined
+                  }
                   onChanged={() => loadLease(lease.id)}
                 />
               )}

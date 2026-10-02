@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
@@ -46,6 +45,21 @@ describe('OwnersService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    dataSource.transaction.mockImplementation(async (execute) =>
+      execute({
+        query: jest.fn().mockResolvedValue([]),
+        getRepository: (entity: { name: string }) =>
+          (
+            ({
+              Owner: ownersRepository,
+              User: usersRepository,
+              Property: propertiesRepository,
+              OwnerActivity: ownerActivitiesRepository,
+              Document: documentsRepository,
+            }) as Record<string, unknown>
+          )[entity.name],
+      }),
+    );
     service = new OwnersService(
       ownersRepository as any,
       ownerActivitiesRepository as any,
@@ -110,12 +124,13 @@ describe('OwnersService', () => {
     const userRepo = { create: jest.fn((x) => x), save: saveUser };
     const ownerRepo = { create: jest.fn((x) => x), save: saveOwner };
     const manager = {
+      query: jest.fn().mockResolvedValue([]),
       getRepository: jest.fn().mockImplementation((entity: unknown) => {
         if ((entity as any).name === 'User') {
-          return userRepo;
+          return { ...usersRepository, ...userRepo };
         }
         if ((entity as any).name === 'Owner') {
-          return ownerRepo;
+          return { ...ownersRepository, ...ownerRepo };
         }
         throw new Error('Unexpected repository request');
       }),
@@ -164,8 +179,11 @@ describe('OwnersService', () => {
     };
     dataSource.transaction.mockImplementation(async (callback: any) =>
       callback({
+        query: jest.fn().mockResolvedValue([]),
         getRepository: (entity: any) =>
-          entity.name === 'User' ? userRepo : ownerRepo,
+          entity.name === 'User'
+            ? { ...usersRepository, ...userRepo }
+            : { ...ownersRepository, ...ownerRepo },
       }),
     );
     ownersRepository.findOne.mockResolvedValue({
@@ -208,8 +226,11 @@ describe('OwnersService', () => {
     };
     dataSource.transaction.mockImplementation(async (callback: any) =>
       callback({
+        query: jest.fn().mockResolvedValue([]),
         getRepository: (entity: any) =>
-          entity.name === 'User' ? userRepo : ownerRepo,
+          entity.name === 'User'
+            ? { ...usersRepository, ...userRepo }
+            : { ...ownersRepository, ...ownerRepo },
       }),
     );
 
@@ -327,6 +348,11 @@ describe('OwnersService', () => {
   });
 
   it('listSettlements maps SQL rows to summaries', async () => {
+    ownersRepository.findOne.mockResolvedValue({
+      id: 'o1',
+      userId: 'owner-user',
+      companyId: 'co1',
+    });
     ownersRepository.findOne.mockResolvedValue({
       id: 'o1',
       userId: 'owner-user',
@@ -501,199 +527,28 @@ describe('OwnersService', () => {
     expect(result.completedAt).toBeInstanceOf(Date);
   });
 
-  it('registerSettlementPayment throws when settlement row is missing', async () => {
-    ownersRepository.findOne.mockResolvedValue({
-      id: 'o1',
-      userId: 'owner-user',
-      companyId: 'co1',
-      user: {},
-    });
-    dataSource.query.mockResolvedValue([]);
-
-    await expect(
-      service.registerSettlementPayment('o1', 's-missing', {} as any, {
-        id: 'owner-user',
-        companyId: 'co1',
-        role: UserRole.OWNER,
-      }),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it('keeps simulated settlement transfers disabled outside tests', async () => {
-    const previous = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'production';
-    try {
-      await expect(
-        service.registerSettlementPayment('o1', 's1', {} as any, {
-          id: 'admin-1',
-          companyId: 'co1',
-          role: UserRole.ADMIN,
-        }),
-      ).rejects.toThrow('disabled until a verified provider');
-      expect(ownersRepository.findOne).not.toHaveBeenCalled();
-      expect(dataSource.query).not.toHaveBeenCalled();
-    } finally {
-      process.env.NODE_ENV = previous;
-    }
-  });
-
-  it('registerSettlementPayment validates amount and payment date', async () => {
-    ownersRepository.findOne.mockResolvedValue({
-      id: 'o1',
-      userId: 'owner-user',
-      companyId: 'co1',
-      user: {},
-    });
-    dataSource.query.mockResolvedValue([
-      {
-        id: 's1',
-        owner_id: 'o1',
-        owner_name: 'Owner Test',
-        period: '2025-01',
-        gross_amount: '1000',
-        commission_amount: '100',
-        withholdings_amount: '50',
-        net_amount: '850',
-        status: 'pending',
-        scheduled_date: null,
-        processed_at: null,
-        transfer_reference: null,
-        notes: null,
-        created_at: '2025-01-01',
-        updated_at: '2025-01-01',
-        receipt_pdf_url: null,
-        receipt_name: null,
-      },
-    ]);
-
-    await expect(
-      service.registerSettlementPayment('o1', 's1', { amount: 800 } as any, {
-        id: 'owner-user',
-        companyId: 'co1',
-        role: UserRole.OWNER,
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
-
-    await expect(
-      service.registerSettlementPayment(
-        'o1',
-        's1',
-        { paymentDate: 'invalid-date' } as any,
-        { id: 'owner-user', companyId: 'co1', role: UserRole.OWNER },
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it('registerSettlementPayment returns current row when already completed with receipt', async () => {
-    ownersRepository.findOne.mockResolvedValue({
-      id: 'o1',
-      userId: 'owner-user',
-      companyId: 'co1',
-      user: {},
-    });
-    dataSource.query.mockResolvedValue([
-      {
-        id: 's1',
-        owner_id: 'o1',
-        owner_name: 'Owner Test',
-        period: '2025-01',
-        gross_amount: '1000',
-        commission_amount: '100',
-        withholdings_amount: '50',
-        net_amount: '850',
-        status: 'completed',
-        scheduled_date: null,
-        processed_at: '2025-01-10',
-        transfer_reference: 'TR-1',
-        notes: 'ok',
-        created_at: '2025-01-01',
-        updated_at: '2025-01-10',
-        receipt_pdf_url: 'db://document/1',
-        receipt_name: 'r.pdf',
-      },
-    ]);
-
-    const result = await service.registerSettlementPayment(
-      'o1',
-      's1',
-      {} as any,
-      { id: 'owner-user', companyId: 'co1', role: UserRole.OWNER },
-    );
-
-    expect(result.status).toBe('completed');
-    expect(documentsRepository.save).not.toHaveBeenCalled();
-  });
-
-  it('registerSettlementPayment saves receipt document and returns updated row', async () => {
-    ownersRepository.findOne.mockResolvedValue({
-      id: 'o1',
-      userId: 'owner-user',
-      companyId: 'co1',
-      user: {},
-    });
-    dataSource.query
-      .mockResolvedValueOnce([
-        {
-          id: 's1',
-          owner_id: 'o1',
-          owner_name: 'Owner Test',
-          period: '2025-01',
-          gross_amount: '1000',
-          commission_amount: '100',
-          withholdings_amount: '50',
-          net_amount: '850',
-          status: 'pending',
-          scheduled_date: null,
-          processed_at: null,
-          transfer_reference: null,
-          notes: null,
-          created_at: '2025-01-01',
-          updated_at: '2025-01-01',
-          receipt_pdf_url: null,
-          receipt_name: null,
-        },
-      ])
-      .mockResolvedValueOnce([{ affected: 1 }])
-      .mockResolvedValueOnce([
-        {
-          id: 's1',
-          owner_id: 'o1',
-          owner_name: 'Owner Test',
-          period: '2025-01',
-          gross_amount: '1000',
-          commission_amount: '100',
-          withholdings_amount: '50',
-          net_amount: '850',
-          status: 'completed',
-          scheduled_date: null,
-          processed_at: '2025-01-10',
-          transfer_reference: 'TR-2',
-          notes: 'ok',
-          created_at: '2025-01-01',
-          updated_at: '2025-01-10',
-          receipt_pdf_url: 'db://document/2',
-          receipt_name: 'receipt.pdf',
-        },
-      ]);
-    documentsRepository.create.mockImplementation((x) => x);
-    documentsRepository.save
-      .mockResolvedValueOnce({ id: 'doc-1', fileUrl: 'db://document/pending' })
-      .mockResolvedValueOnce({ id: 'doc-1', fileUrl: 'db://document/doc-1' });
-
-    const result = await service.registerSettlementPayment(
-      'o1',
-      's1',
-      {
-        paymentDate: '2025-01-10',
-        reference: 'TR-2',
-        notes: 'ok',
-      } as any,
-      { id: 'owner-user', companyId: 'co1', role: UserRole.OWNER },
-    );
-
-    expect(documentsRepository.save).toHaveBeenCalled();
-    expect(result.receiptPdfUrl).toBe('db://document/2');
-  });
+  it.each(['test', 'development', 'production'])(
+    'disables legacy settlement payments without financial effects in %s',
+    async (environment) => {
+      const previous = process.env.NODE_ENV;
+      process.env.NODE_ENV = environment;
+      try {
+        await expect(
+          service.registerSettlementPayment('o1', 's1', {} as any, {
+            id: 'admin-1',
+            companyId: 'co1',
+            role: UserRole.ADMIN,
+          }),
+        ).rejects.toThrow('use the verified settlement payout workflow');
+        expect(ownersRepository.findOne).not.toHaveBeenCalled();
+        expect(dataSource.query).not.toHaveBeenCalled();
+        expect(documentsRepository.save).not.toHaveBeenCalled();
+        expect(communicationsService.dispatchEvent).not.toHaveBeenCalled();
+      } finally {
+        process.env.NODE_ENV = previous;
+      }
+    },
+  );
 
   it('getSettlementReceipt downloads receipt and resolves filename', async () => {
     dataSource.query.mockResolvedValue([

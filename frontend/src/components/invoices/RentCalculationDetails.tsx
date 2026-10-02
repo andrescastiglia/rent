@@ -9,7 +9,7 @@ export function RentCalculationDetails({
 }: Readonly<{ calculation?: RentCalculation | null }>) {
   const t = useTranslations("rentCalculation"),
     locale = useLocale();
-  if (!calculation || calculation.version !== 1) return null;
+  if (calculation?.version !== 1) return null;
   return (
     <section
       className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6"

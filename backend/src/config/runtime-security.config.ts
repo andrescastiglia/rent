@@ -1,3 +1,5 @@
+import { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
+
 type Environment = Record<string, unknown>;
 
 export type RuntimeHttpSecurityConfig = {
@@ -91,6 +93,39 @@ export function getRuntimeHttpSecurityConfig(
     allowedOrigins: parseAllowedOrigins(environment),
     allowLocalDevelopmentOrigins: !isProduction,
     trustProxyHops,
+  };
+}
+
+/** Shared by bootstrap and HTTP tests so browser policy cannot drift. */
+export function getRuntimeCorsOptions(
+  security: RuntimeHttpSecurityConfig,
+): CorsOptions {
+  const localDevOriginPattern =
+    /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/;
+
+  return {
+    origin: (origin, callback) => {
+      if (
+        !origin ||
+        security.allowedOrigins.includes(origin) ||
+        (security.allowLocalDevelopmentOrigins &&
+          localDevOriginPattern.test(origin))
+      ) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS origin denied: ${origin}`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Idempotency-Key',
+      'traceparent',
+      'tracestate',
+      'baggage',
+    ],
   };
 }
 

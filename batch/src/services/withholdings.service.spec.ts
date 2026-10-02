@@ -183,7 +183,7 @@ describe("WithholdingsService", () => {
       expect(result.iva).toBe(10500);
       expect(result.ganancias).toBe(6000);
       expect(result.total).toBe(20000);
-      expect(result.breakdown.length).toBe(3);
+      expect(result.breakdown).toHaveLength(3);
     });
 
     it("should read config from JSON withholding schema", async () => {
@@ -231,7 +231,7 @@ describe("WithholdingsService", () => {
       const result = await service.validateConfiguration("company-1");
 
       expect(result.valid).toBe(true);
-      expect(result.issues.length).toBe(0);
+      expect(result.issues).toHaveLength(0);
     });
 
     it("should detect missing jurisdiction for IIBB", async () => {

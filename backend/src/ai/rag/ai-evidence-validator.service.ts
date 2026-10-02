@@ -34,7 +34,7 @@ export class AiEvidenceValidatorService {
         // The explicit control-character range is intentional input cleanup.
         // eslint-disable-next-line no-control-regex
         .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ' ')
-        .replace(/```/g, "''' ")
+        .replaceAll('```', "''' ")
         .slice(0, 5000),
     }));
   }
@@ -223,11 +223,20 @@ export class AiEvidenceValidatorService {
     return (
       /\b(estado|total|saldo|monto|importe|fecha|vence|vencimiento|cantidad|cu[aá]nt[oa]s?)\b/i.test(
         text,
-      ) ||
-      /(?:\$|€|ARS|USD)\s*[0-9]|[0-9]+(?:[.,][0-9]+)?\s*(?:propiedades|facturas|pagos|contratos)/i.test(
-        text,
-      )
+      ) || this.containsFinancialQuantity(text)
     );
+  }
+
+  private containsFinancialQuantity(text: string): boolean {
+    const tokens = text.split(/\s+/u);
+    return tokens.some((token, index) => {
+      if (!/\d/u.test(token)) return false;
+      if (/[$€]|ARS|USD/i.test(token)) return true;
+      if (/^(?:[$€]|ARS|USD)$/i.test(tokens[index - 1] ?? '')) return true;
+      return /^(?:propiedades|facturas|pagos|contratos)\b/i.test(
+        tokens[index + 1] ?? '',
+      );
+    });
   }
 
   private hasMissingExplicitIdentifier(
@@ -253,7 +262,7 @@ export class AiEvidenceValidatorService {
     };
 
     for (const character of prompt.toUpperCase()) {
-      const code = character.charCodeAt(0);
+      const code = character.codePointAt(0)!;
       const isLetter = code >= 65 && code <= 90;
       const isDigit = code >= 48 && code <= 57;
       if (isLetter || isDigit || character === '-') {
@@ -269,11 +278,11 @@ export class AiEvidenceValidatorService {
   private isExplicitIdentifier(token: string): boolean {
     const separator = token.indexOf('-');
     if (separator < 2 || separator === token.length - 1) return false;
-    if (!this.isAsciiLetter(token.charCodeAt(0))) return false;
-    if (!this.isAsciiLetter(token.charCodeAt(1))) return false;
+    if (!this.isAsciiLetter(token.codePointAt(0)!)) return false;
+    if (!this.isAsciiLetter(token.codePointAt(1)!)) return false;
 
     for (let index = separator + 1; index < token.length; index += 1) {
-      const code = token.charCodeAt(index);
+      const code = token.codePointAt(index)!;
       if (code >= 48 && code <= 57) return true;
     }
     return false;

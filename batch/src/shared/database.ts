@@ -38,7 +38,7 @@ const dataSourceOptions: DataSourceOptions = {
   entities,
   synchronize: false, // Never auto-sync in production
   logging: process.env.LOG_LEVEL === "debug",
-  ssl: databaseTls(process.env) ?? ssl,
+  ssl: databaseTls(process.env)?.ssl ?? ssl,
 };
 
 export const AppDataSource = new DataSource(dataSourceOptions);

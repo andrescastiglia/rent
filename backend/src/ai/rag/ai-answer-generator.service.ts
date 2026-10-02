@@ -44,13 +44,10 @@ export class AiAnswerGeneratorService {
     );
     let remainingContext = maxContextChars;
     const evidence = [...params.sources]
-      .sort((left, right) =>
-        left.origin === right.origin
-          ? 0
-          : left.origin === 'structured'
-            ? -1
-            : 1,
-      )
+      .sort((left, right) => {
+        if (left.origin === right.origin) return 0;
+        return left.origin === 'structured' ? -1 : 1;
+      })
       .map((source) => {
         const content = source.content.slice(0, Math.max(remainingContext, 0));
         remainingContext -= content.length;

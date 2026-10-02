@@ -18,7 +18,7 @@ export const createOwnerZodSchema = z
     firstName: z.string().min(1).max(100),
     lastName: z.string().min(1).max(100),
     email: z
-      .union([z.string().email().max(USER_EMAIL_MAX_LENGTH), z.literal('')])
+      .union([z.email().max(USER_EMAIL_MAX_LENGTH), z.literal('')])
       .optional()
       .transform((value) => {
         if (!value) return undefined;

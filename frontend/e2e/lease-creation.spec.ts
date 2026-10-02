@@ -136,9 +136,6 @@ test.describe("Lease Creation Flow", () => {
     const searchInput = page.getByPlaceholder(/search|buscar/i);
     await searchInput.fill("Test");
 
-    // Wait for filter to apply
-    await page.waitForTimeout(500);
-
     // Search input should have the value
     await expect(searchInput).toHaveValue("Test");
   });

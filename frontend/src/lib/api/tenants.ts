@@ -1,3 +1,4 @@
+import { collectPages } from "../pagination";
 import {
   Tenant,
   TenantActivity,
@@ -10,6 +11,7 @@ import {
 import { apiClient, IS_MOCK_MODE } from "../api";
 import { getToken } from "../auth";
 import type { Lease } from "@/types/lease";
+import { buildPathWithQuery } from "../safe-url";
 
 type PaginatedResponse<T> = {
   data: T[];
@@ -20,6 +22,19 @@ type PaginatedResponse<T> = {
 
 type BackendTenantLike = {
   id: string;
+  tenantEntityId?: string;
+  cuil?: string | null;
+  dateOfBirth?: string | null;
+  nationality?: string | null;
+  occupation?: string | null;
+  employer?: string | null;
+  monthlyIncome?: number | null;
+  employmentStatus?: NonNullable<Tenant["employmentStatus"]> | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
+  emergencyContactRelationship?: string | null;
+  creditScore?: number | null;
+  notes?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   email?: string | null;
@@ -74,6 +89,25 @@ const mapBackendTenantToTenant = (raw: BackendTenantLike): Tenant => {
 
   return {
     id: raw.id,
+    tenantEntityId: raw.tenantEntityId,
+    cuil: raw.cuil ?? undefined,
+    dateOfBirth: raw.dateOfBirth?.slice(0, 10) ?? undefined,
+    nationality: raw.nationality ?? undefined,
+    occupation: raw.occupation ?? undefined,
+    employer: raw.employer ?? undefined,
+    monthlyIncome:
+      raw.monthlyIncome === null || raw.monthlyIncome === undefined
+        ? undefined
+        : Number(raw.monthlyIncome),
+    employmentStatus: raw.employmentStatus ?? undefined,
+    emergencyContactName: raw.emergencyContactName ?? undefined,
+    emergencyContactPhone: raw.emergencyContactPhone ?? undefined,
+    emergencyContactRelationship: raw.emergencyContactRelationship ?? undefined,
+    creditScore:
+      raw.creditScore === null || raw.creditScore === undefined
+        ? undefined
+        : Number(raw.creditScore),
+    notes: raw.notes ?? undefined,
     firstName,
     lastName,
     email,
@@ -278,62 +312,86 @@ const mapBackendTenantActivity = (
   };
 };
 
-type BackendUpdateTenantPayload = Partial<{
-  firstName: string;
-  lastName: string;
-  phone: string;
-  dni: string;
-  emergencyContact: string;
-  emergencyPhone: string;
-}>;
-
-const normalizeOptionalString = (
-  value: string | null | undefined,
-): string | undefined => {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-};
-
-const serializeUpdateTenantPayload = (
-  data: UpdateTenantInput,
-): BackendUpdateTenantPayload => {
-  const payload: BackendUpdateTenantPayload = {};
-
-  const firstName = normalizeOptionalString(data.firstName);
-  if (firstName !== undefined) payload.firstName = firstName;
-
-  const lastName = normalizeOptionalString(data.lastName);
-  if (lastName !== undefined) payload.lastName = lastName;
-
-  const phone = normalizeOptionalString(data.phone);
-  if (phone !== undefined) payload.phone = phone;
-
-  const dni = normalizeOptionalString(data.dni);
-  // tenants.dni is varchar(20) in DB and should never receive UUID user IDs.
-  if (dni !== undefined && dni.length <= 20 && !isUuid(dni)) payload.dni = dni;
-
-  const emergencyContact =
-    normalizeOptionalString(
-      (data as UpdateTenantInput & { emergencyContact?: string })
-        .emergencyContact,
-    ) ?? normalizeOptionalString(data.emergencyContactName);
-  if (emergencyContact !== undefined) {
-    payload.emergencyContact = emergencyContact;
+type BackendTenantPayload = Record<string, string | number | boolean>;
+function serializeTenantPayload(data: UpdateTenantInput): BackendTenantPayload {
+  const payload: BackendTenantPayload = {};
+  const strings = [
+    "firstName",
+    "lastName",
+    "email",
+    "phone",
+    "dni",
+    "cuil",
+    "dateOfBirth",
+    "nationality",
+    "occupation",
+    "employer",
+    "employmentStatus",
+    "emergencyContactName",
+    "emergencyContactPhone",
+    "emergencyContactRelationship",
+    "notes",
+    "preferredContactChannel",
+  ] as const;
+  for (const key of strings) {
+    const value = data[key];
+    if (typeof value === "string" && value.trim()) payload[key] = value.trim();
   }
-
-  const emergencyPhone =
-    normalizeOptionalString(
-      (data as UpdateTenantInput & { emergencyPhone?: string }).emergencyPhone,
-    ) ?? normalizeOptionalString(data.emergencyContactPhone);
-  if (emergencyPhone !== undefined) {
-    payload.emergencyPhone = emergencyPhone;
+  if (
+    typeof payload.dni === "string" &&
+    (payload.dni.length > 20 || isUuid(payload.dni))
+  )
+    delete payload.dni;
+  for (const key of ["monthlyIncome", "creditScore"] as const) {
+    const value = data[key];
+    if (typeof value === "number" && Number.isFinite(value))
+      payload[key] = value;
   }
-
+  if (typeof data.contactConsent === "boolean")
+    payload.contactConsent = data.contactConsent;
   return payload;
-};
+}
 
 export const tenantsApi = {
+  getPage: async (
+    filters: TenantFilters = {},
+  ): Promise<PaginatedResponse<Tenant>> => {
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 20;
+    if (shouldUseMock()) {
+      await delay(DELAY);
+      const term = filters.name?.trim().toLowerCase();
+      const data = MOCK_TENANTS.filter(
+        (tenant) =>
+          !term ||
+          `${tenant.firstName} ${tenant.lastName}`.toLowerCase().includes(term),
+      );
+      return {
+        data: data.slice((page - 1) * limit, page * limit),
+        total: data.length,
+        page,
+        limit,
+      };
+    }
+    const result = await apiClient.get<
+      PaginatedResponse<BackendTenantLike> | BackendTenantLike[]
+    >(
+      buildPathWithQuery("/tenants", { ...filters, page, limit }),
+      getToken() ?? undefined,
+    );
+    if (Array.isArray(result))
+      return {
+        data: result
+          .slice((page - 1) * limit, page * limit)
+          .map(mapBackendTenantToTenant),
+        total: result.length,
+        page,
+        limit,
+      };
+    if (!isPaginatedResponse<BackendTenantLike>(result))
+      throw new Error("Unexpected response shape from /tenants");
+    return { ...result, data: result.data.map(mapBackendTenantToTenant) };
+  },
   getAll: async (filters?: TenantFilters): Promise<Tenant[]> => {
     if (shouldUseMock()) {
       await delay(DELAY);
@@ -367,7 +425,19 @@ export const tenantsApi = {
     }
 
     if (isPaginatedResponse<BackendTenantLike>(result)) {
-      return result.data.map(mapBackendTenantToTenant);
+      if (filters?.page || result.total <= result.data.length)
+        return result.data.map(mapBackendTenantToTenant);
+      return collectPages(async (page) => {
+        if (page === 1)
+          return { ...result, data: result.data.map(mapBackendTenantToTenant) };
+        queryParams.set("page", String(page));
+        queryParams.set("limit", String(result.limit));
+        const next = await apiClient.get<PaginatedResponse<BackendTenantLike>>(
+          `/tenants?${queryParams}`,
+          token ?? undefined,
+        );
+        return { ...next, data: next.data.map(mapBackendTenantToTenant) };
+      });
     }
 
     throw new Error("Unexpected response shape from /tenants");
@@ -401,6 +471,7 @@ export const tenantsApi = {
       await delay(DELAY);
       const newTenant: Tenant = {
         ...data,
+        status: data.status ?? "PROSPECT",
         id: crypto.randomUUID().substring(2, 11),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -410,7 +481,12 @@ export const tenantsApi = {
     }
 
     const token = getToken();
-    return apiClient.post<Tenant>("/tenants", data, token ?? undefined);
+    const result = await apiClient.post<BackendTenantLike>(
+      "/tenants",
+      serializeTenantPayload(data),
+      token ?? undefined,
+    );
+    return mapBackendTenantToTenant(result);
   },
 
   update: async (id: string, data: UpdateTenantInput): Promise<Tenant> => {
@@ -429,12 +505,13 @@ export const tenantsApi = {
     }
 
     const token = getToken();
-    const payload = serializeUpdateTenantPayload(data);
-    return apiClient.patch<Tenant>(
+    const payload = serializeTenantPayload(data);
+    const result = await apiClient.patch<BackendTenantLike>(
       `/tenants/${id}`,
       payload,
       token ?? undefined,
     );
+    return mapBackendTenantToTenant(result);
   },
 
   delete: async (id: string): Promise<void> => {

@@ -1,12 +1,23 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository, SelectQueryBuilder } from 'typeorm';
+import { CommunicationsService } from '../communications/communications.service';
+import {
+  CommunicationChannel,
+  CommunicationEvent,
+} from '../communications/entities/communication-template.entity';
+import { maintenanceNoticeRecipients } from './maintenance-notices';
+import { EntityManager, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
+import { Staff } from '../staff/entities/staff.entity';
+import { withDomainOperationReceipt } from '../common/helpers/domain-operation-receipt';
 import {
   MaintenanceTicket,
+  MaintenanceTicketArea,
+  MaintenanceTicketPriority,
   MaintenanceTicketSource,
   MaintenanceTicketStatus,
 } from './entities/maintenance-ticket.entity';
@@ -38,12 +49,14 @@ export class MaintenanceService {
     @InjectRepository(MaintenanceTicketComment)
     private readonly commentRepository: Repository<MaintenanceTicketComment>,
     private readonly propertiesService: PropertiesService,
+    private readonly communicationsService: CommunicationsService,
   ) {}
 
   async findAll(
     actor: MaintenanceActor,
     filters: MaintenanceTicketFiltersDto,
   ): Promise<MaintenanceTicket[]> {
+    this.requireCompany(actor);
     const qb = this.ticketRepository
       .createQueryBuilder('ticket')
       .leftJoinAndSelect('ticket.property', 'property')
@@ -84,14 +97,24 @@ export class MaintenanceService {
       qb.andWhere('LOWER(ticket.title) LIKE :search', { search });
     }
 
-    return qb.orderBy('ticket.created_at', 'DESC').getMany();
+    const tickets = await qb.orderBy('ticket.created_at', 'DESC').getMany();
+    if (!isAdminOrStaff(actor))
+      for (const ticket of tickets) {
+        ticket.metadata = null;
+        ticket.externalRef = null;
+      }
+    return tickets;
   }
 
   async findOne(
     id: string,
     actor: MaintenanceActor,
+    manager?: EntityManager,
   ): Promise<MaintenanceTicket> {
-    const ticket = await this.ticketRepository.findOne({
+    this.requireCompany(actor);
+    const ticket = await (
+      manager?.getRepository(MaintenanceTicket) ?? this.ticketRepository
+    ).findOne({
       where: { id, companyId: actor.companyId, deletedAt: IsNull() },
       relations: [
         'property',
@@ -108,50 +131,181 @@ export class MaintenanceService {
     }
 
     await this.propertiesService.findOneScoped(ticket.propertyId, actor);
+    if (!isAdminOrStaff(actor)) {
+      ticket.comments = (ticket.comments ?? []).filter(
+        (comment) => !comment.isInternal,
+      );
+      ticket.metadata = null;
+      ticket.externalRef = null;
+    }
     return ticket;
   }
 
   async create(
     actor: MaintenanceActor,
     dto: CreateMaintenanceTicketDto,
+    executionKey?: string,
   ): Promise<MaintenanceTicket> {
+    this.requireCompany(actor);
     await this.propertiesService.findOneScoped(dto.propertyId, actor);
+    this.validateFields(dto);
+    return this.ticketRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        actor.companyId,
+        executionKey,
+        'maintenance.create',
+        { actorId: actor.id, ...dto },
+        async () => {
+          const repository = manager.getRepository(MaintenanceTicket);
+          const ticket = repository.create({
+            companyId: actor.companyId,
+            reportedByUserId: actor.id,
+            propertyId: dto.propertyId,
+            title: dto.title,
+            description: dto.description ?? null,
+            area: dto.area ?? MaintenanceTicketArea.OTHER,
+            priority: dto.priority ?? MaintenanceTicketPriority.MEDIUM,
+            source: this.resolveTicketSource(actor, dto.source),
+            scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
+            estimatedCost: dto.estimatedCost ?? null,
+            costCurrency: dto.costCurrency ?? 'ARS',
+            status: MaintenanceTicketStatus.OPEN,
+          });
 
-    const ticket = this.ticketRepository.create({
-      companyId: actor.companyId,
-      reportedByUserId: actor.id,
-      propertyId: dto.propertyId,
-      title: dto.title,
-      description: dto.description ?? null,
-      area: dto.area,
-      priority: dto.priority,
-      source: this.resolveTicketSource(actor, dto.source),
-      scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
-      estimatedCost: dto.estimatedCost ?? null,
-      costCurrency: dto.costCurrency ?? 'ARS',
-      status: MaintenanceTicketStatus.OPEN,
-    });
-
-    const saved = await this.ticketRepository.save(ticket);
-    return this.findOne(saved.id, actor);
+          const saved = await repository.save(ticket);
+          await this.audit(manager, actor, saved, 'create', null);
+          return this.findOne(saved.id, actor, manager);
+        },
+      ),
+    );
   }
 
   async update(
     id: string,
     actor: MaintenanceActor,
     dto: UpdateMaintenanceTicketDto,
+    executionKey?: string,
   ): Promise<MaintenanceTicket> {
-    const ticket = await this.findOne(id, actor);
+    this.requireCompany(actor);
+    if (!isAdminOrStaff(actor))
+      throw new ForbiddenException(
+        'Only staff or admin can update maintenance tickets',
+      );
+    this.validateFields(dto);
+    return this.ticketRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        actor.companyId,
+        executionKey,
+        'maintenance.update',
+        { actorId: actor.id, id, ...dto },
+        async () => {
+          const repository = manager.getRepository(MaintenanceTicket);
+          const ticket = await this.lockTicket(manager, id, actor);
+          if (
+            dto.propertyId !== undefined &&
+            dto.propertyId !== ticket.propertyId
+          )
+            throw new BadRequestException(
+              'A maintenance ticket cannot change its property',
+            );
+          const before = this.snapshot(ticket);
+          if (dto.assignedToStaffId) {
+            const staff = await manager.getRepository(Staff).findOne({
+              where: {
+                id: dto.assignedToStaffId,
+                companyId: actor.companyId,
+                deletedAt: IsNull(),
+              },
+              relations: ['user'],
+            });
+            if (
+              !staff ||
+              staff.user?.companyId !== actor.companyId ||
+              !staff.user?.isActive ||
+              staff.user?.deletedAt
+            )
+              throw new BadRequestException(
+                'Assigned staff is not active in this company',
+              );
+          }
 
-    this.applyScalarFields(ticket, dto);
-    this.applyAssignmentUpdate(ticket, dto);
-    this.applyStatusUpdate(ticket, dto);
+          this.applyScalarFields(ticket, dto);
+          this.applyAssignmentUpdate(ticket, dto);
+          this.applyStatusUpdate(ticket, dto);
 
-    if (dto.resolvedAt !== undefined)
-      ticket.resolvedAt = dto.resolvedAt ? new Date(dto.resolvedAt) : null;
+          if (dto.resolvedAt !== undefined)
+            ticket.resolvedAt = dto.resolvedAt
+              ? new Date(dto.resolvedAt)
+              : null;
 
-    await this.ticketRepository.save(ticket);
-    return this.findOne(id, actor);
+          const saved = await repository.save(ticket);
+          await this.audit(manager, actor, saved, 'update', before);
+          await this.queueTransitionNotices(manager, saved, before);
+          return this.findOne(id, actor, manager);
+        },
+      ),
+    );
+  }
+
+  private async queueTransitionNotices(
+    manager: EntityManager,
+    ticket: MaintenanceTicket,
+    before: Record<string, unknown>,
+  ): Promise<void> {
+    let event: CommunicationEvent;
+    if (
+      ticket.status === MaintenanceTicketStatus.RESOLVED &&
+      before.status !== ticket.status
+    )
+      event = CommunicationEvent.MAINTENANCE_RESOLVED;
+    else if (
+      ticket.assignedToStaffId &&
+      before.assignedToStaffId !== ticket.assignedToStaffId
+    )
+      event = CommunicationEvent.MAINTENANCE_ASSIGNED;
+    else return;
+    const recipients = await maintenanceNoticeRecipients(
+      manager,
+      ticket.companyId,
+      ticket.id,
+    );
+    for (const recipient of recipients)
+      await this.communicationsService.dispatchEvent(
+        {
+          companyId: ticket.companyId,
+          event,
+          recipientRole: recipient.role,
+          recipientId: recipient.id,
+          channel: CommunicationChannel.WHATSAPP,
+          recipient: recipient.phone,
+          locale: recipient.locale,
+          variables: {
+            nombre: recipient.name,
+            titulo: ticket.title,
+            estado:
+              event === CommunicationEvent.MAINTENANCE_RESOLVED
+                ? 'resuelto'
+                : 'asignado',
+          },
+          fallbackSubject: 'Actualización de mantenimiento',
+          fallbackBody:
+            'Hola {{nombre}}, el ticket de mantenimiento "{{titulo}}" fue {{estado}}.',
+          consented: true,
+          relatedEntityType: 'maintenance_ticket',
+          relatedEntityId: ticket.id,
+          metadata: {
+            maintenanceSnapshot: {
+              status: ticket.status,
+              assignedToStaffId: ticket.assignedToStaffId,
+              title: ticket.title,
+              updatedAt: ticket.updatedAt.toISOString(),
+            },
+          },
+        },
+        manager,
+      );
   }
 
   private applyScalarFields(
@@ -184,6 +338,11 @@ export class MaintenanceService {
   ): void {
     if (dto.assignedToStaffId === undefined) return;
     ticket.assignedToStaffId = dto.assignedToStaffId ?? null;
+    if (!dto.assignedToStaffId) {
+      ticket.assignedAt = null;
+      if (ticket.status === MaintenanceTicketStatus.ASSIGNED)
+        ticket.status = MaintenanceTicketStatus.OPEN;
+    }
     if (dto.assignedToStaffId) {
       ticket.assignedAt = new Date();
       if (ticket.status === MaintenanceTicketStatus.OPEN) {
@@ -203,32 +362,92 @@ export class MaintenanceService {
     }
   }
 
-  async remove(id: string, actor: MaintenanceActor): Promise<void> {
-    const ticket = await this.findOne(id, actor);
-    await this.ticketRepository.softDelete(ticket.id);
+  async remove(
+    id: string,
+    actor: MaintenanceActor,
+    executionKey?: string,
+  ): Promise<void> {
+    this.requireCompany(actor);
+    if (!getUserRoles(actor).includes(UserRole.ADMIN))
+      throw new ForbiddenException('Only admin can delete maintenance tickets');
+    await this.ticketRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        actor.companyId,
+        executionKey,
+        'maintenance.delete',
+        { actorId: actor.id, id },
+        async () => {
+          const ticket = await this.lockTicket(manager, id, actor);
+          await this.audit(
+            manager,
+            actor,
+            ticket,
+            'delete',
+            this.snapshot(ticket),
+          );
+          await manager
+            .getRepository(MaintenanceTicket)
+            .softDelete({ id, companyId: actor.companyId });
+          return null;
+        },
+      ),
+    );
   }
 
   async addComment(
     ticketId: string,
     actor: MaintenanceActor,
     dto: CreateCommentDto,
+    executionKey?: string,
   ): Promise<MaintenanceTicketComment> {
     await this.findOne(ticketId, actor);
-
-    const comment = this.commentRepository.create({
-      ticketId,
-      userId: actor.id,
-      body: dto.body,
-      isInternal: dto.isInternal ?? false,
-    });
-
-    return this.commentRepository.save(comment);
+    if (!dto.body?.trim() || dto.body.length > 10000)
+      throw new BadRequestException(
+        'Comment body must contain 1–10000 characters',
+      );
+    const safeDto = {
+      body: dto.body.trim(),
+      isInternal: isAdminOrStaff(actor) && (dto.isInternal ?? false),
+    };
+    return this.ticketRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        actor.companyId,
+        executionKey,
+        'maintenance.comment',
+        { actorId: actor.id, ticketId, ...safeDto },
+        async () => {
+          await this.lockTicket(manager, ticketId, actor);
+          const repository = manager.getRepository(MaintenanceTicketComment);
+          const comment = repository.create({
+            ticketId,
+            userId: actor.id,
+            ...safeDto,
+          });
+          const saved = await repository.save(comment);
+          await manager.query(
+            `INSERT INTO maintenance_ticket_audit(company_id,ticket_id,actor_id,action,after_snapshot) VALUES($1,$2,$3,'comment',$4::jsonb)`,
+            [
+              actor.companyId,
+              ticketId,
+              actor.id,
+              JSON.stringify({
+                commentId: saved.id,
+                isInternal: saved.isInternal,
+              }),
+            ],
+          );
+          return saved;
+        },
+      ),
+    );
   }
 
   async getComments(
     ticketId: string,
     actor: MaintenanceActor,
-    isAdminOrStaff: boolean,
+    includeInternal: boolean,
   ): Promise<MaintenanceTicketComment[]> {
     await this.findOne(ticketId, actor);
 
@@ -237,11 +456,108 @@ export class MaintenanceService {
       .leftJoinAndSelect('comment.user', 'user')
       .where('comment.ticket_id = :ticketId', { ticketId });
 
-    if (!isAdminOrStaff) {
+    if (!includeInternal || !isAdminOrStaff(actor)) {
       qb.andWhere('comment.is_internal = false');
     }
 
     return qb.orderBy('comment.created_at', 'ASC').getMany();
+  }
+
+  private requireCompany(actor: MaintenanceActor): void {
+    if (!actor.companyId)
+      throw new ForbiddenException('Company scope required');
+  }
+
+  private validateFields(
+    dto: CreateMaintenanceTicketDto | UpdateMaintenanceTicketDto,
+  ): void {
+    if (
+      dto.title !== undefined &&
+      (!dto.title?.trim() || dto.title.length > 200)
+    )
+      throw new BadRequestException(
+        'Ticket title must contain 1–200 characters',
+      );
+    if (
+      dto.costCurrency !== undefined &&
+      !['ARS', 'USD', 'BRL'].includes(dto.costCurrency)
+    )
+      throw new BadRequestException('Unsupported maintenance currency');
+    for (const amount of [
+      dto.estimatedCost,
+      (dto as UpdateMaintenanceTicketDto).actualCost,
+    ])
+      if (
+        amount != null &&
+        (!Number.isFinite(amount) ||
+          !/^\d{1,10}(\.\d{1,2})?$/.test(String(amount)))
+      )
+        throw new BadRequestException(
+          'Maintenance costs require nonnegative exact cents',
+        );
+    for (const date of [
+      dto.scheduledAt,
+      (dto as UpdateMaintenanceTicketDto).resolvedAt,
+    ])
+      if (date != null && !Number.isFinite(new Date(date).getTime()))
+        throw new BadRequestException('Invalid maintenance date');
+  }
+
+  private async lockTicket(
+    manager: EntityManager,
+    id: string,
+    actor: MaintenanceActor,
+  ): Promise<MaintenanceTicket> {
+    const ticket = await manager.getRepository(MaintenanceTicket).findOne({
+      where: { id, companyId: actor.companyId, deletedAt: IsNull() },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!ticket) throw new NotFoundException('Maintenance ticket not found');
+    await this.propertiesService.findOneScoped(ticket.propertyId, actor);
+    return ticket;
+  }
+
+  private snapshot(ticket: MaintenanceTicket): Record<string, unknown> {
+    return Object.fromEntries(
+      [
+        'title',
+        'description',
+        'area',
+        'priority',
+        'source',
+        'status',
+        'assignedToStaffId',
+        'assignedAt',
+        'scheduledAt',
+        'resolvedAt',
+        'resolutionNotes',
+        'estimatedCost',
+        'actualCost',
+        'costCurrency',
+        'externalRef',
+        'deletedAt',
+      ].map((key) => [key, ticket[key as keyof MaintenanceTicket] ?? null]),
+    );
+  }
+
+  private audit(
+    manager: EntityManager,
+    actor: MaintenanceActor,
+    ticket: MaintenanceTicket,
+    action: string,
+    before: Record<string, unknown> | null,
+  ): Promise<unknown> {
+    return manager.query(
+      `INSERT INTO maintenance_ticket_audit(company_id,ticket_id,actor_id,action,before_snapshot,after_snapshot) VALUES($1,$2,$3,$4,$5::jsonb,$6::jsonb)`,
+      [
+        actor.companyId,
+        ticket.id,
+        actor.id,
+        action,
+        before ? JSON.stringify(before) : null,
+        JSON.stringify(this.snapshot(ticket)),
+      ],
+    );
   }
 
   private applyActorScope(
@@ -258,6 +574,7 @@ export class MaintenanceService {
         ? `EXISTS (SELECT 1 FROM owners scope_owner
             WHERE scope_owner.id = property.owner_id
               AND scope_owner.user_id = :actorId
+              AND scope_owner.company_id = :companyId
               AND scope_owner.deleted_at IS NULL)`
         : null,
       roles.includes(UserRole.TENANT)

@@ -7,7 +7,8 @@ export class ProviderRequestError extends Error {
     readonly outcomeUnknown: boolean,
     readonly status?: number,
   ) {
-    super(`${provider} request failed${status ? ` (${status})` : ''}`);
+    const suffix = status ? ' (' + status + ')' : '';
+    super(`${provider} request failed${suffix}`);
   }
 }
 

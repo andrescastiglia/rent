@@ -1,9 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { createHash } from 'node:crypto';
-import { Repository } from 'typeorm';
-import { DataSource } from 'typeorm';
-import { InjectDataSource } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
 import {
   UserModulePermissions,
   UserRole,
@@ -67,12 +65,9 @@ export class AiRagRolloutService {
   async respond(params: RolloutParams) {
     params = this.withEffectivePrimaryRole(params);
     params = await this.withRoleDataContext(params);
-    const roles = getUserRoles(params.context);
     if (
       !isAdminOrStaff(params.context) &&
-      roles.some((role) =>
-        [UserRole.OWNER, UserRole.TENANT, UserRole.BUYER].includes(role),
-      )
+      process.env.AI_RAG_EXTERNAL_READ_ENABLED !== 'true'
     ) {
       return this.respondTools(params, 'TOOLS');
     }
@@ -94,11 +89,9 @@ export class AiRagRolloutService {
 
   private withEffectivePrimaryRole(params: RolloutParams): RolloutParams {
     const roles = getUserRoles(params.context);
-    const effectiveRole = roles.includes(UserRole.ADMIN)
-      ? UserRole.ADMIN
-      : roles.includes(UserRole.STAFF)
-        ? UserRole.STAFF
-        : params.context.role;
+    let effectiveRole = params.context.role;
+    if (roles.includes(UserRole.ADMIN)) effectiveRole = UserRole.ADMIN;
+    else if (roles.includes(UserRole.STAFF)) effectiveRole = UserRole.STAFF;
     return {
       ...params,
       context: { ...params.context, role: effectiveRole },
@@ -371,10 +364,10 @@ export class AiRagRolloutService {
 
   private errorCode(error: unknown): string {
     if (error && typeof error === 'object' && 'code' in error) {
-      return String((error as { code?: unknown }).code ?? 'unknown').slice(
-        0,
-        80,
-      );
+      const code = (error as { code?: unknown }).code;
+      return typeof code === 'string' || typeof code === 'number'
+        ? String(code).slice(0, 80)
+        : 'unknown';
     }
     return error instanceof Error ? error.name.slice(0, 80) : 'unknown';
   }

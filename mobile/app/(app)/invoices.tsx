@@ -1,16 +1,17 @@
-import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   Text,
   View,
-} from 'react-native';
+} from '@/components/themed-native';
+import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { invoicesApi } from '@/api/payments';
+import { Pagination } from '@/components/pagination';
 import { Screen } from '@/components/screen';
 import { ChoiceGroup, Field, H1 } from '@/components/ui';
 import type { InvoiceStatus } from '@/types/payment';
@@ -20,6 +21,7 @@ type InvoiceStatusFilter = InvoiceStatus | 'all';
 export default function InvoicesScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<InvoiceStatusFilter>('all');
 
@@ -35,25 +37,20 @@ export default function InvoicesScreen() {
     { label: t('invoices.status.refunded'), value: 'refunded' },
   ];
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['invoices', statusFilter],
-    queryFn: () => {
-      if (statusFilter === 'all') {
-        return invoicesApi.getAll();
-      }
-      return invoicesApi.getAll({ status: statusFilter });
-    },
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['invoices', statusFilter, searchTerm, page],
+    queryFn: () =>
+      invoicesApi.getAll({
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        search: searchTerm,
+        page,
+        limit: 20,
+      }),
   });
-
-  const filteredInvoices = useMemo(() => {
-    const normalized = searchTerm.toLowerCase().trim();
-    return (data?.data ?? []).filter((invoice) =>
-      invoice.invoiceNumber.toLowerCase().includes(normalized),
-    );
-  }, [data?.data, searchTerm]);
+  const filteredInvoices = data?.data ?? [];
 
   return (
-    <Screen>
+    <Screen guidanceReady={!isFetching} guidanceBlocked={Boolean(error)}>
       <View style={styles.headerRow}>
         <H1>{t('invoices.title')}</H1>
       </View>
@@ -63,14 +60,20 @@ export default function InvoicesScreen() {
           label={t('common.search')}
           placeholder={t('invoices.searchPlaceholder')}
           value={searchTerm}
-          onChangeText={setSearchTerm}
+          onChangeText={(value) => {
+            setSearchTerm(value);
+            setPage(1);
+          }}
           autoCapitalize="none"
           testID="invoices.search"
         />
         <ChoiceGroup
           label={t('common.filter')}
           value={statusFilter}
-          onChange={setStatusFilter}
+          onChange={(value) => {
+            setStatusFilter(value);
+            setPage(1);
+          }}
           options={statusOptions}
           testID="invoices.status"
         />
@@ -94,12 +97,13 @@ export default function InvoicesScreen() {
             <Text style={styles.detail}>{invoice.status}</Text>
           </Pressable>
         ))}
-        {!isLoading && filteredInvoices.length === 0 ? (
+        {!isLoading && !error && filteredInvoices.length === 0 ? (
           <Text style={styles.empty}>
             {t('invoices.noInvoicesDescription')}
           </Text>
         ) : null}
       </View>
+      <Pagination result={data} loading={isFetching} onPage={setPage} />
     </Screen>
   );
 }

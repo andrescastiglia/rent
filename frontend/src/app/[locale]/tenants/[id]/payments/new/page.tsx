@@ -6,7 +6,9 @@ import { useParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, Loader2, Wallet } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { IS_MOCK_MODE } from "@/lib/api";
+import { Button, StatePanel } from "@/components/ui";
+import { canUserAccessModule } from "@/lib/permissions";
+import { useWorkflowMutation } from "@/hooks/useWorkflowMutation";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { tenantsApi } from "@/lib/api/tenants";
 import { CurrencySelect } from "@/components/common/CurrencySelect";
@@ -14,6 +16,7 @@ import { Lease } from "@/types/lease";
 import { Tenant } from "@/types/tenant";
 import {
   AccountBalance,
+  CreatePaymentInput,
   Invoice,
   PaymentActivityType,
   PaymentMethod,
@@ -26,6 +29,7 @@ import {
   tenantAccountsApi,
 } from "@/lib/api/payments";
 import { encodeRouteSegment } from "@/lib/safe-url";
+import { collectPages } from "@/lib/pagination";
 
 const OPEN_INVOICE_STATUSES = new Set<Invoice["status"]>([
   "pending",
@@ -43,11 +47,11 @@ const getInvoicePendingAmount = (invoice: Invoice): number => {
 async function loadLeaseFinancialData(leaseId: string) {
   const account = await tenantAccountsApi.getByLease(leaseId);
 
-  const invoicesResult = await invoicesApi
-    .getAll({ leaseId, limit: 100 })
-    .catch(() => ({ data: [] as Invoice[] }));
+  const invoiceRows = await collectPages((page) =>
+    invoicesApi.getAll({ leaseId, page, limit: 100 }),
+  );
 
-  const openInvoices = invoicesResult.data
+  const openInvoices = invoiceRows
     .filter(
       (invoice) =>
         OPEN_INVOICE_STATUSES.has(invoice.status) &&
@@ -61,20 +65,31 @@ async function loadLeaseFinancialData(leaseId: string) {
   let movements: TenantAccountMovement[] = [];
 
   if (account) {
-    const [balanceResult, movementsResult] = await Promise.allSettled([
+    const [balanceResult, movementsResult] = await Promise.all([
       tenantAccountsApi.getBalance(account.id),
       tenantAccountsApi.getMovements(account.id),
     ]);
-    balance = balanceResult.status === "fulfilled" ? balanceResult.value : null;
-    movements =
-      movementsResult.status === "fulfilled" ? movementsResult.value : [];
+    balance = balanceResult;
+    movements = movementsResult;
   }
 
   return { account, balance, movements, openInvoices };
 }
 
 export default function TenantPaymentRegistrationPage() {
-  const { loading: authLoading, token } = useAuth();
+  const { user, loading } = useAuth();
+  const params = useParams();
+  const tw = useTranslations("paymentWorkflow");
+  if (loading) return <StatePanel busy title={tw("review")} />;
+  if (!user || !canUserAccessModule(user, ["admin", "staff"], "payments"))
+    return <StatePanel title={tw("unavailable")} />;
+  return (
+    <TenantPaymentContent key={`${user.companyId}:${user.id}:${params.id}`} />
+  );
+}
+
+function TenantPaymentContent() {
+  const { loading: authLoading } = useAuth();
   const t = useTranslations("tenants");
   const tPayments = useTranslations("payments");
   const tCommon = useTranslations("common");
@@ -94,7 +109,14 @@ export default function TenantPaymentRegistrationPage() {
   );
   const [movements, setMovements] = useState<TenantAccountMovement[]>([]);
   const [openInvoices, setOpenInvoices] = useState<Invoice[]>([]);
-  const [registeringPayment, setRegisteringPayment] = useState(false);
+  const tw = useTranslations("paymentWorkflow");
+  const [readError, setReadError] = useState(false);
+  const [validationError, setValidationError] = useState(false);
+  const mutation = useWorkflowMutation<CreatePaymentInput>(async (request) => {
+    const created = await paymentsApi.create(request);
+    router.push(`/payments/${encodeRouteSegment(created.id)}`);
+  });
+  const registeringPayment = mutation.busy;
   const [loading, setLoading] = useState(true);
 
   const [paymentForm, setPaymentForm] = useState({
@@ -108,8 +130,7 @@ export default function TenantPaymentRegistrationPage() {
   });
 
   const activeLease = useMemo(
-    () =>
-      leases.find((lease) => lease.status === "ACTIVE") ?? leases[0] ?? null,
+    () => leases.find((lease) => lease.status === "ACTIVE") ?? null,
     [leases],
   );
 
@@ -128,130 +149,81 @@ export default function TenantPaymentRegistrationPage() {
     "other",
   ];
 
-  const loadData = useCallback(
-    async (id: string) => {
-      setLoading(true);
-      try {
-        const normalizedId = typeof id === "string" ? id : String(id);
-        let data: Tenant | null = null;
+  const loadData = useCallback(async (id: string) => {
+    setLoading(true);
+    try {
+      setReadError(false);
+      const data = await tenantsApi.getById(id);
 
-        try {
-          data = await tenantsApi.getById(normalizedId);
-        } catch (error) {
-          console.warn("Failed to load tenant by id", error);
-        }
-
-        if (!data) {
-          try {
-            const fallbackTenants = await tenantsApi.getAll();
-            data = fallbackTenants[0] ?? null;
-          } catch (error) {
-            console.warn("Failed to load fallback tenants", error);
-          }
-        }
-
-        const allowMockFallback =
-          IS_MOCK_MODE ||
-          (token?.startsWith("mock-token-") ?? false) ||
-          process.env.NEXT_PUBLIC_MOCK_MODE === "true";
-
-        if (!data && allowMockFallback) {
-          data = {
-            id: normalizedId || "1",
-            firstName: "Inquilino",
-            lastName: "Demo",
-            email: "demo@example.com",
-            phone: "",
-            dni: normalizedId || "1",
-            status: "ACTIVE",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-        }
-
-        if (!data) {
-          setTenant(null);
-          setLeases([]);
-          setTenantAccount(null);
-          setAccountBalance(null);
-          setMovements([]);
-          setOpenInvoices([]);
-          return;
-        }
-
-        const leaseHistory = await tenantsApi
-          .getLeaseHistory(data.id)
-          .catch(() => []);
-        const currentLease =
-          leaseHistory.find((lease) => lease.status === "ACTIVE") ??
-          leaseHistory[0] ??
-          null;
-
-        const financial = currentLease
-          ? await loadLeaseFinancialData(currentLease.id)
-          : { account: null, balance: null, movements: [], openInvoices: [] };
-
-        setTenant(data);
-        setLeases(leaseHistory);
-        setTenantAccount(financial.account);
-        setAccountBalance(financial.balance);
-        setMovements(financial.movements);
-        setOpenInvoices(financial.openInvoices);
-      } catch (error) {
-        console.error("Failed to load tenant payment registration data", error);
+      if (!data) {
         setTenant(null);
         setLeases([]);
         setTenantAccount(null);
         setAccountBalance(null);
         setMovements([]);
         setOpenInvoices([]);
-      } finally {
-        setLoading(false);
+        return;
       }
-    },
-    [token],
-  );
+
+      const leaseHistory = await tenantsApi.getLeaseHistory(data.id);
+      const currentLease =
+        leaseHistory.find((lease) => lease.status === "ACTIVE") ?? null;
+
+      const financial = currentLease
+        ? await loadLeaseFinancialData(currentLease.id)
+        : { account: null, balance: null, movements: [], openInvoices: [] };
+
+      setTenant(data);
+      setLeases(leaseHistory);
+      setTenantAccount(financial.account);
+      setAccountBalance(financial.balance);
+      setMovements(financial.movements);
+      setOpenInvoices(financial.openInvoices);
+      setPaymentForm((prev) => ({
+        ...prev,
+        currencyCode: currentLease?.currency ?? "ARS",
+      }));
+    } catch {
+      setReadError(true);
+      setTenant(null);
+      setLeases([]);
+      setTenantAccount(null);
+      setAccountBalance(null);
+      setMovements([]);
+      setOpenInvoices([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
-    if (!tenantId) return;
-    loadData(tenantId).catch((error) => {
-      console.error("Failed to load tenant payment registration data", error);
-    });
+    if (!tenantId) {
+      setLoading(false);
+      return;
+    }
+    void loadData(tenantId);
   }, [authLoading, tenantId, loadData]);
 
   const handleRegisterPayment = async (event: React.SyntheticEvent) => {
     event.preventDefault();
     if (!tenantAccount || !tenant) return;
-
     const amount = Number(paymentForm.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      alert(t("errors.invalidPaymentAmount"));
+      setValidationError(true);
       return;
     }
-
-    try {
-      setRegisteringPayment(true);
-      const created = await paymentsApi.create({
-        tenantAccountId: tenantAccount.id,
-        amount,
-        currencyCode: paymentForm.currencyCode,
-        paymentDate: paymentForm.paymentDate,
-        method: paymentForm.method,
-        activityType: paymentForm.activityType,
-        reference: paymentForm.reference || undefined,
-        notes: paymentForm.notes || undefined,
-      });
-
-      await paymentsApi.confirm(created.id);
-      router.push(`/tenants/${tenant.id}`);
-      router.refresh();
-    } catch (error) {
-      console.error("Failed to register rent payment", error);
-      alert(tCommon("error"));
-    } finally {
-      setRegisteringPayment(false);
-    }
+    setValidationError(false);
+    await mutation.submit({
+      tenantAccountId: tenantAccount.id,
+      amount,
+      currencyCode: paymentForm.currencyCode,
+      paymentDate: paymentForm.paymentDate,
+      method: paymentForm.method,
+      activityType: paymentForm.activityType,
+      reference: paymentForm.reference || undefined,
+      notes: paymentForm.notes || undefined,
+    });
   };
 
   if (loading) {
@@ -261,6 +233,19 @@ export default function TenantPaymentRegistrationPage() {
       </div>
     );
   }
+
+  if (readError)
+    return (
+      <StatePanel
+        error
+        title={tw("readError")}
+        action={
+          <Button onClick={() => tenantId && void loadData(tenantId)}>
+            {tw("retry")}
+          </Button>
+        }
+      />
+    );
 
   if (!tenant) {
     return (
@@ -299,6 +284,25 @@ export default function TenantPaymentRegistrationPage() {
         </p>
       </div>
 
+      {validationError && (
+        <StatePanel error title={t("errors.invalidPaymentAmount")} />
+      )}
+      {mutation.error && (
+        <StatePanel
+          error
+          title={tw(mutation.error)}
+          action={
+            mutation.pending ? (
+              <Button
+                disabled={mutation.busy}
+                onClick={() => void mutation.submit(mutation.pending!)}
+              >
+                {tw("recover")}
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
       {tenantAccount ? (
         <div className="space-y-4 bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div className="grid grid-cols-3 gap-3 text-sm">
@@ -329,144 +333,156 @@ export default function TenantPaymentRegistrationPage() {
           </div>
 
           <form onSubmit={handleRegisterPayment} className="space-y-3">
-            <div className="rounded-md border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 p-3 space-y-2">
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {t("paymentRegistration.pendingInvoices")}
-              </p>
-              {openInvoices.length > 0 ? (
-                <div className="space-y-2 max-h-40 overflow-auto">
-                  {openInvoices.map((invoice) => (
-                    <div
-                      key={invoice.id}
-                      className="flex items-center justify-between text-xs rounded-sm border border-gray-100 dark:border-gray-600 px-2 py-1 bg-white dark:bg-gray-800"
-                    >
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">
-                          {invoice.invoiceNumber}
-                        </p>
-                        <p className="text-gray-500 dark:text-gray-400">
-                          {tPayments("date")}:{" "}
-                          {new Date(invoice.dueDate).toLocaleDateString(locale)}{" "}
-                          · {tPayments(`status.${invoice.status}`)}
+            <fieldset
+              className="space-y-3"
+              disabled={mutation.busy || Boolean(mutation.pending)}
+            >
+              <div className="rounded-md border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 p-3 space-y-2">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {t("paymentRegistration.pendingInvoices")}
+                </p>
+                {openInvoices.length > 0 ? (
+                  <div className="space-y-2 max-h-40 overflow-auto">
+                    {openInvoices.map((invoice) => (
+                      <div
+                        key={invoice.id}
+                        className="flex items-center justify-between text-xs rounded-sm border border-gray-100 dark:border-gray-600 px-2 py-1 bg-white dark:bg-gray-800"
+                      >
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {invoice.invoiceNumber}
+                          </p>
+                          <p className="text-gray-500 dark:text-gray-400">
+                            {tPayments("date")}:{" "}
+                            {new Date(invoice.dueDate).toLocaleDateString(
+                              locale,
+                            )}{" "}
+                            · {tPayments(`status.${invoice.status}`)}
+                          </p>
+                        </div>
+                        <p className="font-semibold text-red-700 dark:text-red-300">
+                          {invoice.currencyCode}{" "}
+                          {getInvoicePendingAmount(invoice).toLocaleString(
+                            locale,
+                          )}
                         </p>
                       </div>
-                      <p className="font-semibold text-red-700 dark:text-red-300">
-                        {invoice.currencyCode}{" "}
-                        {getInvoicePendingAmount(invoice).toLocaleString(
-                          locale,
-                        )}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {t("paymentRegistration.noPendingInvoices")}
+                  </p>
+                )}
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {t("paymentRegistration.noPendingInvoices")}
+                  {t("paymentRegistration.fifoHint")}
                 </p>
-              )}
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {t("paymentRegistration.fifoHint")}
-              </p>
-            </div>
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                required
-                value={paymentForm.amount}
-                placeholder={t("paymentRegistration.amount")}
-                onChange={(e) =>
-                  setPaymentForm((prev) => ({
-                    ...prev,
-                    amount: e.target.value,
-                  }))
-                }
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
-              />
-              <input
-                type="date"
-                required
-                value={paymentForm.paymentDate}
-                onChange={(e) =>
-                  setPaymentForm((prev) => ({
-                    ...prev,
-                    paymentDate: e.target.value,
-                  }))
-                }
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
-              />
-              <select
-                value={paymentForm.method}
-                onChange={(e) =>
-                  setPaymentForm((prev) => ({
-                    ...prev,
-                    method: e.target.value as PaymentMethod,
-                  }))
-                }
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
-              >
-                {paymentMethods.map((method) => (
-                  <option key={method} value={method}>
-                    {t(`paymentRegistration.methods.${method}`)}
-                  </option>
-                ))}
-              </select>
-              <div className="space-y-1">
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {tCurrencies("title")}
-                </p>
-                <CurrencySelect
-                  id="tenantPaymentCurrencyCode"
-                  name="tenantPaymentCurrencyCode"
-                  value={paymentForm.currencyCode}
-                  onChange={(value) =>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input
+                  aria-label={t("paymentRegistration.amount")}
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  required
+                  value={paymentForm.amount}
+                  placeholder={t("paymentRegistration.amount")}
+                  onChange={(e) =>
                     setPaymentForm((prev) => ({
                       ...prev,
-                      currencyCode: value,
+                      amount: e.target.value,
                     }))
                   }
-                  className="text-sm"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                />
+                <input
+                  aria-label={tPayments("date")}
+                  type="date"
+                  required
+                  value={paymentForm.paymentDate}
+                  onChange={(e) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      paymentDate: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                />
+                <select
+                  aria-label={tPayments("method.label")}
+                  value={paymentForm.method}
+                  onChange={(e) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      method: e.target.value as PaymentMethod,
+                    }))
+                  }
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
+                >
+                  {paymentMethods.map((method) => (
+                    <option key={method} value={method}>
+                      {t(`paymentRegistration.methods.${method}`)}
+                    </option>
+                  ))}
+                </select>
+                <div className="space-y-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {tCurrencies("title")}
+                  </p>
+                  <CurrencySelect
+                    id="tenantPaymentCurrencyCode"
+                    name="tenantPaymentCurrencyCode"
+                    value={paymentForm.currencyCode}
+                    onChange={(value) =>
+                      setPaymentForm((prev) => ({
+                        ...prev,
+                        currencyCode: value,
+                      }))
+                    }
+                    className="text-sm"
+                  />
+                </div>
+                <input
+                  aria-label={t("paymentRegistration.reference")}
+                  type="text"
+                  value={paymentForm.reference}
+                  placeholder={t("paymentRegistration.reference")}
+                  onChange={(e) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      reference: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
                 />
               </div>
-              <input
-                type="text"
-                value={paymentForm.reference}
-                placeholder={t("paymentRegistration.reference")}
+
+              <textarea
+                aria-label={t("paymentRegistration.notes")}
+                rows={2}
+                value={paymentForm.notes}
+                placeholder={t("paymentRegistration.notes")}
                 onChange={(e) =>
                   setPaymentForm((prev) => ({
                     ...prev,
-                    reference: e.target.value,
+                    notes: e.target.value,
                   }))
                 }
                 className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
               />
-            </div>
 
-            <textarea
-              rows={2}
-              value={paymentForm.notes}
-              placeholder={t("paymentRegistration.notes")}
-              onChange={(e) =>
-                setPaymentForm((prev) => ({
-                  ...prev,
-                  notes: e.target.value,
-                }))
-              }
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm"
-            />
-
-            <button
-              type="submit"
-              disabled={registeringPayment}
-              className="btn btn-primary w-full"
-            >
-              <Wallet size={16} className="mr-2" />
-              {registeringPayment
-                ? tCommon("saving")
-                : t("paymentRegistration.submit")}
-            </button>
+              <button
+                type="submit"
+                disabled={registeringPayment}
+                className="btn btn-primary w-full"
+              >
+                <Wallet size={16} className="mr-2" />
+                {registeringPayment
+                  ? tCommon("saving")
+                  : tPayments("savePayment")}
+              </button>
+            </fieldset>
           </form>
 
           <div className="space-y-2">

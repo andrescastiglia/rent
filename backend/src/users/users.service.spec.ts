@@ -90,7 +90,7 @@ describe('UsersService', () => {
       skip: 5,
       take: 5,
       where: { companyId: 'company-1' },
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC', id: 'ASC' },
     });
     expect(result).toEqual({ data: users, total: 1, page: 2, limit: 5 });
   });

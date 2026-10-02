@@ -1,4 +1,5 @@
-import { apiClient } from '@/api/client';
+import type { CreateUserDto, UpdateUserDto } from '@/generated/openapi';
+import { ApiError, apiClient } from '@/api/client';
 import { IS_MOCK_MODE } from '@/api/env';
 import type { User } from '@/types/auth';
 
@@ -25,24 +26,14 @@ let MOCK_USERS: User[] = [
   },
 ];
 
-export type CreateManagedUserInput = {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  role: User['role'];
-  roles?: User['roles'];
-  phone?: string;
-};
-
-export type UpdateManagedUserInput = {
-  email?: string;
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  role?: User['role'];
-  roles?: User['roles'];
-};
+export type CreateManagedUserInput = Pick<
+  CreateUserDto,
+  'email' | 'password' | 'firstName' | 'lastName' | 'role' | 'roles' | 'phone'
+>;
+export type UpdateManagedUserInput = Pick<
+  UpdateUserDto,
+  'email' | 'firstName' | 'lastName' | 'phone' | 'role' | 'roles'
+>;
 
 export type ResetUserPasswordResult = {
   message: string;
@@ -57,17 +48,27 @@ export const usersApi = {
     return apiClient.get<User>('/users/profile/me');
   },
 
-  async list(page = 1, limit = 20): Promise<UsersPage> {
+  async list(page = 1, limit = 20, search = ''): Promise<UsersPage> {
     if (IS_MOCK_MODE) {
       return {
-        data: MOCK_USERS,
-        total: MOCK_USERS.length,
+        data: MOCK_USERS.filter((user) =>
+          `${user.firstName} ${user.lastName} ${user.email}`
+            .toLowerCase()
+            .includes(search.toLowerCase()),
+        ).slice((page - 1) * limit, page * limit),
+        total: MOCK_USERS.filter((user) =>
+          `${user.firstName} ${user.lastName} ${user.email}`
+            .toLowerCase()
+            .includes(search.toLowerCase()),
+        ).length,
         page,
         limit,
       };
     }
 
-    return apiClient.get<UsersPage>(`/users?page=${page}&limit=${limit}`);
+    return apiClient.get<UsersPage>(
+      `/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`,
+    );
   },
 
   async getById(id: string): Promise<User | null> {
@@ -77,8 +78,9 @@ export const usersApi = {
 
     try {
       return await apiClient.get<User>(`/users/${id}`);
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
     }
   },
 

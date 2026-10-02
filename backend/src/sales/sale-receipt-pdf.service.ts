@@ -26,7 +26,15 @@ export class SaleReceiptPdfService {
   ): Promise<string> {
     const documentsRepository =
       manager?.getRepository(Document) ?? this.documentsRepository;
-    const pdfBuffer = await generateSaleReceiptPdf(receipt, agreement);
+    const snapshot = receipt.financialSnapshot;
+    const pdfBuffer = await generateSaleReceiptPdf(
+      snapshot
+        ? { ...receipt, ...(snapshot.receipt as Partial<SaleReceipt>) }
+        : receipt,
+      snapshot
+        ? { ...agreement, ...(snapshot.agreement as Partial<SaleAgreement>) }
+        : agreement,
+    );
 
     const id = randomUUID();
     const fileUrl = `db://document/${id}`;

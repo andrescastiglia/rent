@@ -30,6 +30,30 @@ type EditorData = {
   overview: PortalOperationOverviewDto | null;
 };
 type Mutation = "publish" | "pause" | "close" | "save";
+async function persistListing(
+  action: Mutation,
+  listing: PortalListing | null,
+  propertyId: string,
+  payload?: Record<string, unknown>,
+): Promise<PortalListing> {
+  if (action === "save")
+    return listing
+      ? portalsApi.update(listing.id, payload!)
+      : portalsApi.create(propertyId, payload!);
+  if (!listing) throw new Error("Listing missing");
+  switch (action) {
+    case "publish":
+      await portalsApi.publish(listing.id);
+      break;
+    case "pause":
+      await portalsApi.pause(listing.id);
+      break;
+    case "close":
+      await portalsApi.close(listing.id);
+      break;
+  }
+  return listing;
+}
 function EditorForm({
   data,
   reload,
@@ -111,34 +135,8 @@ function EditorForm({
     setBusy(true);
     setValidation(false);
     try {
-      if (kind === "category") {
-        const next = await portalsApi.category(id);
-        if (generation !== catalogGeneration.current || !mounted.current)
-          return;
-        setCategory(next);
-        change({
-          ...form,
-          categoryId: next.id,
-          listingType: "",
-          attributes: attributeDefaults(next, null),
-          currency: next.currencies.includes(form.currency)
-            ? form.currency
-            : (next.currencies[0] ?? ""),
-        });
-      } else if (kind === "state") {
-        const values = id ? await portalsApi.cities(id) : [];
-        if (generation !== catalogGeneration.current || !mounted.current)
-          return;
-        setCities(values);
-        setNeighborhoods([]);
-        change({ ...form, stateId: id, cityId: "", neighborhoodId: "" });
-      } else {
-        const values = id ? await portalsApi.neighborhoods(id) : [];
-        if (generation !== catalogGeneration.current || !mounted.current)
-          return;
-        setNeighborhoods(values);
-        change({ ...form, cityId: id, neighborhoodId: "" });
-      }
+      if (kind === "category") await selectCategory(id, generation);
+      else await selectLocation(kind, id, generation);
     } catch {
       if (mounted.current && generation === catalogGeneration.current)
         setBlocked(true);
@@ -146,6 +144,38 @@ function EditorForm({
       if (mounted.current && generation === catalogGeneration.current)
         setBusy(false);
     }
+  };
+  const selectLocation = async (
+    kind: "state" | "city",
+    id: string,
+    generation: number,
+  ) => {
+    const read =
+      kind === "state" ? portalsApi.cities : portalsApi.neighborhoods;
+    const values = id ? await read(id) : [];
+    if (generation !== catalogGeneration.current || !mounted.current) return;
+    if (kind === "state") {
+      setCities(values);
+      setNeighborhoods([]);
+      change({ ...form, stateId: id, cityId: "", neighborhoodId: "" });
+    } else {
+      setNeighborhoods(values);
+      change({ ...form, cityId: id, neighborhoodId: "" });
+    }
+  };
+  const selectCategory = async (id: string, generation: number) => {
+    const next = await portalsApi.category(id);
+    if (generation !== catalogGeneration.current || !mounted.current) return;
+    setCategory(next);
+    change({
+      ...form,
+      categoryId: next.id,
+      listingType: "",
+      attributes: attributeDefaults(next, null),
+      currency: next.currencies.includes(form.currency)
+        ? form.currency
+        : (next.currencies[0] ?? ""),
+    });
   };
   const mutate = async (action: Mutation) => {
     if (
@@ -178,14 +208,12 @@ function EditorForm({
     setConfirmation(null);
     setConfirmed(false);
     try {
-      let current = listing;
-      if (action === "save")
-        current = current
-          ? await portalsApi.update(current.id, payload!)
-          : await portalsApi.create(data.property.id, payload!);
-      else if (action === "publish") await portalsApi.publish(current!.id);
-      else if (action === "pause") await portalsApi.pause(current!.id);
-      else await portalsApi.close(current!.id);
+      const current = await persistListing(
+        action,
+        listing,
+        data.property.id,
+        payload,
+      );
       const [latest, operation] = await Promise.all([
         portalsApi.get(current!.id),
         portalsApi.operation(current!.id),
@@ -211,9 +239,9 @@ function EditorForm({
     <section aria-busy={busy} className="space-y-5">
       {blocked && <p role="alert">{t("uncertain")}</p>}
       {validation && <p role="alert">{t("invalid")}</p>}
-      {saved && <p role="status">{t("saved")}</p>}
-      {job && <p role="status">{t(`operation.${job.status}`)}</p>}
-      {closed && <p role="status">{t("closed")}</p>}
+      {saved && <output>{t("saved")}</output>}
+      {job && <output>{t(`operation.${job.status}`)}</output>}
+      {closed && <output>{t("closed")}</output>}
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
@@ -452,32 +480,30 @@ export function MercadoLibreListingEditor({
       <Link href={`/${locale}/settings/mercadolibre`} className="underline">
         {t("connection")}
       </Link>
-      {busy ? (
-        <p role="status">{t("loading")}</p>
-      ) : error ? (
+      {busy && <output>{t("loading")}</output>}
+      {!busy && error && (
         <>
           <p role="alert">{t("loadError")}</p>
           <button type="button" className="btn btn-secondary" onClick={reload}>
             {t("reload")}
           </button>
         </>
-      ) : (
-        data && (
-          <>
-            <h2 className="text-lg font-semibold">{data.property.name}</h2>
-            {!data.connection.enabled ? (
-              <p role="status">{t("disabled")}</p>
-            ) : data.connection.status !== "active" ? (
-              <p role="status">{t("connectionRequired")}</p>
-            ) : (
-              <EditorForm
-                key={`${propertyId}:${generation}`}
-                data={data}
-                reload={reload}
-              />
-            )}
-          </>
-        )
+      )}
+      {!busy && !error && data && (
+        <>
+          <h2 className="text-lg font-semibold">{data.property.name}</h2>
+          {!data.connection.enabled && <output>{t("disabled")}</output>}
+          {data.connection.enabled && data.connection.status !== "active" && (
+            <output>{t("connectionRequired")}</output>
+          )}
+          {data.connection.enabled && data.connection.status === "active" && (
+            <EditorForm
+              key={`${propertyId}:${generation}`}
+              data={data}
+              reload={reload}
+            />
+          )}
+        </>
       )}
     </div>
   );

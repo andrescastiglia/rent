@@ -37,7 +37,8 @@
     "aiPromptPlaceholder": "Escribe tu mensaje...",
     "notImplemented": "Aún no implementado",
     "accessDenied": "Acceso denegado",
-    "accessDeniedMessage": "No tienes permiso para acceder a esta sección. Contacta al administrador si crees que esto es un error."
+    "accessDeniedMessage": "No tienes permiso para acceder a esta sección. Contacta al administrador si crees que esto es un error.",
+    "retry": "Reintentar"
   },
   "nav": {
     "dashboard": "Panel",
@@ -51,7 +52,8 @@
     "buyers": "Compradores",
     "users": "Usuarios",
     "templates": "Plantillas",
-    "reports": "Reportes"
+    "reports": "Reportes",
+    "owners": "Propietarios"
   },
   "breadcrumbs": {
     "home": "Inicio",
@@ -618,7 +620,15 @@
       "empty": "Sin recibos aún.",
       "overdue": "Atraso",
       "balanceAfter": "Saldo"
-    }
+    },
+    "balanceLabel": "Saldo",
+    "installmentsCount": "Cuotas",
+    "totalAmount": "Importe total",
+    "overdueLabel": "Vencido",
+    "asOf": "Datos al {{date}}",
+    "installmentLabel": "Cuota",
+    "amount": "Importe",
+    "paidLabel": "Cobrado"
   },
   "buyers": {
     "title": "Compradores",
@@ -1258,5 +1268,112 @@
     "ARS": "Peso Argentino",
     "BRL": "Real Brasileño",
     "USD": "Dólar Estadounidense"
+  },
+  "navigation": {
+    "home": "Inicio",
+    "tasks": "Tareas",
+    "more": "Más",
+    "summary": "Resumen operativo",
+    "welcome": "Hola, {{name}}.",
+    "taskDescription": "Elija la tarea que necesita realizar. Las acciones disponibles dependen de sus permisos."
+  },
+  "pagination": {
+    "status": "Página {{page}} de {{pages}} · {{total}} registros",
+    "previous": "Anterior",
+    "next": "Siguiente"
+  },
+  "channels": {
+    "title": "Recorridos disponibles",
+    "authentication": "Los enlaces abren la versión web. Inicie sesión allí para consultar sus datos con los mismos permisos.",
+    "openWeb": "Abrir web",
+    "openError": "No se pudo abrir el enlace. Intente nuevamente.",
+    "ownerSummary": "Mi resumen de propietario",
+    "ownerSettlements": "Mis liquidaciones",
+    "tenantAccount": "Mi contrato y cuenta",
+    "maintenance": "Mantenimiento",
+    "salesInstallments": "Ventas y cuotas",
+    "buyers": "Compradores",
+    "proposalReview": "Revisar propuestas pendientes",
+    "downloadReceipt": "Descargar recibo",
+    "paymentAdjustments": "Anulaciones y reintegros de cobros",
+    "invoiceDocuments": "Notas de crédito y documentos de facturas",
+    "leaseAmendments": "Adendas y cambios de contratos"
+  },
+  "guidance": {
+    "title": "Siguiente paso",
+    "close": "Cerrar ayuda",
+    "pause": "Pausar ayuda",
+    "resume": "Activar ayuda",
+    "properties": {
+      "initial": "Busque un inmueble por dirección para consultar sus contratos y visitas.",
+      "next": "Abra la propiedad encontrada para revisar sus datos y próximos pasos."
+    },
+    "owners": {
+      "initial": "Elija un propietario para consultar sus inmuebles y liquidaciones.",
+      "next": "Revise los datos del propietario antes de guardar los cambios."
+    },
+    "leases": {
+      "initial": "Elija un contrato para consultar sus fechas, condiciones y documentos.",
+      "next": "Complete las fechas y revise las personas y la propiedad antes de confirmar el contrato."
+    },
+    "payments": {
+      "initial": "Seleccione el contrato al que corresponde el cobro.",
+      "next": "Revise el importe, la moneda y los conceptos antes de confirmar el cobro."
+    },
+    "invoices": {
+      "initial": "Busque la factura por número o estado para consultar su saldo.",
+      "next": "Abra la factura para revisar período, vencimiento y saldo pendiente."
+    },
+    "interested": {
+      "initial": "Busque una persona interesada por nombre y filtre por operación.",
+      "next": "Abra la ficha para revisar preferencias, visitas y próximas actividades."
+    },
+    "sales": {
+      "initial": "Abra la venta para consultar el calendario de cuotas y recibos.",
+      "next": "Revise vencimientos, importes cobrados y saldo de las cuotas."
+    },
+    "tenants": {
+      "initial": "Busque un inquilino por nombre para consultar sus contratos y cobros.",
+      "next": "Abra su ficha para consultar el contrato y las actividades pendientes."
+    },
+    "reports": {
+      "initial": "Elija un informe y revise el período y el estado de su generación.",
+      "next": "Si hubo fallos, revise el detalle antes de volver a ejecutar el informe."
+    },
+    "users": {
+      "initial": "Busque un usuario para revisar sus roles y su acceso.",
+      "next": "Revise los roles y permisos antes de guardar cambios de acceso."
+    },
+    "templates": {
+      "initial": "Elija una plantilla para consultar el contenido del documento.",
+      "next": "Revise el contenido y los datos variables antes de guardar la plantilla."
+    },
+    "ai": {
+      "initial": "Describa la consulta e indique la propiedad o persona que necesita revisar.",
+      "next": "Revise la fuente y la fecha de la respuesta; las operaciones requieren confirmación autorizada."
+    },
+    "home": {
+      "initial": "Abra Tareas para elegir el trabajo que necesita realizar.",
+      "next": "Use su resumen para consultar lo pendiente antes de comenzar una operación."
+    },
+    "dashboard": {
+      "initial": "Revise vencidos y tareas del día para decidir qué atender primero.",
+      "next": "Abra el registro que necesita atención y revise los datos antes de confirmarlo."
+    },
+    "tasks": {
+      "initial": "Elija una tarea disponible según su rol y permisos.",
+      "next": "Abra el módulo de la operación que desea completar."
+    },
+    "more": {
+      "initial": "Elija la tarea que necesita realizar. Las acciones disponibles dependen de sus permisos.",
+      "next": "Elija la tarea que necesita realizar. Las acciones disponibles dependen de sus permisos."
+    },
+    "control": "Continuá con {{control}}. El aviso señala el paso pendiente sin cambiar tus datos."
+  },
+  "theme": {
+    "title": "Apariencia",
+    "system": "Según el sistema",
+    "light": "Claro",
+    "dark": "Oscuro"
   }
 }

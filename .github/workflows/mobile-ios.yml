@@ -1,0 +1,51 @@
+name: Mobile iOS validation
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-simulator:
+    name: iOS simulator build and complete Detox flows
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      CI: "true"
+      EXPO_PUBLIC_MOCK_MODE: "true"
+      EXPO_PUBLIC_E2E_MODE: "true"
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Detox simulator utilities
+        run: brew tap wix/brew && brew install applesimutils
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install JavaScript dependencies
+        run: npm ci
+      - name: Generate native iOS project
+        run: npx expo prebuild --platform ios --no-install
+      - name: Install native dependencies
+        run: pod install --project-directory=ios
+      - name: Build once, launch and test on an available iPhone simulator
+        run: bash scripts/ci-ios-smoke.sh
+      - name: Upload iOS validation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mobile-ios-validation
+          path: |
+            mobile/artifacts/ios
+            mobile/coverage
+          if-no-files-found: warn

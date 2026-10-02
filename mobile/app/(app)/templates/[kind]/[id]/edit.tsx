@@ -1,6 +1,7 @@
+import { Text } from '@/components/themed-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Text } from 'react-native';
+import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -8,6 +9,7 @@ import {
   updateTemplate,
   type TemplateKind,
 } from '@/api/templates';
+import { QueryStatus } from '@/components/query-status';
 import { Screen } from '@/components/screen';
 import { H1 } from '@/components/ui';
 import { TemplateForm } from '@/screens/template-form';
@@ -48,11 +50,19 @@ export default function EditTemplateScreen() {
   });
 
   return (
-    <Screen scrollViewTestID="templateEdit.scroll">
+    <Screen
+      scrollViewTestID="templateEdit.scroll"
+      guidanceReady={!query.isLoading}
+      guidanceBlocked={query.isError || mutation.isPending || mutation.isError}
+    >
       <H1>{t('templatesHub.editTemplate')}</H1>
       {validKind ? null : <Text>{t('common.error')}</Text>}
-      {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {!query.isLoading && validKind && !query.data ? (
+      <QueryStatus
+        query={query}
+        empty={false}
+        emptyLabel={t('templatesHub.templateNotFound')}
+      />
+      {!query.isLoading && !query.error && validKind && !query.data ? (
         <Text>{t('templatesHub.templateNotFound')}</Text>
       ) : null}
 

@@ -6,6 +6,11 @@ import {
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { DataSource } from 'typeorm';
+import {
+  buildMutationReview,
+  MutationReview,
+  withApprovedMutationReview,
+} from '../common/helpers/mutation-review';
 import { UserModulePermissions, UserRole } from '../users/entities/user.entity';
 import { AiToolCatalogService } from './ai-tool-catalog.service';
 import {
@@ -67,7 +72,9 @@ export class AiToolExecutorService {
         description: tool.description,
         mutability: tool.mutability,
         enabled:
-          mode === 'FULL' ||
+          (mode === 'FULL' &&
+            (tool.mutability === 'readonly' ||
+              tool.supportsIdempotentRecovery === true)) ||
           (mode === 'READONLY' && tool.mutability === 'readonly'),
         allowedRoles: tool.allowedRoles,
       }));
@@ -101,12 +108,16 @@ export class AiToolExecutorService {
       );
       if (!confirmation.confirmed) return confirmation.preview;
       confirmationId = confirmation.id;
-      context = { ...context, idempotencyKey: confirmation.id };
+      context = {
+        ...context,
+        idempotencyKey: confirmation.id,
+        mutationReview: confirmation.review,
+      };
     }
     this.auditLog('start', toolName, context, this.redactSensitive(parsed));
 
     try {
-      const result = await definition.execute(parsed, context);
+      const result = await this.executeWithReview(definition, parsed, context);
       const sanitized = this.sanitizeOutput(result);
       if (confirmationId) {
         await this.finishConfirmation(confirmationId, 'executed', sanitized);
@@ -149,7 +160,7 @@ export class AiToolExecutorService {
     this.assertContext(context);
     const parsed = this.parseArguments(definition, args ?? {});
     this.auditLog('start', toolName, context, this.redactSensitive(parsed));
-    const result = await definition.execute(parsed, context);
+    const result = await this.executeWithReview(definition, parsed, context);
     const sanitized = this.sanitizeOutput(result);
     this.auditLog('success', toolName, context, { approved: true });
     return sanitized;
@@ -160,7 +171,7 @@ export class AiToolExecutorService {
     parsed: unknown,
     context: AiExecutionContext,
   ): Promise<
-    | { confirmed: true; id: string }
+    | { confirmed: true; id: string; review: MutationReview }
     | { confirmed: false; preview: Record<string, unknown> }
   > {
     if (!context.conversationId) {
@@ -170,20 +181,31 @@ export class AiToolExecutorService {
     }
     const payloadHash = this.hash(parsed);
     if (!context.confirmMutation) {
+      const configuredTtl = Number(
+        process.env.AI_MUTATION_CONFIRMATION_TTL_SECONDS ?? 900,
+      );
       const ttlSeconds = Math.min(
-        Math.max(
-          Number(process.env.AI_MUTATION_CONFIRMATION_TTL_SECONDS ?? 900),
-          60,
-        ),
+        Math.max(Number.isFinite(configuredTtl) ? configuredTtl : 900, 60),
         3600,
+      );
+      const safePayload = this.redactSensitive(parsed) as Record<
+        string,
+        unknown
+      >;
+      const review = await buildMutationReview(
+        this.dataSource,
+        context.companyId ?? '',
+        definition.name,
+        safePayload,
+        new Date(Date.now() + ttlSeconds * 1000).toISOString(),
       );
       const result = await this.dataSource.query(
         `INSERT INTO ai_tool_mutation_confirmations (
            conversation_id, company_id, user_id, tool_name, payload,
-           payload_hash, status, expires_at
+           payload_hash, status, expires_at, review
          )
          SELECT conv.id, $2::uuid, $3::uuid, $4, $5::jsonb, $6,
-                'pending', NOW() + ($7::integer * INTERVAL '1 second')
+                'pending', NOW() + ($7::integer * INTERVAL '1 second'), $8::jsonb
            FROM ai_conversations conv
           WHERE conv.id = $1::uuid AND conv.user_id = $3::uuid
             AND (conv.company_id IS NULL OR conv.company_id = $2::uuid)
@@ -196,6 +218,7 @@ export class AiToolExecutorService {
           JSON.stringify(this.redactSensitive(parsed)),
           payloadHash,
           ttlSeconds,
+          JSON.stringify(review),
         ],
       );
       const rows = this.mutationRows<{ id: string }>(result);
@@ -213,6 +236,7 @@ export class AiToolExecutorService {
           confirmationId: id,
           toolName: definition.name,
           payload: this.redactSensitive(parsed),
+          review,
           message:
             'La operación no fue ejecutada. Solicitá confirmación explícita del usuario.',
         },
@@ -239,7 +263,7 @@ export class AiToolExecutorService {
           AND ((status = 'pending' AND expires_at > NOW()) OR
             ($7::boolean AND retry_safe AND $1::uuid IS NOT NULL AND status IN ('confirmed','executed','failed')))
           AND NOT EXISTS (SELECT 1 FROM pending_actions pa WHERE pa.source_confirmation_id=ai_tool_mutation_confirmations.id)
-        RETURNING id`,
+        RETURNING id, review`,
       [
         context.confirmationId ?? null,
         context.conversationId,
@@ -250,14 +274,20 @@ export class AiToolExecutorService {
         definition.supportsIdempotentRecovery === true,
       ],
     );
-    const rows = this.mutationRows<{ id: string }>(result);
+    const rows = this.mutationRows<{ id: string; review: MutationReview }>(
+      result,
+    );
     const id = rows[0]?.id;
     if (!id) {
       throw new ForbiddenException(
         'No matching unexpired mutation preview was found',
       );
     }
-    return { confirmed: true, id };
+    if (!rows[0]?.review)
+      throw new ForbiddenException(
+        'A fresh review is required before confirmation',
+      );
+    return { confirmed: true, id, review: rows[0].review };
   }
 
   private async enqueuePendingAction(
@@ -272,13 +302,12 @@ export class AiToolExecutorService {
         'Sensitive values cannot be stored in a pending action',
       );
     }
-    const actionType = definition.name.includes('delete')
-      ? 'delete'
-      : /(?:patch|put|update|set)_/.test(definition.name)
-        ? 'update'
-        : /(?:post|create|register|add)_/.test(definition.name)
-          ? 'create'
-          : 'other';
+    let actionType = 'other';
+    if (definition.name.includes('delete')) actionType = 'delete';
+    else if (/(?:patch|put|update|set)_/.test(definition.name))
+      actionType = 'update';
+    else if (/(?:post|create|register|add)_/.test(definition.name))
+      actionType = 'create';
     const entityType = definition.name
       .replace(/^(?:get|post|patch|put|delete)_/, '')
       .split(/_(?:by_id|upload|confirm|activation|reset)/)[0]
@@ -287,10 +316,10 @@ export class AiToolExecutorService {
       `INSERT INTO pending_actions (
          company_id, requested_by, conversation_id, source_confirmation_id,
          tool_name, action_type, entity_type, summary, payload, payload_hash,
-         expires_at
+         expires_at, review
        )
        SELECT $1::uuid, $2::uuid, $3::uuid, confirmation.id, $5, $6, $7,
-              $8, $9::jsonb, confirmation.payload_hash, confirmation.expires_at
+              $8, $9::jsonb, confirmation.payload_hash, confirmation.expires_at, confirmation.review
          FROM ai_tool_mutation_confirmations confirmation
         WHERE confirmation.id = $4::uuid
        ON CONFLICT (source_confirmation_id) WHERE source_confirmation_id IS NOT NULL
@@ -306,6 +335,37 @@ export class AiToolExecutorService {
         definition.description,
         JSON.stringify(safePayload),
       ],
+    );
+  }
+
+  private executeWithReview(
+    definition: AiToolDefinition,
+    parsed: unknown,
+    context: AiExecutionContext,
+  ): Promise<unknown> {
+    if (definition.mutability === 'readonly')
+      return definition.execute(parsed, context);
+    if (!context.mutationReview)
+      throw new ForbiddenException(
+        'A reviewed proposal is required before execution',
+      );
+    if (!context.idempotencyKey || !context.companyId)
+      throw new ForbiddenException(
+        'Review requires an execution key and company',
+      );
+    if (!definition.supportsIdempotentRecovery)
+      throw new ForbiddenException(
+        'This operation requires a verified transactional implementation before approval',
+      );
+    return withApprovedMutationReview(
+      {
+        companyId: context.companyId,
+        executionKey: context.idempotencyKey,
+        tool: definition.name,
+        payload: parsed as Record<string, unknown>,
+        review: context.mutationReview,
+      },
+      () => definition.execute(parsed, context),
     );
   }
 
@@ -417,6 +477,14 @@ export class AiToolExecutorService {
         `Tool ${definition.name} is not allowed in READONLY mode`,
       );
     }
+    if (
+      definition.mutability === 'mutable' &&
+      definition.supportsIdempotentRecovery !== true
+    ) {
+      throw new ForbiddenException(
+        'This operation requires a verified transactional implementation before approval',
+      );
+    }
   }
 
   private assertRoleAllowed(
@@ -443,11 +511,9 @@ export class AiToolExecutorService {
     context: AiExecutionContext,
   ): AiExecutionContext {
     const roles = getUserRoles(context);
-    const role = roles.includes(UserRole.ADMIN)
-      ? UserRole.ADMIN
-      : roles.includes(UserRole.STAFF)
-        ? UserRole.STAFF
-        : context.role;
+    let role = context.role;
+    if (roles.includes(UserRole.ADMIN)) role = UserRole.ADMIN;
+    else if (roles.includes(UserRole.STAFF)) role = UserRole.STAFF;
     return { ...context, role };
   }
 

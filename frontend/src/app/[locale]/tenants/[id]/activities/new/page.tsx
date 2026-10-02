@@ -13,6 +13,7 @@ import { whatsappApi } from "@/lib/api/whatsapp";
 import { Lease } from "@/types/lease";
 import { Tenant, TenantActivityType } from "@/types/tenant";
 import { encodeRouteSegment } from "@/lib/safe-url";
+import { canManageTenantsForUser } from "@/lib/permissions";
 
 const ACTIVITY_TYPES: TenantActivityType[] = [
   "task",
@@ -23,7 +24,8 @@ const ACTIVITY_TYPES: TenantActivityType[] = [
 ];
 
 export default function TenantActivityCreatePage() {
-  const { loading: authLoading, token } = useAuth();
+  const { loading: authLoading, token, user } = useAuth();
+  const canManage = canManageTenantsForUser(user);
   const t = useTranslations("tenants");
   const tCommon = useTranslations("common");
   const locale = useLocale();
@@ -63,15 +65,6 @@ export default function TenantActivityCreatePage() {
           data = await tenantsApi.getById(normalizedId);
         } catch (error) {
           console.warn("Failed to load tenant by id", error);
-        }
-
-        if (!data) {
-          try {
-            const fallbackTenants = await tenantsApi.getAll();
-            data = fallbackTenants[0] ?? null;
-          } catch (error) {
-            console.warn("Failed to load fallback tenants", error);
-          }
         }
 
         const allowMockFallback =
@@ -125,7 +118,7 @@ export default function TenantActivityCreatePage() {
 
   const handleSubmit = async (event: React.SyntheticEvent) => {
     event.preventDefault();
-    if (!tenant) return;
+    if (!tenant || !canManage) return;
 
     if (!form.subject.trim()) {
       alert(t("errors.activitySubjectRequired"));
@@ -174,7 +167,7 @@ export default function TenantActivityCreatePage() {
     );
   }
 
-  if (!tenant) {
+  if (!tenant || !canManage) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -217,6 +210,7 @@ export default function TenantActivityCreatePage() {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <select
+            aria-label={t("activities.type")}
             value={form.type}
             onChange={(e) =>
               setForm((prev) => ({
@@ -234,6 +228,7 @@ export default function TenantActivityCreatePage() {
           </select>
           <input
             type="datetime-local"
+            aria-label={t("activities.dueAt")}
             value={form.dueAt}
             onChange={(e) =>
               setForm((prev) => ({
@@ -247,6 +242,8 @@ export default function TenantActivityCreatePage() {
 
         <input
           type="text"
+          required
+          aria-label={t("activities.subject")}
           value={form.subject}
           onChange={(e) =>
             setForm((prev) => ({
@@ -260,6 +257,7 @@ export default function TenantActivityCreatePage() {
 
         <textarea
           rows={3}
+          aria-label={t("activities.body")}
           value={form.body}
           onChange={(e) =>
             setForm((prev) => ({

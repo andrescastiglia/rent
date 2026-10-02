@@ -9,10 +9,10 @@ import { IsNull, Repository } from 'typeorm';
 import { BankAccount } from './entities/bank-account.entity';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
-import { UserRole } from '../users/entities/user.entity';
+import { UserRole, User } from '../users/entities/user.entity';
 import { Owner } from '../owners/entities/owner.entity';
 import { Property } from '../properties/entities/property.entity';
-import { User } from '../users/entities/user.entity';
+
 import { hasRole, isAdminOrStaff } from '../common/helpers/role-scope.helper';
 
 interface UserContext {
@@ -85,7 +85,7 @@ export class BankAccountsService {
     }
     if (user && hasRole(user, UserRole.OWNER) && !isAdminOrStaff(user)) {
       const owner = await this.resolveOwnerForUser(user, companyId);
-      if (!owner || account.ownerId !== owner.id) {
+      if (account.ownerId !== owner?.id) {
         throw new ForbiddenException(
           'You can only access your own bank accounts',
         );

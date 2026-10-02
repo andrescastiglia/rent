@@ -21,7 +21,9 @@ import { hasUserRole } from "@/lib/permissions";
 function formatExactAmount(amount: string, locale: string): string {
   const [whole, fraction] = amount.split(".");
   const fullLocale =
-    locale === "es" ? "es-AR" : locale === "pt" ? "pt-BR" : "en-US";
+    ({ es: "es-AR", pt: "pt-BR", en: "en-US" } as Record<string, string>)[
+      locale
+    ] ?? "es-AR";
   const separator =
     new Intl.NumberFormat(fullLocale)
       .formatToParts(1.1)
@@ -123,13 +125,12 @@ export default function OwnerDashboardPage() {
     );
   if (authLoading || loading) {
     return (
-      <div
-        role="status"
+      <output
         aria-label={t("loading")}
         className="flex justify-center items-center min-h-[200px]"
       >
         <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
-      </div>
+      </output>
     );
   }
 
@@ -235,6 +236,12 @@ export default function OwnerDashboardPage() {
       </section>
 
       {/* Quick links */}
+      <Link
+        href={`/${locale}/portal/owner/maintenance`}
+        className="btn btn-secondary"
+      >
+        {t("maintenance")}
+      </Link>
       <div className="grid grid-cols-2 gap-3">
         <Link
           href={`${ownerBase}/properties`}

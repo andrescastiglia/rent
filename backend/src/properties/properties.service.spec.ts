@@ -42,6 +42,8 @@ describe('PropertiesService', () => {
       leftJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
       getManyAndCount: jest.fn(),
@@ -102,6 +104,16 @@ describe('PropertiesService', () => {
     propertyImagesRepository = module.get(getRepositoryToken(PropertyImage));
     unitRepository = module.get(getRepositoryToken(Unit));
     ownerRepository = module.get(getRepositoryToken(Owner));
+    Object.assign(propertyRepository, {
+      manager: {
+        transaction: jest.fn(async (execute) =>
+          execute({
+            getRepository: (entity: any) =>
+              module.get(getRepositoryToken(entity)),
+          }),
+        ),
+      },
+    });
   });
 
   afterAll(() => {
@@ -292,6 +304,8 @@ describe('PropertiesService', () => {
         leftJoin: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getManyAndCount: jest.fn().mockResolvedValue([[mockProperty], 1]),
@@ -316,6 +330,8 @@ describe('PropertiesService', () => {
         leftJoin: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getManyAndCount: jest.fn().mockResolvedValue([[mockProperty], 1]),
@@ -343,6 +359,8 @@ describe('PropertiesService', () => {
         leftJoin: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getManyAndCount: jest.fn().mockResolvedValue([[mockProperty], 1]),
@@ -546,12 +564,12 @@ describe('PropertiesService', () => {
           `https://example.com/api/properties/images/${validId}?v=1`,
         ),
       ).toBe(validId);
-      expect((service as any).toPropertyImageId('https://%%invalid-url')).toBe(
-        null,
-      );
+      expect(
+        (service as any).toPropertyImageId('https://%%invalid-url'),
+      ).toBeNull();
       expect(
         (service as any).toPropertyImageId('/properties/images/not-a-uuid'),
-      ).toBe(null);
+      ).toBeNull();
     });
   });
 
@@ -965,6 +983,8 @@ describe('PropertiesService', () => {
         leftJoin: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getManyAndCount: jest.fn().mockResolvedValue([[], 0]),

@@ -1,3 +1,4 @@
+import type { LoginDto, RegisterDto } from '@/generated/openapi';
 export interface User {
   id: string;
   email: string | null;
@@ -14,21 +15,8 @@ export interface User {
   permissions?: Record<string, boolean>;
 }
 
-export interface LoginRequest {
-  email: string;
-  password: string;
-  captchaToken?: string;
-}
-
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-  role?: 'owner' | 'tenant';
-  captchaToken?: string;
-}
+export type LoginRequest = LoginDto;
+export type RegisterRequest = RegisterDto;
 
 export interface RegisterResponse {
   pendingApproval: boolean;

@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Text } from 'react-native';
+import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { interestedApi } from '@/api/interested';
 import { Screen } from '@/components/screen';
+import { QueryStatus } from '@/components/query-status';
 import { H1 } from '@/components/ui';
 import { InterestedForm } from '@/screens/interested-form';
 import type { UpdateInterestedProfileInput } from '@/types/interested';
@@ -40,10 +41,11 @@ export default function EditInterestedScreen() {
   return (
     <Screen scrollViewTestID="interestedEdit.scroll">
       <H1>{t('interested.editTitle')}</H1>
-      {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {!query.isLoading && !query.data ? (
-        <Text>{t('interested.noResults')}</Text>
-      ) : null}
+      <QueryStatus
+        query={query}
+        empty={!query.data}
+        emptyLabel={t('interested.noResults')}
+      />
 
       {query.data ? (
         <InterestedForm

@@ -1,15 +1,15 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
-} from 'react-native';
+} from '@/components/themed-native';
+import { Pagination } from '@/components/pagination';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { interestedApi } from '@/api/interested';
@@ -54,7 +54,7 @@ const formatMoney = (amount?: number) => {
   return new Intl.NumberFormat(i18n.language || 'es', {
     style: 'currency',
     currency: 'ARS',
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(amount);
 };
 
@@ -116,6 +116,7 @@ function ActionChip({
 export default function InterestedScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [operationFilter, setOperationFilter] =
@@ -147,8 +148,22 @@ export default function InterestedScreen() {
     t(`interested.operations.${operation}`);
 
   const interestedQuery = useQuery({
-    queryKey: ['interested', 'list'],
-    queryFn: () => interestedApi.getAllWithFilters({ limit: 100 }),
+    queryKey: [
+      'interested',
+      'list',
+      page,
+      searchTerm,
+      operationFilter,
+      statusFilter,
+    ],
+    queryFn: () =>
+      interestedApi.getAllWithFilters({
+        page,
+        limit: 20,
+        name: searchTerm || undefined,
+        operation: operationFilter === 'all' ? undefined : operationFilter,
+        status: statusFilter === 'all' ? undefined : statusFilter,
+      }),
   });
 
   const confirmingRentMutation = useMutation({
@@ -256,10 +271,16 @@ export default function InterestedScreen() {
   };
 
   return (
-    <Screen>
+    <Screen
+      guidanceReady={!interestedQuery.isFetching}
+      guidanceBlocked={interestedQuery.isError || loadingSummary}
+    >
       <TextInput
         value={searchTerm}
-        onChangeText={setSearchTerm}
+        onChangeText={(value) => {
+          setSearchTerm(value);
+          setPage(1);
+        }}
         placeholder={t('interested.listSearchPlaceholder')}
         style={styles.searchInput}
         autoCapitalize="none"
@@ -269,7 +290,10 @@ export default function InterestedScreen() {
       <ChoiceGroup
         label={t('common.filter')}
         value={operationFilter}
-        onChange={setOperationFilter}
+        onChange={(value) => {
+          setOperationFilter(value);
+          setPage(1);
+        }}
         options={operationOptions}
         testID="interested.filter.operation"
       />
@@ -277,7 +301,10 @@ export default function InterestedScreen() {
       <ChoiceGroup
         label={t('interested.filters.allStages')}
         value={statusFilter}
-        onChange={setStatusFilter}
+        onChange={(value) => {
+          setStatusFilter(value);
+          setPage(1);
+        }}
         options={statusOptions}
         testID="interested.filter.status"
       />
@@ -460,6 +487,11 @@ export default function InterestedScreen() {
           <Text style={styles.empty}>{t('interested.noResults')}</Text>
         ) : null}
       </View>
+      <Pagination
+        result={interestedQuery.data}
+        loading={interestedQuery.isFetching}
+        onPage={setPage}
+      />
     </Screen>
   );
 }

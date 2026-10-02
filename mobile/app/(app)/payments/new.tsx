@@ -1,14 +1,16 @@
+import { Text, View } from '@/components/themed-native';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
 import { leasesApi } from '@/api/leases';
 import { paymentsApi, tenantAccountsApi } from '@/api/payments';
 import { Screen } from '@/components/screen';
+import { parseMoneyInput } from '@/utils/money';
 import { AppButton, ChoiceGroup, DateField, Field, H1 } from '@/components/ui';
 import type {
   CreatePaymentInput,
@@ -18,7 +20,12 @@ import type {
 
 const schema = z.object({
   leaseId: z.string().min(1),
-  amount: z.string().min(1),
+  amount: z
+    .string()
+    .refine(
+      (value) => parseMoneyInput(value) !== null,
+      'El monto debe ser positivo y tener hasta dos decimales',
+    ),
   paymentDate: z.string().min(10),
   method: z.enum([
     'cash',
@@ -113,7 +120,7 @@ export default function NewPaymentScreen() {
 
       const payload: CreatePaymentInput = {
         tenantAccountId: account.id,
-        amount: Number(values.amount),
+        amount: parseMoneyInput(values.amount)!,
         paymentDate: values.paymentDate,
         method: values.method,
         activityType: values.activityType,
@@ -138,7 +145,15 @@ export default function NewPaymentScreen() {
   const submit = handleSubmit((values) => mutation.mutate(values));
 
   return (
-    <Screen>
+    <Screen
+      guidanceReady={!leasesQuery.isFetching}
+      guidanceBlocked={
+        leasesQuery.isError ||
+        mutation.isPending ||
+        mutation.isError ||
+        Object.keys(formState.errors).length > 0
+      }
+    >
       <H1>{t('payments.newPayment')}</H1>
 
       <Controller
@@ -240,10 +255,10 @@ export default function NewPaymentScreen() {
         )}
       />
 
-      {Object.values(formState.errors).map((item) => {
+      {Object.entries(formState.errors).map(([fieldName, item]) => {
         if (!item?.message) return null;
         return (
-          <Text key={item.message} style={styles.error}>
+          <Text key={fieldName} style={styles.error}>
             {item.message}
           </Text>
         );

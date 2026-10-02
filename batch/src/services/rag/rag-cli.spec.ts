@@ -174,6 +174,23 @@ describe("RAG CLI", () => {
     expect(process.exitCode).toBe(1);
   });
 
+  it("does not call a retrying outbox cycle a successful synchronization", async () => {
+    mockRunOnce.mockResolvedValueOnce({
+      claimed: 2,
+      processed: 1,
+      failed: 0,
+      retried: 1,
+    });
+    await execute("rag-sync", "--once");
+    expect(mockRecordJobRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "failed",
+        summary: { recordsTotal: 2, recordsProcessed: 1, recordsFailed: 1 },
+      }),
+    );
+    expect(process.exitCode).toBe(1);
+  });
+
   it("processes one outbox batch and records metrics", async () => {
     mockRunOnce.mockResolvedValueOnce({ claimed: 3, processed: 2, failed: 1 });
 

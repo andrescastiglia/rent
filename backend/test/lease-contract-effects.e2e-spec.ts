@@ -1,3 +1,4 @@
+import { buildMutationReview } from '../src/common/helpers/mutation-review';
 import { LeasesService } from '../src/leases/leases.service';
 import { AiToolExecutorService } from '../src/ai/ai-tool-executor.service';
 import { ContractType } from '../src/leases/entities/lease.entity';
@@ -38,11 +39,28 @@ describe('Durable confirmed contracts (e2e)', () => {
     tenantId: string,
     buyerId: string;
   let token: string, foreignToken: string, tenantToken: string;
+  let tenantUserId: string;
   let network: jest.SpyInstance;
   const suffix = randomUUID().slice(0, 12),
     password = 'ContractsTest123!';
   const oldBatchToken = process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
   const oldToolsMode = process.env.AI_TOOLS_MODE;
+  const reviewedContext = async (
+    tool: string,
+    payload: unknown,
+    context: any,
+  ) => ({
+    ...context,
+    mutationReview:
+      context.mutationReview ??
+      (await buildMutationReview(
+        db,
+        companyId,
+        tool,
+        payload as Record<string, unknown>,
+        new Date(Date.now() + 900_000).toISOString(),
+      )),
+  });
   beforeAll(async () => {
     process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = 'contracts-test-token';
     process.env.AI_TOOLS_MODE = 'FULL';
@@ -93,6 +111,7 @@ describe('Durable confirmed contracts (e2e)', () => {
     ).id;
     foreignToken = (await create(foreignId, UserRole.ADMIN)).token;
     const tenantUser = await create(companyId, UserRole.TENANT);
+    tenantUserId = tenantUser.user.id;
     tenantToken = tenantUser.token;
     ownerId = (
       await db.query(
@@ -262,6 +281,96 @@ describe('Durable confirmed contracts (e2e)', () => {
       )[0].operation_state,
     ).toBe('available');
   };
+
+  it('creates a rental contract using the user identifier returned by the tenant list', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/contracts')
+      .auth(token, { type: 'bearer' })
+      .send({
+        companyId,
+        propertyId,
+        tenantId: tenantUserId,
+        contractType: 'rental',
+        startDate: '2026-09-01',
+        endDate: '2027-09-01',
+        monthlyRent: 1000,
+      });
+    expect(response.status).toBe(201);
+    expect(response.body.tenantId).toBe(tenantId);
+    expect((await row(response.body.id)).tenant_id).toBe(tenantId);
+  });
+
+  it('persists tenant profile fields without a password and scopes email updates to the actor company', async () => {
+    const created = await request(app.getHttpServer())
+      .post('/tenants')
+      .auth(token, { type: 'bearer' })
+      .send({
+        companyId: foreignId,
+        firstName: 'Ana',
+        lastName: 'Perfil',
+        dni: suffix,
+        cuil: '20123456789',
+        dateOfBirth: '1990-02-10',
+        nationality: 'AR',
+        occupation: 'Analista',
+        employer: 'Empresa',
+        monthlyIncome: 50000,
+        employmentStatus: 'employed',
+        emergencyContactName: 'Juan',
+        emergencyContactPhone: '123',
+        emergencyContactRelationship: 'Hermano',
+        creditScore: 600,
+        notes: 'Datos verificados',
+      });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({
+      companyId,
+      isActive: false,
+      accessRequested: false,
+      cuil: '20123456789',
+    });
+    expect(created.body.passwordHash).toBeUndefined();
+    expect(created.body.tenantEntityId).toEqual(expect.any(String));
+    const updated = await request(app.getHttpServer())
+      .patch(`/tenants/${created.body.id}`)
+      .auth(token, { type: 'bearer' })
+      .send({
+        email: `tenant-profile-${suffix}@example.invalid`,
+        monthlyIncome: 0,
+        creditScore: 0,
+        notes: '',
+      });
+    expect(updated.status).toBe(200);
+    expect(updated.body).toMatchObject({
+      email: `tenant-profile-${suffix}@example.invalid`,
+      isActive: false,
+      accessRequested: false,
+      monthlyIncome: '0.00',
+      creditScore: 0,
+      notes: '',
+    });
+    const persisted = (
+      await db.query('SELECT * FROM tenants WHERE id=$1', [
+        created.body.tenantEntityId,
+      ])
+    )[0];
+    expect(persisted).toMatchObject({
+      company_id: companyId,
+      cuil: '20123456789',
+      occupation: 'Analista',
+      employment_status: 'employed',
+      monthly_income: '0.00',
+      emergency_contact_name: 'Juan',
+      emergency_contact_relationship: 'Hermano',
+      credit_score: 0,
+      notes: '',
+    });
+    const denied = await request(app.getHttpServer())
+      .patch(`/tenants/${created.body.id}`)
+      .auth(foreignToken, { type: 'bearer' })
+      .send({ firstName: 'Foreign' });
+    expect(denied.status).toBe(404);
+  });
 
   it('imports original bytes, account and property atomically with hash and no signature or PDF job', async () => {
     const response = await importContract().expect(201);
@@ -483,12 +592,8 @@ describe('Durable confirmed contracts (e2e)', () => {
         .expect(401);
 
       expect(
-        (
-          await db.query('SELECT * FROM tenant_accounts WHERE lease_id=$1', [
-            id,
-          ])
-        ).length,
-      ).toBe(1);
+        await db.query('SELECT * FROM tenant_accounts WHERE lease_id=$1', [id]),
+      ).toHaveLength(1);
       expect(
         (
           await db.query('SELECT operation_state FROM properties WHERE id=$1', [
@@ -882,8 +987,8 @@ describe('Durable confirmed contracts (e2e)', () => {
               )
             : value;
       const [action] = await db.query(
-        `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at)
-      VALUES($1,$2,$3,'update','lease','Lease recovery',$4::jsonb,$5,now()+interval '15 minutes') RETURNING id,execution_key`,
+        `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at,review)
+      VALUES($1,$2,$3,'update','lease','Lease recovery',$4::jsonb,$5,now()+interval '15 minutes',$6::jsonb) RETURNING id,execution_key`,
         [
           companyId,
           requesterId,
@@ -892,6 +997,15 @@ describe('Durable confirmed contracts (e2e)', () => {
           createHash('sha256')
             .update(JSON.stringify(sort(payload)))
             .digest('hex'),
+          JSON.stringify(
+            await buildMutationReview(
+              db,
+              companyId,
+              toolName,
+              payload,
+              new Date(Date.now() + 900_000).toISOString(),
+            ),
+          ),
         ],
       );
       const reauthToken = (
@@ -978,17 +1092,25 @@ describe('Durable confirmed contracts (e2e)', () => {
         };
         expect(
           await Promise.all(
-            Array.from({ length: 3 }, () =>
-              executor.executeApproved(toolName, payload, context),
+            Array.from({ length: 3 }, async () =>
+              executor.executeApproved(
+                toolName,
+                payload,
+                await reviewedContext(toolName, payload, context),
+              ),
             ),
           ),
         ).toEqual([recovered.result, recovered.result, recovered.result]);
         if (toolName === 'post_lease_templates') {
           // Creating in another authenticated company is valid, but must not recover this company's receipt.
-          const foreign = (await executor.executeApproved(toolName, payload, {
-            ...context,
-            companyId: foreignId,
-          })) as any;
+          const foreign = (await executor.executeApproved(
+            toolName,
+            payload,
+            await reviewedContext(toolName, payload, {
+              ...context,
+              companyId: foreignId,
+            }),
+          )) as any;
           expect(foreign.companyId).toBe(foreignId);
           expect(foreign.id).not.toBe(receipt.result.id);
           await db.query(
@@ -1001,17 +1123,25 @@ describe('Durable confirmed contracts (e2e)', () => {
           );
         } else {
           await expect(
-            executor.executeApproved(toolName, payload, {
-              ...context,
-              companyId: foreignId,
-            }),
+            executor.executeApproved(
+              toolName,
+              payload,
+              await reviewedContext(toolName, payload, {
+                ...context,
+                companyId: foreignId,
+              }),
+            ),
           ).rejects.toThrow();
         }
         await expect(
-          executor.executeApproved(toolName, payload, {
-            ...context,
-            role: UserRole.TENANT,
-          }),
+          executor.executeApproved(
+            toolName,
+            payload,
+            await reviewedContext(toolName, payload, {
+              ...context,
+              role: UserRole.TENANT,
+            }),
+          ),
         ).rejects.toThrow();
         expect(await snapshot()).toEqual(before);
         expect(await jobs()).toHaveLength(
@@ -1042,12 +1172,16 @@ describe('Durable confirmed contracts (e2e)', () => {
       CREATE TRIGGER lease_recovery_test_fail BEFORE INSERT ON domain_operation_receipts FOR EACH ROW EXECUTE FUNCTION lease_recovery_test_fail();`);
       try {
         await expect(
-          app.get(AiToolExecutorService).executeApproved(toolName, payload, {
-            companyId,
-            userId,
-            role: UserRole.ADMIN,
-            idempotencyKey: randomUUID(),
-          }),
+          app.get(AiToolExecutorService).executeApproved(
+            toolName,
+            payload,
+            await reviewedContext(toolName, payload, {
+              companyId,
+              userId,
+              role: UserRole.ADMIN,
+              idempotencyKey: randomUUID(),
+            }),
+          ),
         ).rejects.toThrow('lease receipt unavailable');
       } finally {
         await db.query(
@@ -1173,12 +1307,16 @@ describe('Durable confirmed contracts (e2e)', () => {
     await app.get(AiToolExecutorService).executeApproved(
       'patch_lease_by_id',
       { id, notes: 'AI note' },
-      {
-        companyId,
-        userId,
-        role: UserRole.ADMIN,
-        idempotencyKey: randomUUID(),
-      },
+      await reviewedContext(
+        'patch_lease_by_id',
+        { id, notes: 'AI note' },
+        {
+          companyId,
+          userId,
+          role: UserRole.ADMIN,
+          idempotencyKey: randomUUID(),
+        },
+      ),
     );
     expect(await row(id)).toMatchObject({
       notes: 'AI note',
@@ -1201,12 +1339,16 @@ describe('Durable confirmed contracts (e2e)', () => {
     await app.get(AiToolExecutorService).executeApproved(
       'patch_lease_by_id',
       { id, notes: 'Sale AI note' },
-      {
-        companyId,
-        userId,
-        role: UserRole.ADMIN,
-        idempotencyKey: randomUUID(),
-      },
+      await reviewedContext(
+        'patch_lease_by_id',
+        { id, notes: 'Sale AI note' },
+        {
+          companyId,
+          userId,
+          role: UserRole.ADMIN,
+          idempotencyKey: randomUUID(),
+        },
+      ),
     );
     expect(await row(id)).toMatchObject({
       contract_type: 'sale',
@@ -1426,12 +1568,16 @@ describe('Durable confirmed contracts (e2e)', () => {
     const renewed = (await app.get(AiToolExecutorService).executeApproved(
       'patch_lease_renew',
       { id, notes: 'Sale renewal' },
-      {
-        companyId,
-        userId,
-        role: UserRole.ADMIN,
-        idempotencyKey: randomUUID(),
-      },
+      await reviewedContext(
+        'patch_lease_renew',
+        { id, notes: 'Sale renewal' },
+        {
+          companyId,
+          userId,
+          role: UserRole.ADMIN,
+          idempotencyKey: randomUUID(),
+        },
+      ),
     )) as any;
     expect(await row(renewed.id)).toMatchObject({
       contract_type: 'sale',
@@ -1579,12 +1725,16 @@ describe('Durable confirmed contracts (e2e)', () => {
       app.get(AiToolExecutorService).executeApproved(
         'patch_lease_renew',
         { id, tenantId },
-        {
-          companyId,
-          userId,
-          role: UserRole.ADMIN,
-          idempotencyKey: randomUUID(),
-        },
+        await reviewedContext(
+          'patch_lease_renew',
+          { id, tenantId },
+          {
+            companyId,
+            userId,
+            role: UserRole.ADMIN,
+            idempotencyKey: randomUUID(),
+          },
+        ),
       ),
     ).rejects.toThrow();
     expect(await snapshot()).toEqual(before);
@@ -1670,13 +1820,21 @@ describe('Durable confirmed contracts (e2e)', () => {
         idempotencyKey: randomUUID(),
       };
       const executor = app.get(AiToolExecutorService);
-      await executor.executeApproved(toolName, payload, context);
+      await executor.executeApproved(
+        toolName,
+        payload,
+        await reviewedContext(toolName, payload, context),
+      );
       const before = await snapshot();
       await expect(
         executor.executeApproved(
           toolName,
           { ...payload, name: 'Other name' },
-          context,
+          await reviewedContext(
+            toolName,
+            { ...payload, name: 'Other name' },
+            context,
+          ),
         ),
       ).rejects.toThrow('different operation or request');
       expect(await snapshot()).toEqual(before);

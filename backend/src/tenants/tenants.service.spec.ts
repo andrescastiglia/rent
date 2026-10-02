@@ -115,6 +115,17 @@ describe('TenantsService', () => {
     leaseRepository = module.get(getRepositoryToken(Lease));
     invoiceRepository = module.get(getRepositoryToken(Invoice));
     tenantAccountRepository = module.get(getRepositoryToken(TenantAccount));
+    Object.assign(userRepository, {
+      manager: {
+        transaction: jest.fn(async (execute) =>
+          execute({
+            query: jest.fn().mockResolvedValue([]),
+            getRepository: (entity: any) =>
+              module.get(getRepositoryToken(entity)),
+          }),
+        ),
+      },
+    });
   });
 
   it('should be defined', () => {
@@ -167,7 +178,11 @@ describe('TenantsService', () => {
           createDto.dni,
         ]),
       );
-      expect(result).toEqual(mockUser);
+      expect(result).toMatchObject({
+        ...mockUser,
+        dni: createDto.dni,
+        emergencyContactName: createDto.emergencyContact,
+      });
     });
 
     it('should throw ConflictException when DNI already exists', async () => {
@@ -227,7 +242,7 @@ describe('TenantsService', () => {
       const result = await service.findAll(filters, adminContext);
 
       expect(result).toEqual({
-        data: [mockUser],
+        data: [expect.objectContaining(mockUser)],
         total: 1,
         page: 1,
         limit: 10,
@@ -308,7 +323,7 @@ describe('TenantsService', () => {
           companyId: 'company-1',
         }),
       });
-      expect(result).toEqual(mockUser);
+      expect(result).toMatchObject({ ...mockUser, tenantEntityId: 'tenant-1' });
     });
 
     it('should throw NotFoundException when tenant not found', async () => {
@@ -354,7 +369,9 @@ describe('TenantsService', () => {
   describe('update', () => {
     it('should update tenant information', async () => {
       const updateDto = { firstName: 'Jane', phone: '+111111111' };
-      userRepository.findOne!.mockResolvedValue(mockUser);
+      userRepository
+        .findOne!.mockResolvedValueOnce({ ...mockUser })
+        .mockResolvedValueOnce({ ...mockUser, ...updateDto });
       _tenantRepository.findOne!.mockResolvedValue({
         id: 'tenant-1',
         userId: 'user-1',

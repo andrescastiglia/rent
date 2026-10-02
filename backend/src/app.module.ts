@@ -31,6 +31,7 @@ import { BankAccountsModule } from './bank-accounts/bank-accounts.module';
 import { BankReconciliationModule } from './bank-reconciliation/bank-reconciliation.module';
 import { SettlementsModule } from './settlements/settlements.module';
 import { MaintenanceModule } from './maintenance/maintenance.module';
+import { MaintenanceAttachmentsModule } from './maintenance/maintenance-attachments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PaymentGatewayModule } from './payment-gateway/payment-gateway.module';
 import { DigitalSignaturesModule } from './digital-signatures/digital-signatures.module';
@@ -90,6 +91,7 @@ import * as path from 'node:path';
     BankReconciliationModule,
     SettlementsModule,
     MaintenanceModule,
+    MaintenanceAttachmentsModule,
     PaymentGatewayModule,
     PortalsModule,
     DigitalSignaturesModule,

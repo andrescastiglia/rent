@@ -79,8 +79,7 @@ export class InflationObservationsService {
           continue;
         }
         if (
-          old &&
-          old.value === value &&
+          old?.value === value &&
           old.value_kind === kind &&
           old.source === source.source &&
           old.source_series === source.series &&

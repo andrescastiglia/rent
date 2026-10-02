@@ -234,6 +234,7 @@ export interface CreatePaymentInput {
  * Filtros para listar pagos
  */
 export interface PaymentFilters {
+  search?: string;
   tenantId?: string;
   tenantAccountId?: string;
   leaseId?: string;
@@ -251,6 +252,7 @@ export interface PaymentFilters {
  * Filtros para listar facturas
  */
 export interface InvoiceFilters {
+  search?: string;
   leaseId?: string;
   ownerId?: string;
   status?: InvoiceStatus;

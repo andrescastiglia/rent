@@ -194,6 +194,14 @@ export class InterestedProfile {
   @Column({ name: 'custom_fields', type: 'jsonb', default: () => "'{}'" })
   customFields: Record<string, unknown>;
 
+  @Column({
+    name: 'pipeline_stage',
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+  })
+  pipelineStage: string | null;
+
   @Column({ name: 'last_contact_at', type: 'timestamptz', nullable: true })
   lastContactAt: Date;
 

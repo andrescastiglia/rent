@@ -47,7 +47,7 @@ it("recovers the same pending key after rebuilding form and file objects", async
   const first = await prepareLeaseImport("company", "user", input());
   const retry = await prepareLeaseImport("company", "user", input());
   expect(retry).toEqual(first);
-  expect(localStorage.length).toBe(1);
+  expect(localStorage).toHaveLength(1);
   expect(first.storageKey).not.toContain("original contract");
   expect(first.storageKey).not.toContain("contract.txt");
   expect(localStorage.getItem(first.storageKey)).toBe(first.idempotencyKey);
@@ -75,7 +75,7 @@ it("removes only a successfully completed attempt", async () => {
     (await prepareLeaseImport("company", "user", input())).idempotencyKey,
   ).not.toBe(first.idempotencyKey);
   completeLeaseImport(first);
-  expect(localStorage.length).toBe(1);
+  expect(localStorage).toHaveLength(1);
 });
 
 it("stops before submission when storage cannot preserve a retry key", async () => {
@@ -124,7 +124,7 @@ it("sends the same multipart key and file on retry after a lost response, then c
       importCurrentLease<{ id: string }>,
     ),
   ).rejects.toThrow("response lost");
-  expect(localStorage.length).toBe(1);
+  expect(localStorage).toHaveLength(1);
   const result = await submitLeaseImport(
     "company",
     "user",
@@ -141,7 +141,7 @@ it("sends the same multipart key and file on retry after a lost response, then c
   expect((retry[1] as FormData).get("file")).toBeInstanceOf(File);
   expect((retry[1] as FormData).get("tenantId")).toBe("tenant");
   expect(result.id).toBe("imported");
-  expect(localStorage.length).toBe(0);
+  expect(localStorage).toHaveLength(0);
 });
 
 it("does not submit an import when the browser cannot persist recovery information", async () => {
