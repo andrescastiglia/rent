@@ -49,7 +49,7 @@ export default function TenantContractPage() {
         setLoading(false);
       }
     };
-    load();
+    void load();
   }, [revision]);
 
   const formatDate = (dateStr?: string | null) => {

@@ -101,6 +101,9 @@ export async function dismissNativeAlertIfVisible(): Promise<void> {
 
 export async function openModule(module: string): Promise<void> {
   await element(by.id('tab.more')).tap();
+  await waitFor(element(by.id('more.scroll')))
+    .toBeVisible()
+    .withTimeout(15000);
   await element(by.id('more.scroll')).scrollTo('top');
   await waitFor(element(by.id(`more.${module}`)))
     .toBeVisible()

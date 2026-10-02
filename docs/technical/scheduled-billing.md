@@ -109,3 +109,57 @@ Aplicar 122–124 antes del backend y batch compatibles. Mantener el cron suspen
 hasta verificar el despliegue y la configuración operativa. No se configuran BFA,
 Mercado Libre ni Mercado Pago. Un rollback conserva claves y snapshots; no volver
 al escritor retirado, que puede crear facturas parciales sin cargo común.
+
+## Revisión de datos antes de reactivar (2026-10-02)
+
+Se consultaron sólo agregados en una transacción de lectura en producción.
+El esquema registrado llega a 110; `contracts` es una vista de `leases` y el
+calendario está en `leases.next_billing_date`. Se detectaron contratos activos
+sin próxima fecha de facturación y compañías sin tasa de comisión explícita.
+La serie IPC disponible termina en marzo de 2025; las observaciones ICL llegan
+a octubre de 2026. Disponer de una serie no acredita las dos fechas exactas
+requeridas por cada ajuste. El inventario detallado permanece fuera de Git,
+sin publicar identificadores, importes ni partes de contratos reales.
+
+Este resultado impide reactivar la generación automática. El despliegue mantiene
+`billing`, `sync-indices` y `process-settlements` suspendidos. La migración 136
+conserva la anterior tasa fija como parámetro explícito con procedencia
+`legacy-policy-migration-136`; no aprueba una nueva política comercial o fiscal.
+
+Procedimiento de corrección y verificación:
+
+1. Confirmar el backup de la base y aplicar las migraciones aditivas con el
+   ejecutor de checksums/bloqueo. Registrar SHA, última migración y resultado;
+   no forzar la migración base 090 sobre una base existente.
+2. Por compañía, comparar el contrato vigente, sus documentos y facturas emitidas
+   con moneda, importe, frecuencia, día de vencimiento y `nextBillingDate`.
+   Una fecha ausente requiere elegir explícitamente el próximo período pendiente;
+   no usar la fecha actual ni adelantar meses para ocultar atrasos. Conservar
+   evidencia y autorización de esa decisión antes de guardar en el flujo de
+   edición de contratos. No modificar importes o períodos de facturas históricas.
+3. Revisar fecha/ancla/frecuencia de ajuste, índice y rezago. Para IPC/IGP-M
+   completar el rezago contractual (un cero explícito es válido). Obtener las
+   observaciones faltantes de su fuente y conservar revisión y procedencia.
+   ICL exige los niveles de ambas fechas diarias; IPC exige ambos meses e
+   IGP-M todos los meses del intervalo. Un faltante bloquea el cálculo.
+4. Revisar el parámetro explícito de comisión y la cuenta corriente activa en
+   la misma moneda. Mora, conversiones y retenciones requieren sus decisiones
+   auditadas; no se aplican retrospectivamente por inferencia del operador.
+5. Ejecutar primero `billing --company-id UUID --lease-id UUID --date YYYY-MM-DD
+   --dry-run` mediante **Batch operations**. La fecha representa el día de
+   ejecución en Argentina y debe conservarse al reintentar. El preview valida
+   candidatos/calendario, pero no acredita un importe calculado.
+6. En una base aislada con una copia autorizada, verificar emisión, snapshot de
+   cálculo, cargo, comisión, PDF, aviso y recuperación con la misma fecha/clave.
+   Un período anterior al último ajuste requiere revisión documental: el servicio
+   lo rechaza porque el alquiler actual no prueba el importe histórico. Resolver
+   mediante los flujos contables auditados, sin editar snapshots ni inventar índices.
+7. Registrar resultados y aprobar una operación acotada antes de solicitar una
+   activación independiente del cron. Ante fallos parciales conservar el job y
+   filtros/fecha, corregir la causa y recuperar con la misma identidad. Suspender
+   otra vez ante discrepancias; no restaurar el escritor batch antiguo.
+
+Las pruebas HTTP/PostgreSQL y del CLI de esta entrega verifican el recorrido
+común con datos ficticios; no reemplazan las decisiones pendientes sobre datos
+productivos. Su [evidencia actual](validacion-plan-2026-10-02.md) sustituye las
+cantidades históricas citadas en la sección anterior para esta entrega.

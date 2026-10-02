@@ -23,5 +23,7 @@
       "comment": "Intentional fixture authentication; HTTP(S) loopback only, strict fictitious email/password fields, redirects blocked; four security tests passed locally and in CI at 119f102. QA-only helper; no runtime use or general suppression."
     }
   ],
-  "unresolved": 0
+  "unresolved": 0,
+  "latestVerifiedCommit": "282da7f5e05016fb5274342d3303ed2e3f49274c",
+  "latestOpenAlerts": 0
 }

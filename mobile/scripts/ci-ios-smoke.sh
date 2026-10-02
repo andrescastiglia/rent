@@ -29,10 +29,13 @@ npx expo start --localhost --port 8081 > artifacts/ios/metro.log 2>&1 &
 metro_pid=$!
 metro_ready=false
 for _ in $(seq 1 60); do
-  if curl --fail --silent http://127.0.0.1:8081/status | grep -q 'packager-status:running'; then metro_ready=true; break; fi
+  if curl --fail --silent --max-time 2 http://localhost:8081/status | grep -q 'packager-status:running'; then metro_ready=true; break; fi
   sleep 1
 done
-test "$metro_ready" = true
+if [ "$metro_ready" != true ]; then
+  tail -n 30 artifacts/ios/metro.log >&2
+  exit 1
+fi
 
 app="$(find artifacts/ios/DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 1 -name '*.app' -print -quit)"
 test -n "$app"

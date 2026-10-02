@@ -22,6 +22,9 @@ describe('Users and templates critical flows', () => {
       .toBeVisible()
       .withTimeout(15000);
     await element(by.id('users.new')).tap();
+    await waitFor(element(by.id('userCreate.email')))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await element(by.id('userCreate.email')).replaceText(email);
     await element(by.id('userCreate.password')).replaceText('SecurePass123!');
@@ -81,6 +84,9 @@ describe('Users and templates critical flows', () => {
       .withTimeout(15000);
     await element(by.id('templates.new')).tap();
 
+    await waitFor(element(by.id('templateCreate.kind.payment')))
+      .toBeVisible()
+      .withTimeout(15000);
     await element(by.id('templateCreate.kind.payment')).tap();
     await element(by.id('templateCreate.paymentType.receipt')).tap();
     await element(by.id('templateCreate.name')).replaceText(templateName);

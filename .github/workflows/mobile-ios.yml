@@ -55,6 +55,9 @@ jobs:
         with:
           name: mobile-ios-validation
           path: |
-            mobile/artifacts/ios
+            mobile/artifacts/ios/*.log
+            mobile/artifacts/ios/*.png
+            mobile/artifacts/ios/*.txt
+            mobile/artifacts/ios/detox
             mobile/coverage
           if-no-files-found: warn

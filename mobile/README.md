@@ -81,3 +81,14 @@ La ayuda contextual permanece activa en cada visita: 8 segundos al entrar y 12 d
 Cobros conservan `Idempotency-Key` después de un fallo de red y al reiniciar la app. Un resultado incierto bloquea cambios del mismo intento hasta revisarlo; no hay reenvío automático. Las DTO de acceso, usuarios y propietarios se importan del contrato OpenAPI generado. La cobertura UT mide todo el código propio de `src` y `app`, excepto código generado; las pruebas Android/iOS y la revisión visual real siguen siendo gates independientes.
 
 El workflow reutilizable `mobile-ios.yml` prepara iOS en macOS y compila una sola vez para simulador. Sobre ese mismo binario ejecuta el arranque y todos los recorridos Detox; conserva logs y capturas por plataforma. CI exige también UT, tipos y lint antes de ejecutar Android/iOS. Se puede ejecutar manualmente. La validación iOS usa Xcode 26.3 (Swift ≥6.2) y un simulador Apple; las pruebas nativas usan datos simulados y la autorización real se comprueba por separado con API/PostgreSQL.
+
+### Corrección nativa de encabezados Android
+
+`npm ci` aplica en `postinstall` el cambio acotado de
+[react-native-screens #4498](https://github.com/software-mansion/react-native-screens/pull/4498)
+al paquete fijado en 4.25.2. Un encabezado separado de su stack deja de actualizarse
+hasta volver a estar asociado; no se elimina la comprobación de navegación ni se
+ocultan errores. El instalador es idempotente y falla si cambia la versión o el
+fragmento de Kotlin esperado. Revisar y retirar este backport al adoptar una versión
+que incorpore la corrección. Cambia el binario Android y exige el gate Detox nativo;
+no puede distribuirse sólo como actualización de JavaScript.

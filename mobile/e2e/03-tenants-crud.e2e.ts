@@ -21,6 +21,9 @@ describe('Tenants CRUD', () => {
       .toBeVisible()
       .withTimeout(15000);
     await element(by.id('tenants.new')).tap();
+    await waitFor(element(by.id('tenantCreate.firstName')))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await element(by.id('tenantCreate.firstName')).replaceText('E2E');
     await element(by.id('tenantCreate.lastName')).replaceText('Tenant');

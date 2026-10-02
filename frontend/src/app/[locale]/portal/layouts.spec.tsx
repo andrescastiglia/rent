@@ -213,7 +213,7 @@ it("provides tenant navigation and explicit logout, with exact and nested active
   expect(screen.getByRole("link", { name: "dashboard" })).toHaveClass(
     "text-gray-500",
   );
-  fireEvent.click(screen.getByRole("button", { name: "Logout" }));
+  fireEvent.click(screen.getByRole("button", { name: "logout" }));
   expect(mockLogout).toHaveBeenCalledTimes(1);
 });
 it("does not render tenant content while loading, unauthenticated or unauthorized", async () => {

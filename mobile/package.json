@@ -18,7 +18,8 @@
     "e2e:build:android": "detox build -c ${DETOX_CONFIGURATION:-android.emu.debug}",
     "e2e:test:android": "sh scripts/e2e-android-test.sh",
     "e2e:android": "npm run e2e:build:android && npm run e2e:test:android",
-    "format:check": "prettier --check \"{app,src}/**/*.{ts,tsx}\" \"*.{js,json}\""
+    "format:check": "prettier --check \"{app,src}/**/*.{ts,tsx}\" \"*.{js,json}\"",
+    "postinstall": "node scripts/patch-react-native-screens.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

@@ -22,6 +22,9 @@ describe('Interested CRUD', () => {
       .toBeVisible()
       .withTimeout(15000);
     await element(by.id('interested.new')).tap();
+    await waitFor(element(by.id('interestedCreate.firstName')))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await element(by.id('interestedCreate.firstName')).replaceText('E2E');
     await element(by.id('interestedCreate.lastName')).replaceText('Interested');

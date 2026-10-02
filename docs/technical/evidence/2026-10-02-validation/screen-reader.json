@@ -1,0 +1,2169 @@
+{
+  "at": "2026-10-02T15:59:37.252Z",
+  "source": "282da7f5e05016fb5274342d3303ed2e3f49274c",
+  "screenReader": "Orca",
+  "browser": "Firefox, X11, AT-SPI",
+  "mockMode": false,
+  "backend": "http://127.0.0.1:3301",
+  "frontend": "http://127.0.0.1:3304",
+  "method": "Native XTest keyboard events; Orca speech debug output reviewed with DOM focus and real API fixtures",
+  "screens": [
+    {
+      "name": "dashboard",
+      "route": "/es/dashboard",
+      "title": "Inicio",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Saltar al contenido",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Saltar al contenido"
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return",
+            "main content."
+          ],
+          "focus": {
+            "tag": "MAIN",
+            "id": "main-content",
+            "label": null,
+            "text": "InicioPanelInicioAtienda vencimientos, cobros y tareas pendientes.Actividades de personasActividades"
+          }
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Inicio",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Actividades de personas",
+            "combo box",
+            "Mostrar 25.",
+            "opens popup",
+            "Focus mode"
+          ],
+          "focus": {
+            "tag": "SELECT",
+            "id": "dashboard-activity-limit",
+            "label": null,
+            "text": "Mostrar 10Mostrar 25Mostrar 50"
+          }
+        }
+      ]
+    },
+    {
+      "name": "properties",
+      "route": "/es/properties",
+      "title": "Propiedades",
+      "tableCount": 1,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Saltar al contenido",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Saltar al contenido"
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return",
+            "main content."
+          ],
+          "focus": {
+            "tag": "MAIN",
+            "id": "main-content",
+            "label": null,
+            "text": "InicioPropiedadesPropiedadesBusque inmuebles y consulte sus contratos, visitas y mantenimiento.Ver p"
+          }
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Propiedades",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "t",
+          "announcements": [
+            "t",
+            "Propiedades.",
+            "table with 21 rows 5 columns",
+            "Propiedad",
+            "column header."
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "ctrl+alt+Right",
+          "announcements": [
+            "left control"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver ficha column header.",
+            "row 2.",
+            "column 5",
+            "Ver ficha",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Ver ficha"
+          }
+        }
+      ]
+    },
+    {
+      "name": "payments",
+      "route": "/es/payments",
+      "title": "Cobros",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Saltar al contenido",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Saltar al contenido"
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return",
+            "main content."
+          ],
+          "focus": {
+            "tag": "MAIN",
+            "id": "main-content",
+            "label": null,
+            "text": "InicioPagosCobrosConsulte cobros por inquilino, propiedad, referencia y estado.Registrar cobroBuscar"
+          }
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Cobros",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Registrar cobro",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Registrar cobro"
+          }
+        }
+      ]
+    },
+    {
+      "name": "contract",
+      "route": "/es/leases/8d6e09ab-251f-4f0c-a8a6-9dce4b214f2a",
+      "title": "Contrato de Alquiler",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Saltar al contenido",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Saltar al contenido"
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return",
+            "main content."
+          ],
+          "focus": {
+            "tag": "MAIN",
+            "id": "main-content",
+            "label": null,
+            "text": "InicioContratosDetallesVolver a ContratosContrato de AlquilerBorradorVersión 1Firma: No iniciadaRegi"
+          }
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Contrato de Alquiler",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Registrar cobro",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Registrar cobro"
+          }
+        }
+      ]
+    },
+    {
+      "name": "sales",
+      "route": "/es/sales",
+      "title": "Ventas en cuotas",
+      "tableCount": 1,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Saltar al contenido",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Saltar al contenido"
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return",
+            "main content."
+          ],
+          "focus": {
+            "tag": "MAIN",
+            "id": "main-content",
+            "label": null,
+            "text": "InicioVentasVentas en cuotasGestiona loteos y recibos de cuotasNueva carpetaNuevo plan de cuotasBusc"
+          }
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Ventas en cuotas",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "t",
+          "announcements": [
+            "t",
+            "Ventas en cuotas.",
+            "table with 21 rows 5 columns",
+            "Cliente",
+            "column header."
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "ctrl+alt+Right",
+          "announcements": [
+            "left control"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos column header.",
+            "row 2.",
+            "column 5",
+            "Ver cuotas y recibos",
+            "toggle button not pressed."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "buyers",
+      "route": "/es/buyers",
+      "title": "Compradores",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Saltar al contenido",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Saltar al contenido"
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return",
+            "main content."
+          ],
+          "focus": {
+            "tag": "MAIN",
+            "id": "main-content",
+            "label": null,
+            "text": "InicioBuyersCompradoresGestiona compradores potenciales y convertidosBuyer QACompradorbuyer-3a7b7a11"
+          }
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Compradores",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Buscar compradores por nombre, apellido, teléfono o email...",
+            "entry.",
+            "Focus mode"
+          ],
+          "focus": {
+            "tag": "INPUT",
+            "id": "",
+            "label": null,
+            "text": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "owners",
+      "route": "/es/owners",
+      "title": "Propietarios",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Saltar al contenido",
+            "link.",
+            "Browse mode"
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Saltar al contenido"
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return",
+            "main content."
+          ],
+          "focus": {
+            "tag": "MAIN",
+            "id": "main-content",
+            "label": null,
+            "text": "InicioPropietariosPropietariosAdministra propietarios y sus propiedades asociadasAgregar propietario"
+          }
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Propietarios",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Agregar propietario",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Agregar propietario"
+          }
+        }
+      ]
+    },
+    {
+      "name": "property-detail",
+      "route": "/es/properties/02633ed8-8af3-4655-9531-b58c40550293",
+      "title": "San Martin 100",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Saltar al contenido",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Saltar al contenido"
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return",
+            "main content."
+          ],
+          "focus": {
+            "tag": "MAIN",
+            "id": "main-content",
+            "label": null,
+            "text": "InicioPropiedadesDetallesMercado LibreVolver a PropiedadesActivoApartamentoLiberadaSan Martin 100San"
+          }
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "San Martin 100",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver contrato",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Ver contrato"
+          }
+        }
+      ]
+    },
+    {
+      "name": "tenant-detail",
+      "route": "/es/tenants/e4d95c2b-c6ab-486a-b9e0-8c77fd1aeeaf",
+      "title": "Tenant QA",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Saltar al contenido",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Saltar al contenido"
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return",
+            "main content."
+          ],
+          "focus": {
+            "tag": "MAIN",
+            "id": "main-content",
+            "label": null,
+            "text": "InicioInquilinosDetallesVolver a InquilinosTenant QAActivoID: QA-3a7b7a11EditarRegistrar pagoRegistr"
+          }
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Tenant QA",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Editar",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Editar"
+          }
+        }
+      ]
+    },
+    {
+      "name": "maintenance",
+      "route": "/es/maintenance",
+      "title": "Mantenimiento",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Saltar al contenido",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Saltar al contenido"
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return",
+            "main content."
+          ],
+          "focus": {
+            "tag": "MAIN",
+            "id": "main-content",
+            "label": null,
+            "text": "InicioMaintenanceMantenimientoNuevo TicketEstadoEstadoAbiertoAsignadoEn progresoEsperando piezasResu"
+          }
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Mantenimiento",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Nuevo Ticket",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Nuevo Ticket"
+          }
+        }
+      ]
+    },
+    {
+      "name": "reports",
+      "route": "/es/reports",
+      "title": "Reportes",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Saltar al contenido",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Saltar al contenido"
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return",
+            "main content."
+          ],
+          "focus": {
+            "tag": "MAIN",
+            "id": "main-content",
+            "label": null,
+            "text": "InicioReportsReportesOrdenado por fecha descendente.Actualizar reportesNo hay reportes generados par"
+          }
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Reportes",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Actualizar reportes",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "reports-refresh",
+            "label": null,
+            "text": "Actualizar reportes"
+          }
+        }
+      ]
+    },
+    {
+      "name": "communications",
+      "route": "/es/settings/communications",
+      "title": "Plantillas y comunicaciones",
+      "tableCount": 1,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Saltar al contenido",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Saltar al contenido"
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return",
+            "main content."
+          ],
+          "focus": {
+            "tag": "MAIN",
+            "id": "main-content",
+            "label": null,
+            "text": "InicioConfiguraciónCommunicationsPlantillas y comunicacionesAutomatización, consentimiento e histori"
+          }
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Plantillas y comunicaciones",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "t",
+          "announcements": [
+            "t",
+            "table with 1 row 6 columns",
+            "Evento",
+            "column header."
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "ctrl+alt+Right",
+          "announcements": [
+            "left control"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "leaving table.",
+            "leaving main content.",
+            "information",
+            "navigation",
+            "Enlaces Útiles",
+            "Ayuda",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Ayuda"
+          }
+        }
+      ]
+    },
+    {
+      "name": "new-payment",
+      "route": "/es/payments/new",
+      "title": "Nuevo Pago",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Saltar al contenido",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Saltar al contenido"
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return",
+            "main content."
+          ],
+          "focus": {
+            "tag": "MAIN",
+            "id": "main-content",
+            "label": null,
+            "text": "InicioPagosNuevoVolver a PagosNuevo PagoSeleccionar ContratoSeleccionar ContratoSelecciona un contra"
+          }
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Nuevo Pago",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Seleccionar Contrato",
+            "combo box",
+            "Selecciona un contrato activo...",
+            "required.",
+            "invalid entry opens popup",
+            "Focus mode"
+          ],
+          "focus": {
+            "tag": "SELECT",
+            "id": "tenantLeaseId",
+            "label": null,
+            "text": "Selecciona un contrato activo..."
+          }
+        }
+      ]
+    },
+    {
+      "name": "owner-portal",
+      "route": "/es/portal/owner",
+      "title": "Owner",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "main content",
+            "Mantenimiento de mis propiedades",
+            "link.",
+            "Browse mode"
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Mantenimiento de mis propiedades"
+          }
+        },
+        {
+          "key": null,
+          "announcements": [],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Mantenimiento de mis propiedades"
+          },
+          "note": "Portal navigation follows its main content; no shared app sidebar or skip link"
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Owner",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Mantenimiento de mis propiedades",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Mantenimiento de mis propiedades"
+          }
+        }
+      ]
+    },
+    {
+      "name": "tenant-portal",
+      "route": "/es/portal/tenant",
+      "title": "Tenant QA",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "banner",
+            "Logout",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": "Logout",
+            "text": ""
+          }
+        },
+        {
+          "key": null,
+          "announcements": [],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": "Logout",
+            "text": ""
+          },
+          "note": "Portal navigation follows its main content; no shared app sidebar or skip link"
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Tenant QA",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver todos",
+            "link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Ver todos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "tenant-payments",
+      "route": "/es/portal/tenant/payments",
+      "title": "Mis Pagos",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "banner",
+            "Logout",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": "Logout",
+            "text": ""
+          }
+        },
+        {
+          "key": null,
+          "announcements": [],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": "Logout",
+            "text": ""
+          },
+          "note": "Portal navigation follows its main content; no shared app sidebar or skip link"
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Mis Pagos",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "leaving main content.",
+            "navigation",
+            "Inicio",
+            "visited link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Inicio"
+          }
+        }
+      ]
+    },
+    {
+      "name": "tenant-maintenance",
+      "route": "/es/portal/tenant/maintenance",
+      "title": "Mantenimiento de mi propiedad",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "banner",
+            "Logout",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": "Logout",
+            "text": ""
+          }
+        },
+        {
+          "key": null,
+          "announcements": [],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": "Logout",
+            "text": ""
+          },
+          "note": "Portal navigation follows its main content; no shared app sidebar or skip link"
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Mantenimiento de mi propiedad",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "leaving main content.",
+            "navigation",
+            "Inicio",
+            "visited link."
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Inicio"
+          }
+        }
+      ]
+    },
+    {
+      "name": "buyer-portal",
+      "route": "/es/portal/buyer",
+      "title": "Mis compras",
+      "tableCount": 0,
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "main content",
+            "Cerrar sesión",
+            "button.",
+            "Browse mode"
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Cerrar sesión"
+          }
+        },
+        {
+          "key": null,
+          "announcements": [],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Cerrar sesión"
+          },
+          "note": "Portal navigation follows its main content; no shared app sidebar or skip link"
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control",
+            "blank"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "1",
+            "main content",
+            "Mis compras",
+            "heading 1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Cerrar sesión",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Cerrar sesión"
+          }
+        }
+      ]
+    }
+  ],
+  "interactions": [
+    {
+      "name": "mobile-sidebar",
+      "viewport": 390,
+      "opener": {
+        "tag": "BUTTON",
+        "id": "",
+        "label": "Abrir menú",
+        "text": "",
+        "controls": "app-sidebar",
+        "guide": null
+      },
+      "steps": [
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Saltar al contenido",
+            "link.",
+            "Browse mode"
+          ],
+          "focus": {
+            "tag": "A",
+            "id": "",
+            "label": null,
+            "text": "Saltar al contenido",
+            "controls": null,
+            "guide": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "banner",
+            "Abrir menú",
+            "collapsed button.",
+            "Focus mode"
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": "Abrir menú",
+            "text": "",
+            "controls": "app-sidebar",
+            "guide": null
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return",
+            "Navegación Inicio Panel   Operaciones Propiedades  Contratos  Reportes  Pagos  Facturas  Ventas  Mantenimiento   Personas Inquilinos  Propietarios  Compradores  Interesados   Administración Plantillas  Usuarios  Personal   ",
+            "Cerrar menú",
+            "button.",
+            "Browse mode"
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": "Cerrar menú",
+            "text": "",
+            "controls": null,
+            "guide": null
+          }
+        },
+        {
+          "key": "Escape",
+          "announcements": [
+            "escape",
+            "banner",
+            "Abrir menú",
+            "collapsed button.",
+            "Focus mode",
+            "collapsed"
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": "Abrir menú",
+            "text": "",
+            "controls": "app-sidebar",
+            "guide": null
+          }
+        }
+      ],
+      "result": "Escape closes sidebar and restores focus to its named opener"
+    },
+    {
+      "name": "buyer-page-two-detail",
+      "steps": [
+        {
+          "key": "1",
+          "announcements": [
+            "1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null,
+            "controls": null,
+            "guide": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "main content",
+            "Cerrar sesión",
+            "button.",
+            "Browse mode"
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Cerrar sesión",
+            "controls": null,
+            "guide": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Buscar una compra",
+            "entry.",
+            "Focus mode"
+          ],
+          "focus": {
+            "tag": "INPUT",
+            "id": "buyer-sales-search",
+            "label": null,
+            "text": "",
+            "controls": null,
+            "guide": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "List with 20 items",
+            "Ver cuotas y recibos",
+            "button.",
+            "Browse mode"
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "Ver cuotas y recibos",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "tab",
+            "leaving list.",
+            "navigation",
+            "Paginación",
+            "Siguiente",
+            "button."
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Siguiente",
+            "controls": null,
+            "guide": null
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null,
+            "controls": null,
+            "guide": null
+          }
+        },
+        {
+          "key": "ctrl+Home",
+          "announcements": [
+            "left control"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null,
+            "controls": null,
+            "guide": null
+          }
+        },
+        {
+          "key": "1",
+          "announcements": [
+            "blank",
+            "1"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null,
+            "controls": null,
+            "guide": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "main content",
+            "Mis compras",
+            "heading 1",
+            "tab"
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Cerrar sesión",
+            "controls": null,
+            "guide": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "Cerrar sesión",
+            "button.",
+            "tab"
+          ],
+          "focus": {
+            "tag": "INPUT",
+            "id": "buyer-sales-search",
+            "label": null,
+            "text": "",
+            "controls": null,
+            "guide": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "Buscar una compra",
+            "entry.",
+            "Focus mode",
+            "tab"
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "Mis compras",
+            "heading 1",
+            "return"
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "t",
+          "announcements": [
+            "List with 1 item",
+            "Ver cuotas y recibos",
+            "button.",
+            "Browse mode"
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Ver cuotas y recibos",
+            "controls": null,
+            "guide": "review"
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null,
+            "controls": null,
+            "guide": null
+          }
+        },
+        {
+          "key": "Tab",
+          "announcements": [
+            "leaving list.",
+            "Calendario de cuotas.",
+            "table with 4 rows 6 columns",
+            "Cuota",
+            "column header.",
+            "tab",
+            "tab"
+          ],
+          "focus": {
+            "tag": "BUTTON",
+            "id": "",
+            "label": null,
+            "text": "Volver a mis acuerdos",
+            "controls": null,
+            "guide": null
+          }
+        },
+        {
+          "key": "Return",
+          "announcements": [
+            "return"
+          ],
+          "focus": {
+            "tag": "BODY",
+            "id": "",
+            "label": null,
+            "text": null,
+            "controls": null,
+            "guide": null
+          }
+        }
+      ],
+      "tableCount": 1,
+      "result": "Later page, own read-only installment table announced and detail closed by keyboard"
+    }
+  ],
+  "errors": [],
+  "status": "passed",
+  "screenReaderVersion": "50.2",
+  "atSpiVersion": "2.60.4",
+  "notes": [
+    "Speech announcements were reviewed by the coding agent; this is a scoped assistive-technology review, not WCAG certification.",
+    "Chrome/Orca reached an Orca recursion error on the contract heading; the complete review used Firefox.",
+    "The tenant logout label read as Logout in this build; it was subsequently translated and given a 44px target, with existing portal UT verified."
+  ]
+}

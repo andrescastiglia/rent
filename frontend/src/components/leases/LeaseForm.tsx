@@ -1818,7 +1818,7 @@ export function LeaseForm({ initialData, isEditing = false }: LeaseFormProps) {
         if (!cancelled) setFormLoadError(true);
       }
     };
-    loadData();
+    void loadData();
     return () => {
       cancelled = true;
     };

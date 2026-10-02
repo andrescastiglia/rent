@@ -18,6 +18,11 @@ OpenAPI web/mobile se regeneraron desde el backend compilado. Los adaptadores
 conservan paginación e idempotencia, y el contrato generado permite preflight
 con `Idempotency-Key`.
 
+La lectura de agregados productivos detectó calendarios sin próxima fecha y
+series históricas incompletas para ajustes. El [procedimiento de corrección](scheduled-billing.md#revisión-de-datos-antes-de-reactivar-2026-10-02)
+conserva la facturación suspendida, exige decisiones por contrato y evita
+reescribir facturas/snapshots. No se modificaron datos productivos.
+
 Referencias: [anulaciones](payment-reversals.md),
 [facturación](scheduled-billing.md), [ajustes](rent-adjustments.md),
 [proveedores](external-providers.md), [modelo](adr-001-modelo-producto.md),
@@ -44,7 +49,17 @@ contrato de escritorio y portal comprador.
 
 [Resultados y capturas](evidence/2026-10-02-validation/web/result.json).
 La revisión automatizada y estas interacciones no equivalen a certificación
-integral de WCAG ni sustituyen una revisión con lector de pantalla.
+integral de WCAG. Se revisaron además los anuncios de Orca 50.2 con Firefox
+y AT-SPI: 18 pantallas, encabezados, nombres/estados de controles y tablas,
+con teclado nativo y los mismos roles/datos aislados. El menú móvil cierra con
+Escape y devuelve el foco; el comprador accede a la segunda página y al
+calendario de cuotas de sólo lectura mediante teclado.
+[Revisión con lector](evidence/2026-10-02-validation/screen-reader.json).
+Orca/Chrome produjo una recursión interna al recorrer el encabezado del contrato;
+la revisión completa se realizó en Firefox. Se corrigieron la etiqueta de salida
+del portal inquilino (estaba fija en inglés) y su objetivo táctil a 44 px.
+La revisión de anuncios por Ingeniería no acredita todas las combinaciones de
+lectores/navegadores ni sustituye una evaluación integral de WCAG.
 
 Las 128 suites web (1291 casos), 34 móviles (408 casos) y 32 batch (325 casos)
 pasaron completas. Las reglas de asistencia tienen pruebas de tiempos,
@@ -109,7 +124,17 @@ confirmaron controles fuera del área visible en Más y en el formulario de
 cobro; Detox ahora desplaza el contenido antes de accionar. Se corrige la
 etiqueta Propiedades y se espera la restauración de sesión antes de montar
 el árbol nativo. Estas correcciones pasan UT y tipos; se exige su nuevo CI.
-Falta también la revisión con lector de pantalla.
+El CI de `282da7f` aprobó los demás gates y la compilación iOS con Xcode 26.3,
+pero detectó una carrera nativa Android y acciones antes de terminar la
+navegación, dos promesas web sin marca explícita y un chequeo Metro con
+dirección distinta de la usada por Expo. Se aplica el backport acotado de
+[react-native-screens #4498](https://github.com/software-mansion/react-native-screens/pull/4498)
+a 4.25.2 mediante instalador idempotente que rechaza otra versión/fuente.
+Detox espera la nueva pantalla antes de desplazar o llenar; iOS consulta
+`localhost` como Expo y conserva logs/capturas sin subir DerivedData. Las
+promesas ya capturan sus errores y se marcan explícitamente con `void`.
+Estas correcciones requieren un nuevo CI nativo; no se consideran aprobadas
+por compilar o por sus UT. La revisión con lector descrita arriba sí se ejecutó.
 
 RAG se verificó con `scripts/qa/rag-local.py`: base dedicada, fixture ficticio de
 dos compañías, backfill, API/worker de loopback y proveedor real. Pasaron los

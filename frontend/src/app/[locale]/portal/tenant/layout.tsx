@@ -25,6 +25,7 @@ export default function TenantPortalLayout({
   const router = useLocalizedRouter();
   const locale = useLocale();
   const t = useTranslations("tenantPortal");
+  const authText = useTranslations("auth");
   const pathname = usePathname();
 
   useEffect(() => {
@@ -98,8 +99,8 @@ export default function TenantPortalLayout({
             </span>
             <button
               onClick={logout}
-              className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
-              aria-label="Logout"
+              className="flex min-h-11 min-w-11 items-center justify-center gap-1 text-sm text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors"
+              aria-label={authText("logout")}
             >
               <LogOut className="h-4 w-4" />
             </button>
