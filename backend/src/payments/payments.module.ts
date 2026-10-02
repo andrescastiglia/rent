@@ -1,3 +1,5 @@
+import { CompanyFinancialSettingsController } from './company-financial-settings.controller';
+import { CompanyFinancialSettingsService } from './company-financial-settings.service';
 import { PaymentEffectsService } from './payment-effects.service';
 import { InvoiceEffectsService } from './invoice-effects.service';
 import { InvoiceEffectsController } from './invoice-effects.controller';
@@ -66,6 +68,7 @@ import { CommunicationsModule } from '../communications/communications.module';
     CommunicationsModule,
   ],
   controllers: [
+    CompanyFinancialSettingsController,
     ScheduledBillingController,
     InvoiceEffectsController,
     PaymentEffectsController,
@@ -75,6 +78,7 @@ import { CommunicationsModule } from '../communications/communications.module';
     PaymentDocumentTemplatesController,
   ],
   providers: [
+    CompanyFinancialSettingsService,
     ScheduledBillingService,
     InvoiceEffectsService,
     PaymentEffectsService,

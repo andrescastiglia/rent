@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
-import { Building2, FileText, LayoutDashboard } from "lucide-react";
+import { Building2, FileText, LayoutDashboard, Wrench } from "lucide-react";
 import { hasUserRole } from "@/lib/permissions";
 
 export default function OwnerPortalLayout({
@@ -26,7 +26,7 @@ export default function OwnerPortalLayout({
     }
   }, [user, router]);
 
-  if (!user) return null;
+  if (!user || !hasUserRole(user, "owner")) return null;
 
   const ownerBase = `/${locale}/portal/owner`;
 
@@ -47,6 +47,12 @@ export default function OwnerPortalLayout({
       href: `${ownerBase}/settlements`,
       label: t("nav.settlements"),
       icon: FileText,
+      exact: false,
+    },
+    {
+      href: `${ownerBase}/maintenance`,
+      label: t("nav.maintenance"),
+      icon: Wrench,
       exact: false,
     },
   ];
@@ -79,6 +85,7 @@ export default function OwnerPortalLayout({
               <Link
                 key={href}
                 href={href}
+                aria-current={active ? "page" : undefined}
                 className={`flex-1 flex flex-col items-center py-3 gap-1 text-xs font-medium transition-colors ${
                   active
                     ? "text-blue-600 dark:text-blue-400"

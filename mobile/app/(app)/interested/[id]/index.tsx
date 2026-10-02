@@ -1,6 +1,8 @@
+import { Text, View } from '@/components/themed-native';
+import { useConfirmationDialog } from '@/components/use-confirmation-dialog';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { interestedApi } from '@/api/interested';
@@ -8,6 +10,7 @@ import { Screen } from '@/components/screen';
 import { AppButton, H1 } from '@/components/ui';
 
 export default function InterestedDetailScreen() {
+  const dialog = useConfirmationDialog();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -36,13 +39,20 @@ export default function InterestedDetailScreen() {
   const profile = query.data;
 
   return (
-    <Screen>
+    <Screen
+      guidanceBlocked={
+        dialog.open ||
+        query.isError ||
+        deleteMutation.isPending ||
+        deleteMutation.isError
+      }
+    >
       <H1>{t('interested.title')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
       {query.error ? (
         <Text style={styles.error}>{query.error.message}</Text>
       ) : null}
-      {!query.isLoading && !profile ? (
+      {!query.isLoading && !query.error && !profile ? (
         <Text>{t('interested.noResults')}</Text>
       ) : null}
 
@@ -94,7 +104,7 @@ export default function InterestedDetailScreen() {
             loading={deleteMutation.isPending}
             testID="interestedDetail.delete"
             onPress={() => {
-              Alert.alert(t('common.delete'), t('messages.deleteConfirm'), [
+              dialog.confirm(t('common.delete'), t('messages.deleteConfirm'), [
                 { text: t('common.cancel'), style: 'cancel' },
                 {
                   text: t('common.delete'),

@@ -1,15 +1,17 @@
 import PDFDocument from "pdfkit";
+import type { EntityManager } from "typeorm";
+type ReportDatabase = Pick<EntityManager, "query">;
 import { AppDataSource } from "../shared/database";
 import { logger } from "../shared/logger";
 
-/**
- * Report type.
- */
 export type ReportType = "monthly_summary" | "settlement";
-
-/**
- * Monthly summary data.
- */
+export interface FinancialTotals {
+  subtotal: number;
+  withholdings: number;
+  total: number;
+  paid: number;
+  pending: number;
+}
 export interface MonthlySummaryData {
   ownerId: string;
   ownerName: string;
@@ -19,48 +21,41 @@ export interface MonthlySummaryData {
     invoiceNumber: string;
     tenantName: string;
     propertyAddress: string;
-    subtotal: number;
-    withholdings: number;
-    total: number;
-    status: string;
-  }>;
-  totals: {
+    currency: string;
     subtotal: number;
     withholdings: number;
     total: number;
     paid: number;
     pending: number;
-  };
+    status: string;
+  }>;
+  totalsByCurrency: Record<string, FinancialTotals>;
 }
-
-/**
- * Settlement data.
- */
 export interface SettlementData {
   ownerId: string;
   ownerName: string;
   ownerCuit?: string;
   period: string;
-  invoices: Array<{
-    invoiceNumber: string;
-    tenant: string;
-    property: string;
-    amount: number;
-  }>;
-  deductions: Array<{
-    description: string;
-    amount: number;
-  }>;
-  summary: {
+  settlements: Array<{
+    id: string;
+    currency: string;
+    status: string;
     grossAmount: number;
-    totalDeductions: number;
+    commissionAmount: number;
+    withholdingsAmount: number;
     netAmount: number;
-  };
+    invoices: Array<{ invoiceNumber: string; grossAmount: string }>;
+  }>;
+  totalsByCurrency: Record<
+    string,
+    {
+      grossAmount: number;
+      commissionAmount: number;
+      withholdingsAmount: number;
+      netAmount: number;
+    }
+  >;
 }
-
-/**
- * Report generation result.
- */
 export interface ReportResult {
   success: boolean;
   pdfUrl?: string;
@@ -68,357 +63,398 @@ export interface ReportResult {
   error?: string;
 }
 
-/**
- * Service for generating PDF reports.
- */
+/** Reports read accounting records; they never generate or simulate a settlement. */
 export class ReportService {
-  /**
-   * Generates a monthly summary report for an owner.
-   *
-   * @param ownerId - Owner ID.
-   * @param year - Year.
-   * @param month - Month (1-12).
-   * @returns Report result with DB-backed PDF URL.
-   */
   async generateMonthlySummary(
     ownerId: string,
     year: number,
     month: number,
+    dryRun = false,
   ): Promise<ReportResult> {
-    logger.info("Generating monthly summary", { ownerId, year, month });
-
-    try {
-      const data = await this.fetchMonthlySummaryData(ownerId, year, month);
-      const filename = `monthly_summary_${ownerId}_${year}_${month}.pdf`;
-      const pdfBuffer = await this.generateMonthlySummaryPdf(data);
-      const pdfUrl = await this.persistPdfDocument(
-        ownerId,
-        "monthly_summary",
-        filename,
-        `Resumen mensual ${year}-${String(month).padStart(2, "0")} (${ownerId})`,
-        pdfBuffer,
-        { year, month },
-      );
-
-      return { success: true, pdfUrl };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error("Failed to generate monthly summary", {
-        ownerId,
-        error: errorMsg,
-      });
-      return { success: false, error: errorMsg };
-    }
+    return this.generate(
+      ownerId,
+      "monthly_summary",
+      `${year}-${String(month).padStart(2, "0")}`,
+      dryRun,
+    );
   }
 
-  /**
-   * Generates a settlement report for an owner.
-   *
-   * @param ownerId - Owner ID.
-   * @param period - Period string (e.g., "2025-12").
-   * @returns Report result with DB-backed PDF URL.
-   */
   async generateSettlement(
     ownerId: string,
     period: string,
+    dryRun = false,
   ): Promise<ReportResult> {
-    logger.info("Generating settlement", { ownerId, period });
+    return this.generate(ownerId, "settlement", period, dryRun);
+  }
 
+  private async generate(
+    ownerId: string,
+    type: ReportType,
+    period: string,
+    dryRun: boolean,
+  ): Promise<ReportResult> {
     try {
-      const data = await this.fetchSettlementData(ownerId, period);
-      const filename = `settlement_${ownerId}_${period}.pdf`;
-      const pdfBuffer = await this.generateSettlementPdf(data);
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period))
+        throw new Error("Report period must be YYYY-MM");
+      const [year, month] = period.split("-").map(Number);
+      const data = await AppDataSource.transaction(
+        "REPEATABLE READ",
+        async (database) => {
+          await database.query("SET TRANSACTION READ ONLY");
+          return type === "monthly_summary"
+            ? this.fetchMonthlySummaryData(ownerId, year, month, database)
+            : this.fetchSettlementData(ownerId, period, database);
+        },
+      );
+      const pdfBuffer = await this.writePdf((doc) => {
+        doc
+          .fontSize(18)
+          .text(
+            type === "monthly_summary"
+              ? "Resumen mensual"
+              : "Liquidaciones registradas",
+            { align: "center" },
+          );
+        doc
+          .fontSize(12)
+          .text(`${data.ownerName} · ${period}`, { align: "center" });
+        doc.moveDown();
+        if ("invoices" in data) this.renderMonthly(doc, data);
+        else this.renderSettlements(doc, data);
+      });
+      if (dryRun) return { success: true, pdfBuffer };
+      const filename = `${type}_${ownerId}_${period}.pdf`;
       const pdfUrl = await this.persistPdfDocument(
         ownerId,
-        "settlement",
+        type,
         filename,
-        `Liquidación ${period} (${ownerId})`,
+        `${type === "monthly_summary" ? "Resumen mensual" : "Liquidaciones"} ${period}`,
         pdfBuffer,
-        { period },
+        { period, currencies: Object.keys(data.totalsByCurrency) },
       );
-
       return { success: true, pdfUrl };
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error("Failed to generate settlement", {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error("Report generation failed", {
         ownerId,
-        error: errorMsg,
+        type,
+        period,
+        error: message,
       });
-      return { success: false, error: errorMsg };
+      return { success: false, error: message };
     }
   }
 
-  /**
-   * Generates PDF buffer for a monthly summary.
-   */
-  private async generateMonthlySummaryPdf(
+  private renderMonthly(
+    doc: InstanceType<typeof PDFDocument>,
     data: MonthlySummaryData,
-  ): Promise<Buffer> {
-    const pdfBuffer = await this.writePdf((doc) => {
-      const monthNames = [
-        "Enero",
-        "Febrero",
-        "Marzo",
-        "Abril",
-        "Mayo",
-        "Junio",
-        "Julio",
-        "Agosto",
-        "Septiembre",
-        "Octubre",
-        "Noviembre",
-        "Diciembre",
-      ];
-
-      doc.fontSize(18).text("Resumen Mensual", { align: "center" });
-      doc.moveDown(0.25);
-      doc.fontSize(12).text(`${monthNames[data.month - 1]} ${data.year}`, {
-        align: "center",
-      });
-      doc.moveDown(0.25);
-      doc.fontSize(12).text(data.ownerName, { align: "center" });
-      doc.moveDown();
-
-      const tableTop = doc.y;
-      const left = doc.page.margins.left;
-      const right = doc.page.width - doc.page.margins.right;
-      const rowHeight = 16;
-
-      const columns = {
-        invoice: left,
-        tenant: left + 70,
-        property: left + 190,
-        subtotal: right - 220,
-        withholdings: right - 160,
-        total: right - 100,
-        status: right - 40,
-      };
-
-      const drawHeader = () => {
-        doc.fontSize(9).font("Helvetica-Bold");
-        doc.text("Factura", columns.invoice, doc.y, { width: 70 });
-        doc.text("Inquilino", columns.tenant, doc.y, { width: 120 });
-        doc.text("Propiedad", columns.property, doc.y, { width: 180 });
-        doc.text("Subtotal", columns.subtotal, doc.y, {
-          width: 60,
-          align: "right",
-        });
-        doc.text("Ret.", columns.withholdings, doc.y, {
-          width: 60,
-          align: "right",
-        });
-        doc.text("Total", columns.total, doc.y, { width: 60, align: "right" });
-        doc.text("Est.", columns.status, doc.y, { width: 40, align: "right" });
-        doc.moveDown(0.5);
-        doc
-          .moveTo(left, doc.y)
-          .lineTo(right, doc.y)
-          .strokeColor("#CCCCCC")
-          .stroke();
-        doc.moveDown(0.25);
-        doc.font("Helvetica");
-      };
-
-      doc.y = tableTop;
-      drawHeader();
-
-      for (const inv of data.invoices) {
-        ReportService.ensureSpace(doc, rowHeight, drawHeader);
-        const y = doc.y;
-        doc.fontSize(9);
-        doc.text(
-          ReportService.truncate(inv.invoiceNumber, 14),
-          columns.invoice,
-          y,
-          {
-            width: 70,
-          },
-        );
-        doc.text(
-          ReportService.truncate(inv.tenantName, 22),
-          columns.tenant,
-          y,
-          {
-            width: 120,
-          },
-        );
-        doc.text(
-          ReportService.truncate(inv.propertyAddress, 34),
-          columns.property,
-          y,
-          {
-            width: 180,
-          },
-        );
-        doc.text(this.formatCurrency(inv.subtotal), columns.subtotal, y, {
-          width: 60,
-          align: "right",
-        });
-        doc.text(
-          this.formatCurrency(inv.withholdings),
-          columns.withholdings,
-          y,
-          {
-            width: 60,
-            align: "right",
-          },
-        );
-        doc.text(this.formatCurrency(inv.total), columns.total, y, {
-          width: 60,
-          align: "right",
-        });
-        doc.text(ReportService.truncate(inv.status, 8), columns.status, y, {
-          width: 40,
-          align: "right",
-        });
-        doc.y = y + rowHeight;
-      }
-
-      doc.moveDown(0.5);
+  ): void {
+    if (!data.invoices.length)
+      doc.text("No hay facturas registradas para este período.");
+    for (const invoice of data.invoices) {
+      this.ensureSpace(doc, 78);
       doc
-        .moveTo(left, doc.y)
-        .lineTo(right, doc.y)
-        .strokeColor("#CCCCCC")
-        .stroke();
+        .font("Helvetica-Bold")
+        .fontSize(10)
+        .text(
+          `${invoice.invoiceNumber} · ${invoice.currency} · ${invoice.status}`,
+        );
+      doc
+        .font("Helvetica")
+        .text(`${invoice.tenantName} · ${invoice.propertyAddress}`);
+      doc.text(
+        `Total: ${this.formatCurrency(invoice.total, invoice.currency)} · Cobrado: ${this.formatCurrency(invoice.paid, invoice.currency)} · Pendiente: ${this.formatCurrency(invoice.pending, invoice.currency)}`,
+      );
+      doc.moveDown(0.5);
+    }
+    for (const [currency, totals] of Object.entries(data.totalsByCurrency)) {
+      this.ensureSpace(doc, 110);
+      doc.font("Helvetica-Bold").fontSize(12).text(`Totales ${currency}`);
+      doc.font("Helvetica").fontSize(10);
+      for (const [label, amount] of Object.entries({
+        Subtotal: totals.subtotal,
+        Retenciones: totals.withholdings,
+        Total: totals.total,
+        Cobrado: totals.paid,
+        Pendiente: totals.pending,
+      }))
+        doc.text(`${label}: ${this.formatCurrency(amount, currency)}`);
       doc.moveDown();
-
-      doc.font("Helvetica-Bold");
-      doc.text(`Totales`, left, doc.y);
-      doc.font("Helvetica");
-      doc.text(`Subtotal: ${this.formatCurrency(data.totals.subtotal)}`);
-      doc.text(`Retenciones: ${this.formatCurrency(data.totals.withholdings)}`);
-      doc.text(`Total: ${this.formatCurrency(data.totals.total)}`);
-      doc.moveDown(0.25);
-      doc.text(`Cobrado: ${this.formatCurrency(data.totals.paid)}`);
-      doc.text(`Pendiente: ${this.formatCurrency(data.totals.pending)}`);
-    });
-
-    logger.info("Monthly summary PDF rendered in memory", {
-      ownerId: data.ownerId,
-      byteLength: pdfBuffer.length,
-    });
-    return pdfBuffer;
+    }
   }
 
-  /**
-   * Generates PDF buffer for a settlement.
-   */
-  private async generateSettlementPdf(data: SettlementData): Promise<Buffer> {
-    const pdfBuffer = await this.writePdf((doc) => {
-      doc.fontSize(18).text("Liquidación", { align: "center" });
-      doc.moveDown(0.25);
-      doc.fontSize(12).text(`Período: ${data.period}`, { align: "center" });
-      doc.moveDown(0.25);
-      doc.fontSize(12).text(data.ownerName, { align: "center" });
-      if (data.ownerCuit) {
-        doc.fontSize(10).text(`CUIT: ${data.ownerCuit}`, { align: "center" });
-      }
-      doc.moveDown();
-
-      const left = doc.page.margins.left;
-      const right = doc.page.width - doc.page.margins.right;
-      const rowHeight = 16;
-
-      doc.fontSize(12).font("Helvetica-Bold").text("Detalle de Cobros");
-      doc.font("Helvetica");
-      doc.moveDown(0.5);
-
-      const columns = {
-        invoice: left,
-        tenant: left + 80,
-        property: left + 210,
-        amount: right - 80,
-      };
-
-      const drawHeader = () => {
-        doc.fontSize(9).font("Helvetica-Bold");
-        doc.text("Factura", columns.invoice, doc.y, { width: 80 });
-        doc.text("Inquilino", columns.tenant, doc.y, { width: 130 });
-        doc.text("Propiedad", columns.property, doc.y, { width: 220 });
-        doc.text("Monto", columns.amount, doc.y, { width: 80, align: "right" });
-        doc.moveDown(0.5);
-        doc
-          .moveTo(left, doc.y)
-          .lineTo(right, doc.y)
-          .strokeColor("#CCCCCC")
-          .stroke();
-        doc.moveDown(0.25);
-        doc.font("Helvetica");
-      };
-
-      drawHeader();
-      for (const inv of data.invoices) {
-        ReportService.ensureSpace(doc, rowHeight, drawHeader);
-        const y = doc.y;
-        doc.fontSize(9);
-        doc.text(
-          ReportService.truncate(inv.invoiceNumber, 16),
-          columns.invoice,
-          y,
-          {
-            width: 80,
-          },
-        );
-        doc.text(ReportService.truncate(inv.tenant, 24), columns.tenant, y, {
-          width: 130,
-        });
-        doc.text(
-          ReportService.truncate(inv.property, 40),
-          columns.property,
-          y,
-          {
-            width: 220,
-          },
-        );
-        doc.text(this.formatCurrency(inv.amount), columns.amount, y, {
-          width: 80,
-          align: "right",
-        });
-        doc.y = y + rowHeight;
-      }
-
-      doc.moveDown();
-      doc.font("Helvetica-Bold").text("Deducciones");
-      doc.font("Helvetica");
-      for (const d of data.deductions) {
-        doc.text(`${d.description}: -${this.formatCurrency(d.amount)}`);
-      }
-      doc.moveDown(0.5);
+  private renderSettlements(
+    doc: InstanceType<typeof PDFDocument>,
+    data: SettlementData,
+  ): void {
+    if (data.ownerCuit) doc.text(`CUIT: ${data.ownerCuit}`);
+    if (!data.settlements.length)
+      doc.text(
+        "No hay liquidaciones registradas para este período. Este informe no calcula ni autoriza transferencias.",
+      );
+    for (const settlement of data.settlements) {
+      this.ensureSpace(doc, 125);
       doc
-        .moveTo(left, doc.y)
-        .lineTo(right, doc.y)
-        .strokeColor("#CCCCCC")
-        .stroke();
-      doc.moveDown(0.5);
-
-      doc.font("Helvetica-Bold");
-      doc.text(`Total Bruto: ${this.formatCurrency(data.summary.grossAmount)}`);
+        .font("Helvetica-Bold")
+        .fontSize(11)
+        .text(
+          `${settlement.id} · ${settlement.currency} · ${settlement.status}`,
+        );
+      doc.font("Helvetica").fontSize(10);
       doc.text(
-        `Total Deducciones: ${this.formatCurrency(data.summary.totalDeductions)}`,
+        `Bruto: ${this.formatCurrency(settlement.grossAmount, settlement.currency)}`,
       );
       doc.text(
-        `Neto a Depositar: ${this.formatCurrency(data.summary.netAmount)}`,
+        `Comisión registrada: ${this.formatCurrency(settlement.commissionAmount, settlement.currency)}`,
       );
+      doc.text(
+        `Retenciones: ${this.formatCurrency(settlement.withholdingsAmount, settlement.currency)}`,
+      );
+      doc.text(
+        `Neto registrado: ${this.formatCurrency(settlement.netAmount, settlement.currency)}`,
+      );
+      if (!settlement.invoices.length)
+        doc.text(
+          "Liquidación histórica: detalle de origen pendiente de conciliación.",
+        );
+      for (const invoice of settlement.invoices) {
+        this.ensureSpace(doc, 25);
+        doc.text(
+          `${invoice.invoiceNumber}: ${this.formatCurrency(this.amount(invoice.grossAmount), settlement.currency)}`,
+        );
+      }
+      doc.moveDown();
+    }
+    for (const [currency, totals] of Object.entries(data.totalsByCurrency)) {
+      this.ensureSpace(doc, 95);
+      doc.font("Helvetica-Bold").text(`Totales registrados ${currency}`);
       doc.font("Helvetica");
-    });
+      doc.text(
+        `Bruto: ${this.formatCurrency(totals.grossAmount, currency)} · Comisión: ${this.formatCurrency(totals.commissionAmount, currency)}`,
+      );
+      doc.text(
+        `Retenciones: ${this.formatCurrency(totals.withholdingsAmount, currency)} · Neto: ${this.formatCurrency(totals.netAmount, currency)}`,
+      );
+      doc.moveDown();
+    }
+  }
 
-    logger.info("Settlement PDF rendered in memory", {
-      ownerId: data.ownerId,
-      period: data.period,
-      byteLength: pdfBuffer.length,
+  private ensureSpace(
+    doc: InstanceType<typeof PDFDocument>,
+    height: number,
+  ): void {
+    if (doc.y + height > doc.page.height - doc.page.margins.bottom)
+      doc.addPage();
+  }
+
+  private formatCurrency(amount: number, currency: string): string {
+    return `${currency} ${amount.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  private text(value: unknown): string {
+    if (typeof value !== "string")
+      throw new TypeError("Invalid accounting text");
+    return value;
+  }
+
+  private amount(value: unknown): number {
+    if (value === null || value === undefined || value === "")
+      throw new Error("Missing accounting amount");
+    if (typeof value !== "string" && typeof value !== "number")
+      throw new TypeError("Invalid accounting amount type");
+    if (typeof value === "string" && !/^\d+(\.\d{1,2})?$/.test(value))
+      throw new TypeError("Invalid accounting amount format");
+    const amount = Number(value);
+    if (
+      !Number.isFinite(amount) ||
+      amount < 0 ||
+      !Number.isSafeInteger(Math.round(amount * 100))
+    )
+      throw new Error("Invalid accounting amount");
+    return Math.round(amount * 100) / 100;
+  }
+
+  private add(left: number, right: number): number {
+    return (Math.round(left * 100) + Math.round(right * 100)) / 100;
+  }
+
+  private async owner(
+    ownerId: string,
+    database: ReportDatabase = AppDataSource,
+  ): Promise<{ companyId: string; name: string; taxId?: string }> {
+    const [owner] = await database.query(
+      `SELECT o.company_id AS "companyId", o.tax_id AS "taxId",
+        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', u.first_name, u.last_name)), ''), u.email, 'Propietario') AS name
+       FROM owners o LEFT JOIN users u ON u.id=o.user_id AND u.company_id=o.company_id
+       WHERE o.id=$1 AND o.deleted_at IS NULL`,
+      [ownerId],
+    );
+    if (!owner?.companyId) throw new Error(`Owner not found: ${ownerId}`);
+    return owner;
+  }
+
+  private async fetchMonthlySummaryData(
+    ownerId: string,
+    year: number,
+    month: number,
+    database: ReportDatabase,
+  ): Promise<MonthlySummaryData> {
+    const owner = await this.owner(ownerId, database);
+    const period = `${year}-${String(month).padStart(2, "0")}`;
+    const rows = await database.query(
+      `SELECT i.invoice_number AS "invoiceNumber", i.currency,
+        COALESCE(NULLIF(TRIM(CONCAT_WS(' ', tu.first_name, tu.last_name)), ''), 'Inquilino') AS "tenantName",
+        CONCAT_WS(' ', p.address_street, p.address_number) AS "propertyAddress", i.subtotal,
+        (COALESCE(i.withholding_iibb,0)+COALESCE(i.withholding_ganancias,0)+COALESCE(i.withholding_other,0)) AS withholdings,
+        i.total_amount AS total, i.paid_amount AS paid, i.status,
+        COALESCE(a.collected,0) AS collected, COALESCE(c.credited,0) AS credited
+       FROM invoices i
+       JOIN leases l ON l.id=i.lease_id AND l.company_id=$2
+       JOIN properties p ON p.id=l.property_id AND p.company_id=$2
+       LEFT JOIN tenant_accounts ta ON ta.id=i.tenant_account_id AND ta.company_id=$2
+       LEFT JOIN tenants t ON t.id=ta.tenant_id AND t.company_id=$2
+       LEFT JOIN users tu ON tu.id=t.user_id AND tu.company_id=$2
+       LEFT JOIN LATERAL (
+         SELECT SUM(pa.amount-pa.refunded_amount) AS collected FROM payment_allocations pa
+         JOIN payments payment ON payment.id=pa.payment_id AND payment.company_id=$2
+         WHERE pa.invoice_id=i.id AND pa.company_id=$2 AND pa.reversed_at IS NULL
+           AND payment.status='completed' AND payment.allocations_recorded AND payment.deleted_at IS NULL AND payment.currency=i.currency
+           AND payment.tenant_id=ta.tenant_id
+           AND COALESCE(payment.tenant_account_id, (SELECT origin.tenant_account_id FROM invoices origin WHERE origin.id=payment.invoice_id AND origin.company_id=$2))=i.tenant_account_id
+           AND (SELECT SUM(active.amount-active.refunded_amount) FROM payment_allocations active WHERE active.payment_id=payment.id AND active.reversed_at IS NULL)<=(payment.amount-payment.refunded_amount)
+       ) a ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT SUM(cn.amount) AS credited FROM credit_notes cn WHERE cn.invoice_id=i.id AND cn.company_id=$2
+           AND cn.status='issued' AND cn.deleted_at IS NULL AND cn.currency=i.currency
+       ) c ON TRUE
+       WHERE i.owner_id=$1 AND i.company_id=$2 AND i.deleted_at IS NULL AND i.status<>'cancelled'
+         AND i.period_start>=($3 || '-01')::date AND i.period_start<(($3 || '-01')::date+INTERVAL '1 month')
+       ORDER BY i.created_at, i.id`,
+      [ownerId, owner.companyId, period],
+    );
+    const totalsByCurrency: MonthlySummaryData["totalsByCurrency"] = {};
+    const invoices = rows.map((row: Record<string, unknown>) => {
+      const currency = typeof row.currency === "string" ? row.currency : "";
+      if (!currency) throw new Error("Missing invoice currency");
+      const collected = this.amount(row.collected);
+      const paid = this.amount(row.paid);
+      if (collected !== paid)
+        throw new Error(
+          `Invoice ${row.invoiceNumber} requires collection reconciliation`,
+        );
+      const total = Math.max(
+        0,
+        this.add(this.amount(row.total), -this.amount(row.credited)),
+      );
+      const pending = Math.max(0, this.add(total, -paid));
+      const invoice = {
+        invoiceNumber: this.text(row.invoiceNumber),
+        tenantName: this.text(row.tenantName),
+        propertyAddress: this.text(row.propertyAddress),
+        currency,
+        subtotal: this.amount(row.subtotal),
+        withholdings: this.amount(row.withholdings),
+        total,
+        paid,
+        pending,
+        status: this.text(row.status),
+      };
+      const totals = (totalsByCurrency[currency] ??= {
+        subtotal: 0,
+        withholdings: 0,
+        total: 0,
+        paid: 0,
+        pending: 0,
+      });
+      for (const key of [
+        "subtotal",
+        "withholdings",
+        "total",
+        "paid",
+        "pending",
+      ] as const)
+        totals[key] = this.add(totals[key], invoice[key]);
+      return invoice;
     });
-    return pdfBuffer;
+    return {
+      ownerId,
+      ownerName: owner.name,
+      month,
+      year,
+      invoices,
+      totalsByCurrency,
+    };
+  }
+
+  private async fetchSettlementData(
+    ownerId: string,
+    period: string,
+    database: ReportDatabase,
+  ): Promise<SettlementData> {
+    const owner = await this.owner(ownerId, database);
+    const rows = await database.query(
+      `SELECT s.id,s.currency,s.status,s.gross_amount AS "grossAmount",s.commission_amount AS "commissionAmount",
+         s.withholdings_amount AS "withholdingsAmount",s.net_amount AS "netAmount",
+         COALESCE(g.snapshot->'calculation'->'invoices','[]'::jsonb) AS invoices
+       FROM settlements s JOIN owners o ON o.id=s.owner_id AND o.company_id=$2 AND o.deleted_at IS NULL
+       LEFT JOIN settlement_generations g ON g.settlement_id=s.id AND g.company_id=$2
+       WHERE s.owner_id=$1 AND s.period=$3 AND s.status<>'cancelled' ORDER BY s.created_at,s.id`,
+      [ownerId, owner.companyId, period],
+    );
+    const totalsByCurrency: SettlementData["totalsByCurrency"] = {};
+    const settlements = rows.map((row: Record<string, unknown>) => {
+      const currency = typeof row.currency === "string" ? row.currency : "";
+      if (!currency) throw new Error("Missing settlement currency");
+      const settlement = {
+        id: this.text(row.id),
+        currency,
+        status: this.text(row.status),
+        grossAmount: this.amount(row.grossAmount),
+        commissionAmount: this.amount(row.commissionAmount),
+        withholdingsAmount: this.amount(row.withholdingsAmount),
+        netAmount: this.amount(row.netAmount),
+        invoices:
+          row.invoices as SettlementData["settlements"][number]["invoices"],
+      };
+      if (
+        this.add(
+          this.add(settlement.grossAmount, -settlement.commissionAmount),
+          -settlement.withholdingsAmount,
+        ) !== settlement.netAmount
+      )
+        throw new Error(
+          `Settlement ${settlement.id} requires accounting reconciliation`,
+        );
+      const totals = (totalsByCurrency[currency] ??= {
+        grossAmount: 0,
+        commissionAmount: 0,
+        withholdingsAmount: 0,
+        netAmount: 0,
+      });
+      for (const key of [
+        "grossAmount",
+        "commissionAmount",
+        "withholdingsAmount",
+        "netAmount",
+      ] as const)
+        totals[key] = this.add(totals[key], settlement[key]);
+      return settlement;
+    });
+    return {
+      ownerId,
+      ownerName: owner.name,
+      ownerCuit: owner.taxId,
+      period,
+      settlements,
+      totalsByCurrency,
+    };
   }
 
   private async writePdf(
     render: (doc: InstanceType<typeof PDFDocument>) => void,
   ): Promise<Buffer> {
-    return new Promise<Buffer>((resolve, reject) => {
-      const doc = new PDFDocument({
-        size: "A4",
-        margin: 50,
-        autoFirstPage: true,
-      });
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ size: "A4", margin: 50 });
       const chunks: Buffer[] = [];
       doc.on("data", (chunk: Buffer | Uint8Array) =>
         chunks.push(Buffer.from(chunk)),
@@ -428,8 +464,8 @@ export class ReportService {
       try {
         render(doc);
         doc.end();
-      } catch (e) {
-        reject(e);
+      } catch (error) {
+        reject(error);
       }
     });
   }
@@ -442,38 +478,14 @@ export class ReportService {
     pdfBuffer: Buffer,
     metadata: Record<string, unknown>,
   ): Promise<string> {
-    const companyId = await this.resolveOwnerCompanyId(ownerId);
-    const result = await AppDataSource.query(
-      `INSERT INTO documents (
-                company_id,
-                document_type,
-                status,
-                name,
-                description,
-                file_url,
-                file_size,
-                file_mime_type,
-                entity_type,
-                entity_id,
-                metadata,
-                file_data
-             ) VALUES (
-                $1,
-                'other',
-                'approved',
-                $2,
-                $3,
-                'db://document/pending',
-                $4,
-                'application/pdf',
-                'owner',
-                $5,
-                $6::jsonb,
-                $7
-             )
-             RETURNING id`,
+    const owner = await this.owner(ownerId);
+    // A single statement persists the bytes and their final URL atomically.
+    const [document] = await AppDataSource.query(
+      `WITH identity AS (SELECT gen_random_uuid() AS id)
+       INSERT INTO documents(id,company_id,document_type,status,name,description,file_url,file_size,file_mime_type,entity_type,entity_id,metadata,file_data)
+       SELECT id,$1,'other','approved',$2,$3,'db://document/' || id::text,$4,'application/pdf','owner',$5,$6::jsonb,$7 FROM identity RETURNING id`,
       [
-        companyId,
+        owner.companyId,
         filename,
         description,
         pdfBuffer.length,
@@ -482,230 +494,8 @@ export class ReportService {
         pdfBuffer,
       ],
     );
-
-    const documentId = result[0]?.id as string | undefined;
-    if (!documentId) {
-      throw new Error(
-        `Failed to persist report PDF for owner ${ownerId} (${reportType})`,
-      );
-    }
-
-    const dbUrl = `db://document/${documentId}`;
-    await AppDataSource.query(
-      `UPDATE documents
-             SET file_url = $2
-             WHERE id = $1`,
-      [documentId, dbUrl],
-    );
-
-    logger.info("Report PDF persisted in database", {
-      ownerId,
-      reportType,
-      documentId,
-      byteLength: pdfBuffer.length,
-    });
-
-    return dbUrl;
-  }
-
-  private async resolveOwnerCompanyId(ownerId: string): Promise<string> {
-    const result = await AppDataSource.query(
-      `SELECT company_id
-             FROM owners
-             WHERE id = $1
-                OR user_id = $1
-             ORDER BY CASE WHEN id = $1 THEN 0 ELSE 1 END
-             LIMIT 1`,
-      [ownerId],
-    );
-
-    const companyId = result[0]?.company_id as string | undefined;
-    if (!companyId) {
-      throw new Error(`Missing company for owner reference ${ownerId}`);
-    }
-
-    return companyId;
-  }
-
-  private static ensureSpace(
-    doc: InstanceType<typeof PDFDocument>,
-    rowHeight: number,
-    drawHeader: () => void,
-  ): void {
-    if (doc.y + rowHeight * 2 > doc.page.height - doc.page.margins.bottom) {
-      doc.addPage();
-      drawHeader();
-    }
-  }
-
-  private static truncate(value: string, max: number): string {
-    return value.length > max
-      ? `${value.slice(0, Math.max(0, max - 1))}…`
-      : value;
-  }
-
-  private formatCurrency(value: number): string {
-    return `$${value.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`;
-  }
-
-  /**
-   * Fetches monthly summary data from database.
-   */
-  private async fetchMonthlySummaryData(
-    ownerId: string,
-    year: number,
-    month: number,
-  ): Promise<MonthlySummaryData> {
-    const ownerResult = await AppDataSource.query(
-      `SELECT u.first_name, u.last_name FROM users u
-             JOIN owners o ON o.user_id = u.id
-             WHERE o.id = $1`,
-      [ownerId],
-    );
-
-    const ownerName =
-      ownerResult.length > 0
-        ? `${ownerResult[0].first_name} ${ownerResult[0].last_name}`
-        : "Propietario";
-
-    const invoicesResult = await AppDataSource.query(
-      `SELECT 
-                i.invoice_number as "invoiceNumber",
-                CONCAT(tu.first_name, ' ', tu.last_name) as "tenantName",
-                CONCAT_WS(' ', p.address_street, p.address_number) as "propertyAddress",
-                i.subtotal,
-                (COALESCE(i.withholding_iibb, 0) + COALESCE(i.withholding_ganancias, 0) + COALESCE(i.withholding_other, 0)) as withholdings,
-                i.total_amount as total,
-                i.status,
-                i.paid_amount as "amountPaid"
-             FROM invoices i
-             JOIN leases l ON l.id = i.lease_id
-             JOIN properties p ON p.id = l.property_id
-             JOIN tenant_accounts ta ON ta.id = i.tenant_account_id
-             JOIN tenants t ON t.id = ta.tenant_id
-             JOIN users tu ON tu.id = t.user_id
-             WHERE i.owner_id = $1
-               AND EXTRACT(YEAR FROM i.period_start) = $2
-               AND EXTRACT(MONTH FROM i.period_start) = $3
-               AND i.deleted_at IS NULL
-             ORDER BY i.created_at`,
-      [ownerId, year, month],
-    );
-
-    const invoices: Array<{
-      invoiceNumber: string;
-      tenantName: string;
-      propertyAddress: string;
-      subtotal: number;
-      withholdings: number;
-      total: number;
-      status: string;
-      amountPaid: number;
-    }> = invoicesResult.map((row: Record<string, unknown>) => ({
-      invoiceNumber: row.invoiceNumber as string,
-      tenantName: row.tenantName as string,
-      propertyAddress: row.propertyAddress as string,
-      subtotal: Number.parseFloat(row.subtotal as string),
-      withholdings: Number.parseFloat(row.withholdings as string),
-      total: Number.parseFloat(row.total as string),
-      status: row.status as string,
-      amountPaid: Number.parseFloat(row.amountPaid as string),
-    }));
-
-    const totals = {
-      subtotal: invoices.reduce((sum: number, i) => sum + i.subtotal, 0),
-      withholdings: invoices.reduce(
-        (sum: number, i) => sum + i.withholdings,
-        0,
-      ),
-      total: invoices.reduce((sum: number, i) => sum + i.total, 0),
-      paid: invoices
-        .filter((i) => i.status === "paid")
-        .reduce((sum: number, i) => sum + i.total, 0),
-      pending: invoices
-        .filter((i) => i.status !== "paid")
-        .reduce((sum: number, i) => sum + i.total, 0),
-    };
-
-    return { ownerId, ownerName, month, year, invoices, totals };
-  }
-
-  /**
-   * Fetches settlement data from database.
-   */
-  private async fetchSettlementData(
-    ownerId: string,
-    period: string,
-  ): Promise<SettlementData> {
-    const [year, month] = period.split("-").map(Number);
-
-    const ownerResult = await AppDataSource.query(
-      `SELECT u.first_name, u.last_name, o.tax_id 
-             FROM users u
-             JOIN owners o ON o.user_id = u.id
-             WHERE o.id = $1`,
-      [ownerId],
-    );
-
-    const ownerName =
-      ownerResult.length > 0
-        ? `${ownerResult[0].first_name} ${ownerResult[0].last_name}`
-        : "Propietario";
-    const ownerCuit = ownerResult[0]?.tax_id;
-
-    const invoicesResult = await AppDataSource.query(
-      `SELECT 
-                i.invoice_number,
-                CONCAT(tu.first_name, ' ', tu.last_name) as tenant,
-                CONCAT_WS(' ', p.address_street, p.address_number) as property,
-                i.total_amount as amount
-             FROM invoices i
-             JOIN leases l ON l.id = i.lease_id
-             JOIN properties p ON p.id = l.property_id
-             JOIN tenant_accounts ta ON ta.id = i.tenant_account_id
-             JOIN tenants t ON t.id = ta.tenant_id
-             JOIN users tu ON tu.id = t.user_id
-             WHERE i.owner_id = $1
-               AND EXTRACT(YEAR FROM i.period_start) = $2
-               AND EXTRACT(MONTH FROM i.period_start) = $3
-               AND i.status = 'paid'
-               AND i.deleted_at IS NULL`,
-      [ownerId, year, month],
-    );
-
-    const invoices: Array<{
-      invoiceNumber: string;
-      tenant: string;
-      property: string;
-      amount: number;
-    }> = invoicesResult.map((row: Record<string, unknown>) => ({
-      invoiceNumber: row.invoice_number as string,
-      tenant: row.tenant as string,
-      property: row.property as string,
-      amount: Number.parseFloat(row.amount as string),
-    }));
-
-    const grossAmount = invoices.reduce((sum: number, i) => sum + i.amount, 0);
-    const commission = grossAmount * 0.05; // 5% commission
-
-    const deductions = [
-      { description: "Comisión de administración (5%)", amount: commission },
-    ];
-
-    const totalDeductions = deductions.reduce((sum, d) => sum + d.amount, 0);
-
-    return {
-      ownerId,
-      ownerName,
-      ownerCuit,
-      period,
-      invoices,
-      deductions,
-      summary: {
-        grossAmount,
-        totalDeductions,
-        netAmount: grossAmount - totalDeductions,
-      },
-    };
+    if (!document?.id)
+      throw new Error(`Failed to persist report PDF for owner ${ownerId}`);
+    return `db://document/${document.id}`;
   }
 }

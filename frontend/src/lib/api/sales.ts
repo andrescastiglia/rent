@@ -7,7 +7,9 @@ import {
   CreateSaleFolderInput,
   CreateSaleAgreementInput,
   CreateSaleReceiptInput,
+  SaleSchedule,
 } from "@/types/sales";
+import type { PageResult } from "../pagination";
 
 const IS_MOCK_MODE =
   process.env.NODE_ENV === "test" ||
@@ -69,6 +71,57 @@ const MOCK_RECEIPTS: Record<string, SaleReceipt[]> = {
 };
 
 export const salesApi = {
+  getAgreementPage: async (filters?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    folderId?: string;
+  }): Promise<PageResult<SaleAgreement>> => {
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      const search = filters?.search?.trim().toLocaleLowerCase();
+      const data = MOCK_AGREEMENTS.filter(
+        (agreement) =>
+          (!filters?.folderId || agreement.folderId === filters.folderId) &&
+          (!search || agreement.buyerName.toLocaleLowerCase().includes(search)),
+      );
+      const page = filters?.page ?? 1,
+        limit = filters?.limit ?? 20;
+      return {
+        data: data.slice((page - 1) * limit, page * limit),
+        total: data.length,
+        page,
+        limit,
+      };
+    }
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters ?? {}))
+      if (value !== undefined && value !== "") query.set(key, String(value));
+    return apiClient.get<PageResult<SaleAgreement>>(
+      "/sales/agreements/page" + (query.size ? "?" + query.toString() : ""),
+      getToken() ?? undefined,
+    );
+  },
+  getSchedule: async (
+    agreementId: string,
+    page = 1,
+    limit = 12,
+  ): Promise<SaleSchedule> =>
+    apiClient.get<SaleSchedule>(
+      `/sales/agreements/${encodeURIComponent(agreementId)}/schedule?page=${page}&limit=${limit}`,
+      getToken() ?? undefined,
+    ),
+  cancelReceipt: async (
+    receiptId: string,
+    reason: string,
+    idempotencyKey: string,
+  ): Promise<SaleReceipt> =>
+    apiClient.patch<SaleReceipt>(
+      `/sales/receipts/${encodeURIComponent(receiptId)}/cancel`,
+      { reason },
+      getToken() ?? undefined,
+      { "Idempotency-Key": idempotencyKey },
+    ),
   downloadReceiptPdf: async (
     receiptId: string,
     receiptNumber: string,
@@ -180,6 +233,7 @@ export const salesApi = {
   createReceipt: async (
     agreementId: string,
     data: CreateSaleReceiptInput,
+    idempotencyKey?: string,
   ): Promise<SaleReceipt> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
@@ -210,6 +264,7 @@ export const salesApi = {
       `/sales/agreements/${agreementId}/receipts`,
       data,
       token ?? undefined,
+      idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
     );
   },
 };

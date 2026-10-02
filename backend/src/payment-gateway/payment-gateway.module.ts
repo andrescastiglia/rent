@@ -1,3 +1,4 @@
+import { PaymentsModule } from '../payments/payments.module';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HttpModule } from '@nestjs/axios';
@@ -13,6 +14,7 @@ import { PaymentGatewayController } from './payment-gateway.controller';
     TypeOrmModule.forFeature([PaymentGatewayTransaction, Invoice, Tenant]),
     HttpModule,
     ConfigModule,
+    PaymentsModule,
   ],
   controllers: [PaymentGatewayController],
   providers: [PaymentGatewayService],

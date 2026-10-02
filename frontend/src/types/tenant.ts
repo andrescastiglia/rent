@@ -11,6 +11,7 @@ export interface Tenant {
   lastName: string;
   email: string;
   phone: string;
+  tenantEntityId?: string;
   dni: string; // Documento Nacional de Identidad
   cuil?: string; // CUIL/CUIT tax ID
   dateOfBirth?: string;
@@ -51,7 +52,7 @@ export interface CreateTenantInput {
   cuil?: string;
   dateOfBirth?: string;
   nationality?: string;
-  status: TenantStatus;
+  status?: TenantStatus;
   address?: {
     street: string;
     number: string;

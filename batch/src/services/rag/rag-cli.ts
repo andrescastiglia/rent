@@ -63,17 +63,18 @@ export const registerRagCommands = (program: Command): void => {
             workerId: worker.workerId,
             ...result,
           });
+          const failed = result.failed + (result.retried ?? 0);
           await batchMetrics.recordJobRun({
             job: "rag-sync",
-            status: result.failed > 0 ? "failed" : "success",
+            status: failed > 0 ? "failed" : "success",
             startedAtNs,
             summary: {
               recordsTotal: result.claimed,
               recordsProcessed: result.processed,
-              recordsFailed: result.failed,
+              recordsFailed: failed,
             },
           });
-          if (result.failed > 0) process.exitCode = 1;
+          if (failed > 0) process.exitCode = 1;
           return;
         }
 
@@ -232,7 +233,7 @@ export const registerRagCommands = (program: Command): void => {
     .action(async (options) => {
       const olderThan = new Date(options.olderThan);
       if (Number.isNaN(olderThan.getTime())) {
-        throw new Error("older-than must be a valid ISO date");
+        throw new TypeError("older-than must be a valid ISO date");
       }
       await withDatabase(async () => {
         const count = await new RagVerificationService().purgeStale(
@@ -266,7 +267,7 @@ export const registerRagCommands = (program: Command): void => {
         ? new Date(options.olderThan)
         : new Date(Date.now() - retentionDays * 86_400_000);
       if (Number.isNaN(olderThan.getTime())) {
-        throw new Error("older-than must be a valid ISO date");
+        throw new TypeError("older-than must be a valid ISO date");
       }
       await withDatabase(async () => {
         const result = await new RagVerificationService().purgeAudit(

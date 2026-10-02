@@ -94,12 +94,12 @@ export function MercadoLibreConnection({
     >
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
       <p>{t("description")}</p>
-      {status && !status.enabled && <p role="status">{t("disabled")}</p>}
-      {status && <p role="status">{t(`status.${status.status}`)}</p>}
+      {status && !status.enabled && <output>{t("disabled")}</output>}
+      {status && <output>{t(`status.${status.status}`)}</output>}
       {status?.sellerId && <p>{t("seller", { id: status.sellerId })}</p>}
       {error && <p role="alert">{t("error")}</p>}
       {callback === null && <p role="alert">{t("invalidCallback")}</p>}
-      {completed && <p role="status">{t("completed")}</p>}
+      {completed && <output>{t("completed")}</output>}
       <div className="flex flex-wrap gap-3">
         <button
           type="button"

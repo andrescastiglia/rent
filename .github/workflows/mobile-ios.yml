@@ -1,0 +1,88 @@
+name: Mobile iOS validation
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-simulator:
+    name: iOS simulator build and complete Detox flows
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      CI: "true"
+      # ExpoModulesJSI requires Swift tools 6.2; macos-15 defaults to Xcode 16.4.
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+      EXPO_PUBLIC_MOCK_MODE: "true"
+      EXPO_PUBLIC_E2E_MODE: "true"
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify selected Xcode and Swift toolchain
+        run: |
+          xcodebuild -version
+          xcrun swift --version
+      - name: Install Detox simulator utilities
+        run: |
+          brew tap wix/brew
+          brew trust --formula wix/brew/applesimutils
+          brew install wix/brew/applesimutils
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install JavaScript dependencies
+        run: npm ci
+      - name: Restore simulator binary for identical native inputs
+        id: native-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: mobile/artifacts/ios/native
+          key: ios-native-v1-${{ runner.arch }}-xcode26.3-${{ hashFiles('.node-version', 'mobile/package.json', 'mobile/package-lock.json', 'mobile/app.json', 'mobile/app.config.*', 'mobile/assets/**', 'mobile/scripts/build-ios-simulator.sh', 'mobile/scripts/patch-react-native-screens.mjs') }}
+      - name: Generate native iOS project
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform ios --no-install
+      - name: Install native dependencies
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        run: pod install --project-directory=ios
+      - name: Build or reuse the simulator binary once
+        id: native-build
+        env:
+          RENT_IOS_BINARY_CACHE_HIT: ${{ steps.native-cache.outputs.cache-hit }}
+          RENT_IOS_NATIVE_CACHE_KEY: ${{ steps.native-cache.outputs.cache-primary-key }}
+        run: bash scripts/build-ios-simulator.sh
+      - name: Save compiled native binary before validation
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: mobile/artifacts/ios/native
+          key: ${{ steps.native-cache.outputs.cache-primary-key }}
+      - name: Verify native inputs, architecture and signature before execution
+        env:
+          RENT_IOS_NATIVE_CACHE_KEY: ${{ steps.native-cache.outputs.cache-primary-key }}
+        run: bash scripts/verify-ios-simulator.sh
+      - name: Launch and test the current checkout on an available iPhone simulator
+        run: bash scripts/ci-ios-smoke.sh
+      - name: Upload iOS validation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mobile-ios-validation
+          path: |
+            mobile/artifacts/ios/*.log
+            mobile/artifacts/ios/*.png
+            mobile/artifacts/ios/*.txt
+            mobile/artifacts/ios/native/inputs.txt
+            mobile/artifacts/ios/detox
+            mobile/coverage
+          if-no-files-found: warn

@@ -1,6 +1,8 @@
+import { Text, View } from '@/components/themed-native';
+import { useConfirmationDialog } from '@/components/use-confirmation-dialog';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { tenantsApi } from '@/api/tenants';
@@ -10,6 +12,7 @@ import { canManageTenantsForUser } from '@/config/navigation';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function TenantDetailScreen() {
+  const dialog = useConfirmationDialog();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -40,17 +43,24 @@ export default function TenantDetailScreen() {
   const tenant = query.data;
 
   return (
-    <Screen>
+    <Screen
+      guidanceBlocked={
+        dialog.open ||
+        query.isError ||
+        deleteMutation.isPending ||
+        deleteMutation.isError
+      }
+    >
       <H1>{t('tenants.tenantDetails')}</H1>
       {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
       {query.error ? (
         <Text style={styles.error}>{query.error.message}</Text>
       ) : null}
-      {!query.isLoading && !tenant ? (
+      {!query.isLoading && !query.error && !tenant ? (
         <Text>{t('tenants.notFound')}</Text>
       ) : null}
 
-      {tenant && canManage ? (
+      {tenant ? (
         <View style={styles.card}>
           <Text
             style={styles.title}
@@ -66,7 +76,7 @@ export default function TenantDetailScreen() {
         </View>
       ) : null}
 
-      {tenant ? (
+      {tenant && canManage ? (
         <View style={styles.actions}>
           <AppButton
             title={t('common.edit')}
@@ -79,7 +89,7 @@ export default function TenantDetailScreen() {
             loading={deleteMutation.isPending}
             testID="tenantDetail.delete"
             onPress={() => {
-              Alert.alert(
+              dialog.confirm(
                 t('tenants.deleteTenant'),
                 t('tenants.confirmDelete'),
                 [

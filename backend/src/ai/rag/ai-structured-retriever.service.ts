@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { z } from 'zod';
 import { UserRole } from '../../users/entities/user.entity';
 import { AiRagContext, AiRagSource } from './ai-rag.types';
+import { getUserRoles } from '../../common/helpers/role-scope.helper';
 
 type RegistryQuery =
   | 'tenant_balance'
@@ -12,7 +13,9 @@ type RegistryQuery =
   | 'lease_status'
   | 'portfolio'
   | 'availability'
-  | 'dashboard';
+  | 'dashboard'
+  | 'sale_agreements'
+  | 'sale_receipts';
 type StructuredRow = {
   source_id: string;
   entity_type: string;
@@ -32,7 +35,8 @@ const queryParamsSchema = z.object({
   userId: z
     .string()
     .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i),
-  role: z.nativeEnum(UserRole),
+  role: z.enum(UserRole),
+  roles: z.array(z.enum(UserRole)),
   entityId: z
     .string()
     .regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
@@ -51,13 +55,21 @@ export class AiStructuredRetrieverService {
   ): Promise<AiRagSource[]> {
     const query = this.selectQuery(prompt);
     if (!this.staffCanRun(query, context)) return [];
-    const entityId = prompt.match(
-      /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i,
-    )?.[0];
+    const roles = getUserRoles(context);
+    if (
+      roles.every((role) => role === UserRole.BUYER) &&
+      !['sale_agreements', 'sale_receipts'].includes(query)
+    )
+      return [];
+    const entityId =
+      /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i.exec(
+        prompt,
+      )?.[0];
     const params = queryParamsSchema.parse({
       companyId: context.companyId,
       userId: context.userId,
       role: context.role,
+      roles,
       entityId,
       availableOnly: query === 'availability',
       limit: Math.min(Number(process.env.AI_RAG_STRUCTURED_LIMIT ?? 20), 50),
@@ -99,6 +111,11 @@ export class AiStructuredRetrieverService {
 
   private selectQuery(prompt: string): RegistryQuery {
     const text = prompt.toLocaleLowerCase('es');
+    if (/compraventa|compra[ /-]venta|cuotas|mis compras/.test(text)) {
+      return /recib|comprobante/.test(text)
+        ? 'sale_receipts'
+        : 'sale_agreements';
+    }
     if (/dashboard|tablero|resumen general|indicadores/.test(text))
       return 'dashboard';
     if (/saldo|cuenta corriente|deuda/.test(text)) return 'tenant_balance';
@@ -125,6 +142,9 @@ export class AiStructuredRetrieverService {
     if (context.role !== UserRole.STAFF) return true;
     const permissions = context.permissions;
     if (!permissions || Object.keys(permissions).length === 0) return false;
+    if (query === 'sale_agreements' || query === 'sale_receipts') {
+      return permissions.sales === true;
+    }
     if (query === 'invoices') {
       return permissions.invoices === true || permissions.payments === true;
     }
@@ -146,7 +166,17 @@ export class AiStructuredRetrieverService {
     query: RegistryQuery,
     params: z.infer<typeof queryParamsSchema>,
   ): Promise<StructuredRow[]> {
-    const role = this.roleScope(params.role);
+    const scopes = params.roles.map((role) => this.roleScope(role));
+    const union = (
+      field: keyof ReturnType<AiStructuredRetrieverService['roleScope']>,
+    ) => scopes.map((scope) => `(${scope[field]})`).join(' OR ') || 'FALSE';
+    const role = {
+      invoice: union('invoice'),
+      lease: union('lease'),
+      property: union('property'),
+      account: union('account'),
+      payment: union('payment'),
+    };
     const values = [
       params.companyId,
       params.userId,
@@ -155,6 +185,9 @@ export class AiStructuredRetrieverService {
       params.availableOnly,
     ];
 
+    if (query === 'sale_agreements' || query === 'sale_receipts') {
+      return this.executeSales(query, params, values);
+    }
     if (query === 'tenant_balance') {
       return this.dataSource.query<StructuredRow[]>(
         `SELECT a.id AS source_id, 'tenant_account' AS entity_type,
@@ -284,6 +317,57 @@ export class AiStructuredRetrieverService {
           AND ($3::uuid IS NULL OR p.id = $3::uuid)
           AND (${role.property})
         ORDER BY p.updated_at DESC LIMIT $4`,
+      values,
+    );
+  }
+
+  private async executeSales(
+    query: 'sale_agreements' | 'sale_receipts',
+    params: z.infer<typeof queryParamsSchema>,
+    values: unknown[],
+  ): Promise<StructuredRow[]> {
+    const internal =
+      params.role === UserRole.ADMIN || params.role === UserRole.STAFF;
+    const ownerScope = params.roles.includes(UserRole.OWNER);
+    const buyerScope = params.roles.includes(UserRole.BUYER);
+    const ownership = [
+      internal ? 'TRUE' : 'FALSE',
+      ownerScope
+        ? 'EXISTS (SELECT 1 FROM owners o WHERE o.id=l.owner_id AND o.user_id=$2::uuid AND o.company_id=$1::uuid AND o.deleted_at IS NULL)'
+        : 'FALSE',
+      buyerScope
+        ? 'EXISTS (SELECT 1 FROM buyers b WHERE b.id=sa.buyer_id AND b.user_id=$2::uuid AND b.company_id=$1::uuid AND b.deleted_at IS NULL)'
+        : 'FALSE',
+    ].join(' OR ');
+    const scope = `sa.company_id=$1::uuid AND sa.deleted_at IS NULL
+      AND l.company_id=$1::uuid AND l.contract_type='sale' AND l.deleted_at IS NULL
+      AND $5::boolean IS NOT NULL AND (${ownership})`;
+    if (query === 'sale_receipts') {
+      return this.dataSource.query<StructuredRow[]>(
+        `SELECT r.id AS source_id, 'sale_receipt' AS entity_type, r.id AS entity_id,
+          'Recibo de compraventa ' || r.receipt_number AS label, r.updated_at,
+          jsonb_build_object('receiptNumber',r.receipt_number,'agreementId',r.agreement_id,
+            'installmentNumber',r.installment_number,'amount',r.amount,'currency',r.currency,
+            'paymentDate',r.payment_date,'cancelledAt',r.cancelled_at) AS payload
+         FROM sale_receipts r JOIN sale_agreements sa ON sa.id=r.agreement_id
+         JOIN leases l ON l.id=sa.contract_id
+         WHERE ${scope}
+           AND ($3::uuid IS NULL OR r.id=$3::uuid OR sa.id=$3::uuid OR l.id=$3::uuid)
+         ORDER BY r.payment_date DESC,r.id LIMIT $4`,
+        values,
+      );
+    }
+    return this.dataSource.query<StructuredRow[]>(
+      `SELECT sa.id AS source_id, 'sale_agreement' AS entity_type, sa.id AS entity_id,
+        'Compraventa ' || sa.id::text AS label, GREATEST(sa.updated_at,l.updated_at) AS updated_at,
+        jsonb_build_object('contractId',l.id,'propertyId',l.property_id,'status',l.status,
+          'total',sa.total_amount,'paidAmount',sa.paid_amount,
+          'balance',round(sa.total_amount-sa.paid_amount,2),'currency',sa.currency,
+          'installmentAmount',sa.installment_amount,'installmentCount',sa.installment_count,
+          'startDate',sa.start_date,'dueDay',sa.due_day) AS payload
+       FROM sale_agreements sa JOIN leases l ON l.id=sa.contract_id
+       WHERE ${scope} AND ($3::uuid IS NULL OR sa.id=$3::uuid OR l.id=$3::uuid)
+       ORDER BY sa.updated_at DESC,sa.id LIMIT $4`,
       values,
     );
   }

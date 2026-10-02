@@ -57,8 +57,9 @@ verifica recuperación, numeración concurrente, aprobación contra rechazo, wor
 simultáneos, rollback, revisión histórica, roles/compañías, conflictos de facturación,
 fecha futura, orden de aplicación y cada tipo de cambio admitido.
 
-Pendientes del plan general: interfaz dedicada de enmiendas, resolución administrativa
-de aprobaciones históricas o inválidas (incluida anulación auditada), despliegue y
-verificación del worker en producción. Un rollback debe suspender el worker y
+La resolución de aprobaciones históricas o inválidas continúa en
+[la revisión administrativa auditada](amendment-review.md).
+Pendientes del plan general: interfaz de alta/envío/aprobación/rechazo de enmiendas,
+despliegue y verificación del worker en producción. Un rollback debe suspender el worker y
 conservar los campos de auditoría; las enmiendas aplicadas no se revierten eliminando
 columnas. Los cambios contractuales requieren una corrección explícita.

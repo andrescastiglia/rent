@@ -1,4 +1,6 @@
-import { apiClient } from '@/api/client';
+import type { OwnerSummaryDto } from '@/generated/openapi';
+import { fetchAllPages } from '@/api/pagination';
+import { ApiError, apiClient } from '@/api/client';
 import { createAndShareMockPdf, downloadAndSharePdf } from '@/api/pdf';
 import { IS_MOCK_MODE } from '@/api/env';
 import type {
@@ -151,8 +153,23 @@ export const ownersApi = {
       return [...MOCK_OWNERS];
     }
 
-    const result = await apiClient.get<BackendOwner[]>('/owners');
-    return result.map(mapOwner);
+    return fetchAllPages<BackendOwner, Owner>('/owners', {}, mapOwner);
+  },
+
+  async getMySummary(): Promise<OwnerSummaryDto> {
+    if (IS_MOCK_MODE)
+      return {
+        propertiesCount: 2,
+        activeLeases: 1,
+        pendingSettlements: 1,
+        period: '2026-10',
+        timeZone: 'America/Argentina/Buenos_Aires',
+        collectionsByCurrency: [
+          { currencyCode: 'ARS', amount: '120000.00' },
+          { currencyCode: 'USD', amount: '1200.00' },
+        ],
+      };
+    return apiClient.get<OwnerSummaryDto>('/owners/me/summary');
   },
 
   async getMyProfile(): Promise<Owner> {
@@ -172,8 +189,9 @@ export const ownersApi = {
     try {
       const result = await apiClient.get<BackendOwner>(`/owners/${id}`);
       return mapOwner(result);
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
     }
   },
 

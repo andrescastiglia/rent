@@ -1,4 +1,5 @@
 import {
+  Headers,
   Body,
   Controller,
   Delete,
@@ -11,6 +12,8 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
+import { ApiHeader } from '@nestjs/swagger';
+
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
@@ -39,13 +42,19 @@ interface AuthenticatedRequest {
 export class InterestedController {
   constructor(private readonly interestedService: InterestedService) {}
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Post()
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   create(
     @Body() dto: CreateInterestedProfileDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.interestedService.create(dto, req.user);
+    return this.interestedService.create(dto, req.user, executionKey);
   }
 
   @Get('metrics/overview')
@@ -105,15 +114,26 @@ export class InterestedController {
     return this.interestedService.listMatches(id, req.user);
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Post(':id/matches/refresh')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   refreshMatches(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.interestedService.refreshMatches(id, req.user);
+    return this.interestedService.refreshMatches(id, req.user, executionKey);
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Patch(':id/matches/:matchId')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   updateMatch(
@@ -121,28 +141,52 @@ export class InterestedController {
     @Param('matchId', ParseUUIDPipe) matchId: string,
     @Body() dto: UpdateInterestedMatchDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.interestedService.updateMatch(id, matchId, dto, req.user);
+    return this.interestedService.updateMatch(
+      id,
+      matchId,
+      dto,
+      req.user,
+      executionKey,
+    );
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Post(':id/stage')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   changeStage(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ChangeInterestedStageDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.interestedService.changeStage(id, dto, req.user);
+    return this.interestedService.changeStage(id, dto, req.user, executionKey);
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Post(':id/activities')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   createActivity(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateInterestedActivityDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.interestedService.createActivity(id, dto, req.user);
+    return this.interestedService.createActivity(
+      id,
+      dto,
+      req.user,
+      executionKey,
+    );
   }
 
   @Post(':id/send-initial-message')
@@ -154,14 +198,25 @@ export class InterestedController {
     return this.interestedService.sendInitialMessage(id, req.user);
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Post(':id/reservations')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   createReservation(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreatePropertyReservationDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.interestedService.createReservation(id, dto, req.user);
+    return this.interestedService.createReservation(
+      id,
+      dto,
+      req.user,
+      executionKey,
+    );
   }
 
   @Get(':id/reservations')
@@ -173,6 +228,11 @@ export class InterestedController {
     return this.interestedService.listReservations(id, req.user);
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Patch(':id/activities/:activityId')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   updateActivity(
@@ -180,47 +240,88 @@ export class InterestedController {
     @Param('activityId', ParseUUIDPipe) activityId: string,
     @Body() dto: UpdateInterestedActivityDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.interestedService.updateActivity(id, activityId, dto, req.user);
+    return this.interestedService.updateActivity(
+      id,
+      activityId,
+      dto,
+      req.user,
+      executionKey,
+    );
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Post(':id/convert/tenant')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   convertToTenant(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ConvertInterestedToTenantDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.interestedService.convertToTenant(id, dto, req.user);
+    return this.interestedService.convertToTenant(
+      id,
+      dto,
+      req.user,
+      executionKey,
+    );
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Post(':id/convert/buyer')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   convertToBuyer(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ConvertInterestedToBuyerDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.interestedService.convertToBuyer(id, dto, req.user);
+    return this.interestedService.convertToBuyer(
+      id,
+      dto,
+      req.user,
+      executionKey,
+    );
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateInterestedProfileDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.interestedService.update(id, dto, req.user);
+    return this.interestedService.update(id, dto, req.user, executionKey);
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   async remove(
     @Param('id', ParseUUIDPipe) id: string,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    await this.interestedService.remove(id, req.user);
+    await this.interestedService.remove(id, req.user, executionKey);
     return { message: 'Interested profile deleted successfully' };
   }
 }

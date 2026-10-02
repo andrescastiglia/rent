@@ -2,7 +2,8 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/src'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.cjs'],
+  roots: ['<rootDir>/src', '<rootDir>/app', '<rootDir>/tests'],
   testMatch: ['**/*.spec.ts', '**/*.spec.tsx'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
@@ -16,20 +17,18 @@ module.exports = {
     ],
   },
   collectCoverageFrom: [
-    'src/api/client.ts',
-    'src/api/env.ts',
-    'src/config/**/*.ts',
-    'src/storage/**/*.ts',
-    'src/utils/**/*.ts',
+    'src/**/*.{ts,tsx}',
+    'app/**/*.{ts,tsx}',
+    '!src/generated/**',
     '!src/**/*.d.ts',
   ],
   coveragePathIgnorePatterns: ['/node_modules/'],
   coverageThreshold: {
     global: {
-      statements: 80,
-      lines: 80,
-      functions: 80,
-      branches: 70,
+      statements: 90,
+      lines: 90,
+      functions: 90,
+      branches: 80,
     },
   },
   clearMocks: true,

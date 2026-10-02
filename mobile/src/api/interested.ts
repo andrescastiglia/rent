@@ -1,5 +1,6 @@
-import { apiClient } from '@/api/client';
+import { ApiError, apiClient } from '@/api/client';
 import { IS_MOCK_MODE } from '@/api/env';
+import { fetchAllPages } from '@/api/pagination';
 import type {
   CreateInterestedProfileInput,
   InterestedActivity,
@@ -471,10 +472,13 @@ const fetchInterested = async (
   if (IS_MOCK_MODE) {
     const data = filterMockInterested([...MOCK_INTERESTED], filters);
     return {
-      data,
+      data: data.slice(
+        ((filters?.page ?? 1) - 1) * (filters?.limit ?? 20),
+        (filters?.page ?? 1) * (filters?.limit ?? 20),
+      ),
       total: data.length,
-      page: 1,
-      limit: filters?.limit ?? 100,
+      page: filters?.page ?? 1,
+      limit: filters?.limit ?? 20,
     };
   }
 
@@ -510,6 +514,11 @@ const fetchInterested = async (
 };
 
 export const interestedApi = {
+  async getAllProfiles(): Promise<InterestedProfile[]> {
+    if (IS_MOCK_MODE) return [...MOCK_INTERESTED];
+    return fetchAllPages('/interested', {}, mapProfile);
+  },
+
   async getAll(): Promise<PaginatedResponse<InterestedProfile>> {
     return fetchInterested();
   },
@@ -528,8 +537,9 @@ export const interestedApi = {
     try {
       const result = await apiClient.get<any>(`/interested/${id}`);
       return mapProfile(result);
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
     }
   },
 

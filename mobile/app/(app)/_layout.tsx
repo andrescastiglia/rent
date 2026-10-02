@@ -1,17 +1,26 @@
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  View,
+} from '@/components/themed-native';
 import type { Href } from 'expo-router';
 import { Redirect, Stack, usePathname, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/contexts/auth-context';
 import { canUserAccessPath } from '@/config/navigation';
+import { useTheme } from '@/contexts/theme-context';
 
 type NewHeaderActionProps = Readonly<{
   route: Href;
   testID: string;
+  labelKey?: string;
 }>;
 
-function NewHeaderAction({ route, testID }: NewHeaderActionProps) {
+function NewHeaderAction({ route, testID, labelKey }: NewHeaderActionProps) {
+  const { colors } = useTheme();
   const router = useRouter();
   const { t } = useTranslation();
 
@@ -19,12 +28,29 @@ function NewHeaderAction({ route, testID }: NewHeaderActionProps) {
     <Pressable
       onPress={() => router.push(route)}
       testID={testID}
-      style={{ paddingHorizontal: 6, paddingVertical: 4 }}
+      accessibilityRole="button"
+      accessibilityLabel={t(labelKey ?? 'breadcrumbs.new')}
+      style={{
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        minHeight: 44,
+        justifyContent: 'center',
+      }}
     >
-      <Text style={{ color: '#1d4ed8', fontWeight: '700', fontSize: 14 }}>
-        {t('breadcrumbs.new')}
+      <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 14 }}>
+        {t(labelKey ?? 'breadcrumbs.new')}
       </Text>
     </Pressable>
+  );
+}
+
+function OwnersHeaderRight() {
+  return (
+    <NewHeaderAction
+      route="/(app)/owners/new"
+      testID="owners.new"
+      labelKey="properties.createOwnerTitle"
+    />
   );
 }
 
@@ -39,6 +65,7 @@ function TemplatesHeaderRight() {
 }
 
 export default function ProtectedLayout() {
+  const { colors } = useTheme();
   const { t } = useTranslation();
   const { user, loading } = useAuth();
   const pathname = usePathname();
@@ -56,11 +83,17 @@ export default function ProtectedLayout() {
   }
 
   if (!canUserAccessPath(user, pathname)) {
-    return <Redirect href="/(app)/(tabs)/settings" />;
+    return <Redirect href={'/(app)/(tabs)/home' as never} />;
   }
 
   return (
-    <Stack>
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.surface },
+        headerTintColor: colors.text,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen
         name="properties/new"
@@ -186,7 +219,12 @@ export default function ProtectedLayout() {
       <Stack.Screen name="sales" options={{ title: t('sales.title') }} />
       <Stack.Screen
         name="owners"
-        options={{ title: t('properties.ownersTitle') }}
+        options={{
+          title: t('properties.ownersTitle'),
+          headerRight: canUserAccessPath(user, '/owners/new')
+            ? OwnersHeaderRight
+            : undefined,
+        }}
       />
       <Stack.Screen
         name="owners/new"

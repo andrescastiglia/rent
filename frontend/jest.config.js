@@ -18,25 +18,16 @@ const config = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   modulePathIgnorePatterns: ['<rootDir>/.next/'],
-  coveragePathIgnorePatterns: [
-    '<rootDir>/src/app/.*/layout\\.tsx$',
-    '<rootDir>/src/app/.*/page\\.tsx$',
+  collectCoverageFrom: [
+    'src/**/*.{ts,tsx}',
+    '!src/generated/**',
+    '!src/**/*.d.ts',
+    '!src/**/*.spec.{ts,tsx}',
+    '!src/**/*.test.{ts,tsx}',
+    '!src/types/**',
   ],
   coverageThreshold: {
-    './src/lib/': {
-      statements: 80,
-      functions: 80,
-    },
-    './src/hooks/': {
-      statements: 80,
-      branches: 80,
-    },
-    './src/components/': {
-      statements: 70,
-    },
-    './src/app/': {
-      statements: 60,
-    },
+    global: { statements: 85, branches: 80, functions: 85, lines: 85 },
   },
 };
 

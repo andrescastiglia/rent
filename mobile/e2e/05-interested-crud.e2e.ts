@@ -1,4 +1,9 @@
-import { loginAsAdmin, relaunchFreshApp, tapAndConfirmDeletion } from './helpers';
+import { fillField, openModule, waitForFormControl } from './helpers';
+import {
+  loginAsAdmin,
+  relaunchFreshApp,
+  tapAndConfirmDeletion,
+} from './helpers';
 
 describe('Interested CRUD', () => {
   beforeAll(async () => {
@@ -11,38 +16,52 @@ describe('Interested CRUD', () => {
     const email = `interested.${stamp}@example.com`;
     const updatedEmail = `interested.updated.${stamp}@example.com`;
 
-    await element(by.id('tab.interested')).tap();
+    await openModule('interested');
 
-    await waitFor(element(by.id('interested.new'))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.id('interested.new')))
+      .toBeVisible()
+      .withTimeout(15000);
     await element(by.id('interested.new')).tap();
+    await waitFor(element(by.id('interestedCreate.firstName')))
+      .toBeVisible()
+      .withTimeout(15000);
 
-    await element(by.id('interestedCreate.firstName')).replaceText('E2E');
-    await element(by.id('interestedCreate.lastName')).replaceText('Interested');
-    await element(by.id('interestedCreate.phone')).replaceText('+5491111111111');
-    await element(by.id('interestedCreate.email')).replaceText(email);
+    await fillField('interestedCreate.firstName', 'E2E');
+    await fillField('interestedCreate.lastName', 'Interested');
+    await fillField('interestedCreate.phone', '+5491111111111');
+    await fillField('interestedCreate.email', email);
+    await waitForFormControl(
+      'interestedCreate.operation.sale',
+      'interestedCreate.scroll',
+    );
     await element(by.id('interestedCreate.operation.sale')).tap();
 
-    await waitFor(element(by.id('interestedCreate.submit')))
-      .toBeVisible()
-      .whileElement(by.id('interestedCreate.scroll'))
-      .scroll(240, 'down');
+    await waitForFormControl(
+      'interestedCreate.submit',
+      'interestedCreate.scroll',
+    );
     await element(by.id('interestedCreate.submit')).tap();
 
-    await waitFor(element(by.id('interestedDetail.edit'))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.id('interestedDetail.edit')))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await element(by.id('interestedDetail.edit')).tap();
-    await waitFor(element(by.id('interestedEdit.email'))).toBeVisible().withTimeout(10000);
-    await element(by.id('interestedEdit.email')).replaceText(updatedEmail);
-
-    await waitFor(element(by.id('interestedEdit.submit')))
+    await waitFor(element(by.id('interestedEdit.email')))
       .toBeVisible()
-      .whileElement(by.id('interestedEdit.scroll'))
-      .scroll(240, 'down');
+      .withTimeout(10000);
+    await fillField('interestedEdit.email', updatedEmail);
+
+    await waitForFormControl('interestedEdit.submit', 'interestedEdit.scroll');
     await element(by.id('interestedEdit.submit')).tap();
 
-    await waitFor(element(by.text(updatedEmail))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.text(updatedEmail)))
+      .toBeVisible()
+      .withTimeout(15000);
 
     await tapAndConfirmDeletion('interestedDetail.delete');
-    await waitFor(element(by.id('interested.new'))).toBeVisible().withTimeout(15000);
+    await waitFor(element(by.id('interested.new')))
+      .toBeVisible()
+      .withTimeout(15000);
   });
 });

@@ -1,14 +1,14 @@
 export async function relaunchFreshApp(): Promise<void> {
   await device.launchApp({
     newInstance: true,
+    ...(device.getPlatform() === 'ios'
+      ? { languageAndLocale: { language: 'es', locale: 'es_AR' } }
+      : {}),
     launchArgs: {
       detoxEnableSynchronization: '0',
     },
   });
-}
-
-async function sleep(ms: number): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, ms));
+  await device.disableSynchronization();
 }
 
 async function isVisible(testId: string, timeout: number): Promise<boolean> {
@@ -20,7 +20,8 @@ async function isVisible(testId: string, timeout: number): Promise<boolean> {
 }
 
 export async function loginAsAdmin(): Promise<void> {
-  if (await isVisible('tab.properties', 10000)) {
+  if (await isVisible('tab.home', 10000)) {
+    await device.enableSynchronization();
     return;
   }
 
@@ -28,7 +29,8 @@ export async function loginAsAdmin(): Promise<void> {
     // React Native/Hermes can terminate during a cold start on the CI emulator.
     // Re-establish the Detox instrumentation before retrying the login flow.
     await relaunchFreshApp();
-    if (await isVisible('tab.properties', 10000)) {
+    if (await isVisible('tab.home', 10000)) {
+      await device.enableSynchronization();
       return;
     }
   }
@@ -36,21 +38,22 @@ export async function loginAsAdmin(): Promise<void> {
   await waitFor(element(by.id('login.email')))
     .toBeVisible()
     .withTimeout(30000);
-
-  await element(by.id('login.email')).replaceText('admin@example.com');
-  await element(by.id('login.password')).replaceText('admin123');
+  await device.enableSynchronization();
+  await fillField('login.email', 'admin@example.com');
+  await fillField('login.password', 'admin123');
 
   await element(by.id('login.submit')).tap();
 
-  await sleep(1500);
-  await relaunchFreshApp();
-
-  if (!(await isVisible('tab.properties', 20000))) {
-    await relaunchFreshApp();
-  }
-  await waitFor(element(by.id('tab.properties')))
+  await waitFor(element(by.id('tab.home')))
     .toBeVisible()
     .withTimeout(20000);
+}
+
+/** Real keyboard events also update React state before the next action. */
+export async function fillField(testId: string, value: string): Promise<void> {
+  const field = element(by.id(testId));
+  await field.clearText();
+  await field.typeText(value);
 }
 
 export async function tapAndConfirmDeletion(
@@ -107,4 +110,32 @@ export async function dismissNativeAlertIfVisible(): Promise<void> {
       return;
     }
   }
+}
+
+export async function openModule(module: string): Promise<void> {
+  await element(by.id('tab.more')).tap();
+  await waitFor(element(by.id('more.scroll')))
+    .toBeVisible()
+    .withTimeout(15000);
+  await element(by.id('more.scroll')).scrollTo('top');
+  await waitFor(element(by.id(`more.${module}`)))
+    .toBeVisible()
+    .whileElement(by.id('more.scroll'))
+    .scroll(240, 'down');
+  await element(by.id(`more.${module}`)).tap();
+}
+
+/** Scroll from the visible middle of the form, above the iOS keyboard. */
+export async function waitForFormControl(
+  testId: string,
+  scrollViewTestId: string,
+): Promise<void> {
+  const target = waitFor(element(by.id(testId)));
+  const visible =
+    device.getPlatform() === 'ios'
+      ? target.toBeVisible(100)
+      : target.toBeVisible();
+  await visible
+    .whileElement(by.id(scrollViewTestId))
+    .scroll(120, 'down', 0.5, 0.5);
 }

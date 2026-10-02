@@ -1,0 +1,10 @@
+{
+  "scope": "isolated local fixtures with real provider",
+  "candidateReleaseTag": "v0.1.19",
+  "candidateSourceCommit": "58f160ff3aa359aa7f9c1f6190fd0cdb13ad75e2",
+  "backendTree": "fd2646422650edf612fbf3fe59a3f93072840bbb",
+  "backendBuildSha256": "326cc7acafd98f2bbc4f1340b6ca33a72e892f5a160e919aeadaa677e59fc065",
+  "batchBuildSha256": "977af80cacd0a68ec5e62aed28c70791b6859f1daa03ee80b7aebd781b3ee663",
+  "evaluationSha256": "4d321b8a8f9aa0a71adebcd27565592faf1922d44bdd7850533938c0204d3cce",
+  "qualityGatesPassed": true
+}

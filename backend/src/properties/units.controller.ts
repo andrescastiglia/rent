@@ -8,6 +8,7 @@ import {
   Delete,
   Request,
   UseGuards,
+  Headers,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UnitsService } from './units.service';
@@ -25,8 +26,12 @@ export class UnitsController {
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.OWNER)
-  create(@Body() createUnitDto: CreateUnitDto, @Request() req: any) {
-    return this.unitsService.create(createUnitDto, req.user);
+  create(
+    @Body() createUnitDto: CreateUnitDto,
+    @Request() req: any,
+    @Headers('idempotency-key') executionKey?: string,
+  ) {
+    return this.unitsService.create(createUnitDto, req.user, executionKey);
   }
 
   @Get('property/:propertyId')
@@ -45,14 +50,19 @@ export class UnitsController {
     @Param('id') id: string,
     @Body() updateUnitDto: UpdateUnitDto,
     @Request() req: any,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.unitsService.update(id, updateUnitDto, req.user);
+    return this.unitsService.update(id, updateUnitDto, req.user, executionKey);
   }
 
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.OWNER)
-  async remove(@Param('id') id: string, @Request() req: any) {
-    await this.unitsService.remove(id, req.user);
+  async remove(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Headers('idempotency-key') executionKey?: string,
+  ) {
+    await this.unitsService.remove(id, req.user, executionKey);
     return { message: 'Unit deleted successfully' };
   }
 }

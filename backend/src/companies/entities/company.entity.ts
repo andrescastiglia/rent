@@ -101,6 +101,7 @@ export class Company {
     name: 'arca_certificate_password_hash',
     type: 'varchar',
     nullable: true,
+    select: false,
   })
   arcaCertificatePasswordHash: string;
 

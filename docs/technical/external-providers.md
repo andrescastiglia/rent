@@ -79,9 +79,13 @@ ya generado. Anular un cobro o alterar una nota de crédito bloquea un nuevo env
 el trabajo queda fallido con `source_changed` y requiere anulación/regeneración.
 La cola respeta como fecha mínima la fecha programada a medianoche de
 `America/Argentina/Buenos_Aires`. Los IDs remotos existentes siguen conciliándose
-aunque cambie una fuente: una acreditación real siempre se registra. La recuperación de deuda del propietario
-por anulaciones posteriores a una transferencia y las devoluciones parciales
-siguen pendientes; sus fuentes permanecen reservadas y no se transfieren otra vez.
+aunque cambie una fuente: una acreditación real siempre se registra. Las anulaciones
+y devoluciones de cobros ya transferidos generan compensaciones locales de deuda
+del propietario, con comisión histórica y centavos acumulados; el historial conserva
+el importe efectivamente transferido. Aplicar esa deuda a una liquidación futura
+requiere una decisión administrativa explícita. Las devoluciones parciales de una
+transferencia por el proveedor siguen en revisión; las fuentes permanecen reservadas
+y no se transfieren otra vez. Véase [correcciones financieras](financial-corrections.md).
 
 Se eliminó la simulación de transferencias del batch, incluso con `NODE_ENV=test`.
 El comando antiguo solo conserva su modo de consulta legado; para cálculos con
@@ -524,9 +528,39 @@ proveedores; solo encola la entrega. La migración no genera avisos históricos 
 no activa cuentas, credenciales ni cron. Los dos modelos de PDF fueron renderizados
 con Poppler para revisar legibilidad y correspondencia de importes y fechas.
 
-Pendiente: recuperación de deuda por cobros anulados después de transferir,
-resolución contable de devoluciones parciales o nuevas órdenes tras rechazos/
-reversiones verificados, gates de interfaz y despliegue deshabilitado.
+Pendiente: aplicación explícita de deuda del propietario a futuras liquidaciones,
+resolución contable de devoluciones parciales del proveedor y nuevas órdenes tras
+rechazos/reversiones verificados. Las integraciones y su cron permanecen
+deshabilitados hasta reunir la evidencia de activación siguiente.
+
+## Checklist para una activación futura (I02)
+
+La implementación local y las pruebas con transporte sustituido no autorizan
+habilitar un proveedor. Para cada integración se debe conservar una revisión
+fechada con responsable, compañía, cuenta, entorno y resultados reproducibles:
+
+- BFA: verificar cuenta y permisos sobre la red elegida; obtener credenciales por
+  el canal de secretos; sellar un documento de prueba, verificar su hash y recuperar
+  su estado tras una respuesta perdida. Confirmar que un documento alterado y una
+  compañía ajena no puedan reutilizar el sellado.
+- Mercado Libre: verificar la aplicación y la cuenta vendedora, el callback OAuth,
+  los scopes y las categorías vigentes. En el entorno de prueba, validar la firma
+  y vigencia de `state`, cifrado de tokens, renovación/revocación, publicación,
+  actualización y conciliación tras timeout sin publicar duplicados.
+- Mercado Pago Payouts: confirmar que la cuenta y el entorno tengan habilitado el
+  producto de transferencias y usar destinatarios de prueba autorizados. Verificar
+  clave de idempotencia, importes ARS y destino, acreditación, rechazo definitivo,
+  respuesta incierta, conciliación repetida y devolución completa. Una devolución
+  parcial debe quedar en revisión y bloquear avisos de pago pendientes.
+- Antes de habilitar flags o cron: ejecutar migraciones y checks de seguridad,
+  pruebas de aislamiento y autorización, UT/E2E, lint/tipos y Sonar; registrar la
+  evidencia del proveedor real y probar alertas, cola fallida y revisión manual.
+  Habilitar únicamente la integración y compañía revisadas, con límites operativos
+  explícitos; iniciar el cron sólo después de verificar el flujo manual.
+- Rollback: deshabilitar el proveedor y suspender su cron, conservar solicitudes,
+  IDs externos, comprobantes, auditoría y fuentes reservadas. Conciliar envíos
+  inciertos por sus IDs antes de autorizar otra operación; no borrar historial ni
+  reactivar automáticamente transferencias al restaurar un artefacto anterior.
 
 ## Validación y rollback
 

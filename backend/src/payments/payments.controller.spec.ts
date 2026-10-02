@@ -65,13 +65,14 @@ describe('PaymentsController', () => {
       id: 'p1',
       status: 'cancelled',
     });
-    expect(paymentsService.confirm).toHaveBeenCalledWith('p1', 'c1');
+    expect(paymentsService.confirm).toHaveBeenCalledWith('p1', 'c1', undefined);
     expect(paymentsService.update).toHaveBeenCalledWith(
       'p1',
       expect.anything(),
       'c1',
+      undefined,
     );
-    expect(paymentsService.cancel).toHaveBeenCalledWith('p1', 'c1');
+    expect(paymentsService.cancel).toHaveBeenCalledWith('p1', 'c1', undefined);
   });
 
   it('getReceipt returns 404 when missing and streams file when available', async () => {

@@ -144,7 +144,9 @@ export class BankReconciliationBatchService {
     >;
     if (!response.ok) {
       const message = body.message ?? body.error ?? `HTTP ${response.status}`;
-      throw new Error(String(message));
+      throw new Error(
+        typeof message === "string" ? message : JSON.stringify(message),
+      );
     }
     return body as ReconciliationResponse;
   }

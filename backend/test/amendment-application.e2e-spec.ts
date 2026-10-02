@@ -19,12 +19,14 @@ import {
   PropertyType,
 } from '../src/properties/entities/property.entity';
 import { assertNoPendingBillingAmendment } from '../src/leases/amendment-application';
+import { buildMutationReview } from '../src/common/helpers/mutation-review';
 import { InvoicesService } from '../src/payments/invoices.service';
 import {
   configureE2eApp,
   createActiveTestUser,
   createTestCompany,
   loginTestUser,
+  purgeFinancialCorrections,
 } from './e2e-helpers';
 
 describe('Automatic lease amendments (PostgreSQL)', () => {
@@ -39,6 +41,7 @@ describe('Automatic lease amendments (PostgreSQL)', () => {
     leaseId: string,
     token: string,
     foreignToken: string,
+    tenantToken: string,
     today: string;
   let actor: { id: string; companyId: string; role: UserRole };
   const suffix = randomUUID();
@@ -107,6 +110,7 @@ describe('Automatic lease amendments (PostgreSQL)', () => {
       )
     )[0].id;
     const tenantUser = await createUser(companyId, UserRole.TENANT);
+    tenantToken = tenantUser.token;
     tenantId = (
       await db.query(
         'INSERT INTO tenants(company_id,user_id) VALUES($1,$2) RETURNING id',
@@ -131,6 +135,7 @@ describe('Automatic lease amendments (PostgreSQL)', () => {
     )[0].day;
   });
   async function clear() {
+    await purgeFinancialCorrections(db, companyId);
     for (const table of [
       'pending_actions',
       'domain_operation_receipts',
@@ -546,11 +551,413 @@ describe('Automatic lease amendments (PostgreSQL)', () => {
       ]);
     }
   });
+  it('recovers the HTTP draft creation after its state changed without storing transport metadata', async () => {
+    const payload = {
+      leaseId,
+      companyId: foreignId,
+      effectiveDate: today,
+      changeType: Change.RENT_INCREASE,
+      description: 'HTTP recoverable draft',
+      newValues: { monthlyRent: '1200.00' },
+      idempotencyKey: randomUUID(),
+    };
+    const send = () =>
+      request(app.getHttpServer())
+        .post('/amendments')
+        .auth(token, { type: 'bearer' })
+        .send(payload)
+        .expect(201);
+    const first = (await send()).body;
+    await service.submit(first.id, actor);
+    expect((await send()).body).toEqual(first);
+    expect(first).toMatchObject({ status: 'draft', companyId });
+    expect(first).not.toHaveProperty('idempotencyKey');
+    expect(await db.getRepository(LeaseAmendment).countBy({ leaseId })).toBe(1);
+  });
+  it.each(['submit', 'approve', 'reject'] as const)(
+    'recovers an HTTP %s decision using its observed version',
+    async (action) => {
+      const amendment = await create();
+      if (action !== 'submit') await service.submit(amendment.id, actor);
+      const current = await getAmendment(amendment.id);
+      const payload = {
+        idempotencyKey: randomUUID(),
+        expectedUpdatedAt: current.updatedAt.toISOString(),
+      };
+      const send = () =>
+        request(app.getHttpServer())
+          .patch(`/amendments/${amendment.id}/${action}`)
+          .auth(token, { type: 'bearer' })
+          .send(payload)
+          .expect(200);
+      const first = (await send()).body;
+      expect((await send()).body).toEqual(first);
+      const states = {
+        submit: 'pending_approval',
+        approve: 'approved',
+        reject: 'rejected',
+      };
+      expect(first.status).toBe(states[action]);
+      await request(app.getHttpServer())
+        .patch(`/amendments/${amendment.id}/${action}`)
+        .auth(token, { type: 'bearer' })
+        .send({ ...payload, expectedUpdatedAt: '2000-01-01T00:00:00.000Z' })
+        .expect(409);
+    },
+  );
+  it('rejects a stale HTTP approval until the user reads the current amendment', async () => {
+    const amendment = await create();
+    const expectedUpdatedAt = amendment.updatedAt.toISOString();
+    await service.submit(amendment.id, actor);
+    const payload = { idempotencyKey: randomUUID(), expectedUpdatedAt };
+    await request(app.getHttpServer())
+      .patch(`/amendments/${amendment.id}/approve`)
+      .auth(token, { type: 'bearer' })
+      .send(payload)
+      .expect(409);
+    expect((await getAmendment(amendment.id)).status).toBe('pending_approval');
+    const current = await getAmendment(amendment.id);
+    await request(app.getHttpServer())
+      .patch(`/amendments/${amendment.id}/approve`)
+      .auth(token, { type: 'bearer' })
+      .send({ ...payload, expectedUpdatedAt: current.updatedAt.toISOString() })
+      .expect(200);
+  });
+  it('validates HTTP recovery keys and denies tenant creation', async () => {
+    const payload = {
+      leaseId,
+      companyId,
+      effectiveDate: today,
+      changeType: Change.RENT_INCREASE,
+      description: 'No duplicate draft',
+      newValues: { monthlyRent: 1200 },
+      idempotencyKey: 'not-a-uuid',
+    };
+    await request(app.getHttpServer())
+      .post('/amendments')
+      .auth(token, { type: 'bearer' })
+      .send(payload)
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/amendments')
+      .auth(tenantToken, { type: 'bearer' })
+      .send({ ...payload, idempotencyKey: randomUUID() })
+      .expect(403);
+    expect(await db.getRepository(LeaseAmendment).countBy({ leaseId })).toBe(0);
+  });
+  const reviewRequest = async (
+    id: string,
+    action: 'cancel' | 'schedule' = 'cancel',
+  ) => ({
+    action,
+    reason: 'Reviewed with the contract administrator',
+    expectedUpdatedAt: (await getAmendment(id)).updatedAt.toISOString(),
+    idempotencyKey: randomUUID(),
+  });
+
+  it('cancels a future approval with a durable reason and releases its billing barrier', async () => {
+    const amendment = await approve(await create('2098-01-01'));
+    const dto = await reviewRequest(amendment.id);
+    const result = await service.review(amendment.id, dto, actor);
+    expect(result.amendment).toMatchObject({
+      status: 'cancelled',
+      applicationStatus: 'none',
+      appliedAt: null,
+      approvedBy: actor.id,
+    });
+    expect(result.review).toMatchObject({
+      action: 'cancel',
+      performedBy: actor.id,
+      reason: dto.reason,
+      before: { status: 'approved', applicationStatus: 'pending' },
+      after: { status: 'cancelled' },
+    });
+    await expect(
+      assertNoPendingBillingAmendment(
+        db.manager,
+        leaseId,
+        companyId,
+        '2098-01-31',
+      ),
+    ).resolves.toBeUndefined();
+    expect(
+      JSON.parse(
+        JSON.stringify(await service.review(amendment.id, dto, actor)),
+      ),
+    ).toEqual(JSON.parse(JSON.stringify(result)));
+    expect(await service.reviewHistory(amendment.id, actor)).toHaveLength(1);
+    await expect(
+      service.review(
+        amendment.id,
+        { ...dto, reason: 'Changed cancellation explanation' },
+        actor,
+      ),
+    ).rejects.toThrow('different operation or request');
+    expect((await getLease()).monthlyRent).toBe('1000.00');
+  });
+  it.each(['draft', 'pending_approval', 'error', 'legacy_review'])(
+    'cancels an unapplied %s amendment',
+    async (state) => {
+      const amendment = await create();
+      if (state === 'pending_approval')
+        await service.submit(amendment.id, actor);
+      if (['error', 'legacy_review'].includes(state))
+        await db.query(
+          "UPDATE lease_amendments SET status='approved',application_status=$2 WHERE id=$1",
+          [amendment.id, state],
+        );
+      const result = await service.review(
+        amendment.id,
+        await reviewRequest(amendment.id),
+        actor,
+      );
+      expect(result.amendment.status).toBe('cancelled');
+      await service.processDue();
+      expect((await getLease()).monthlyRent).toBe('1000.00');
+    },
+  );
+  it('schedules an explicitly reviewed historical approval without rewriting the original approval', async () => {
+    const amendment = await create();
+    await db.query(
+      "UPDATE lease_amendments SET status='approved',application_status='legacy_review',approved_by=$2,approved_at='2025-01-01' WHERE id=$1",
+      [amendment.id, requesterId],
+    );
+    const result = await service.review(
+      amendment.id,
+      await reviewRequest(amendment.id, 'schedule'),
+      actor,
+    );
+    expect(result.amendment).toMatchObject({
+      status: 'approved',
+      applicationStatus: 'applied',
+      approvedBy: requesterId,
+    });
+    expect(result.amendment.approvedAt.toISOString()).toContain('2025-01-01');
+    expect(result.review).toMatchObject({
+      performedBy: actor.id,
+      before: { applicationStatus: 'legacy_review' },
+      after: { applicationStatus: 'applied' },
+    });
+    expect((await getLease()).monthlyRent).toBe('1200.00');
+  });
+  it('records a scheduled historical approval that still needs billing review', async () => {
+    const amendment = await create();
+    await db.query(
+      "UPDATE lease_amendments SET status='approved',application_status='legacy_review' WHERE id=$1",
+      [amendment.id],
+    );
+    await db.query('UPDATE leases SET next_adjustment_date=$2 WHERE id=$1', [
+      leaseId,
+      today,
+    ]);
+    const result = await service.review(
+      amendment.id,
+      await reviewRequest(amendment.id, 'schedule'),
+      actor,
+    );
+    expect(result.amendment.applicationStatus).toBe('error');
+    expect(result.review.after).toMatchObject({
+      applicationStatus: 'error',
+      applicationError: expect.stringContaining('adjustment calendar'),
+    });
+    expect((await getLease()).monthlyRent).toBe('1000.00');
+  });
+  it('does not enable malformed historical terms but still allows audited cancellation', async () => {
+    const amendment = await create();
+    await db.query(
+      "UPDATE lease_amendments SET new_values='{\"arbitraryField\":true}',status='approved',application_status='legacy_review' WHERE id=$1",
+      [amendment.id],
+    );
+    await expect(
+      service.review(
+        amendment.id,
+        await reviewRequest(amendment.id, 'schedule'),
+        actor,
+      ),
+    ).rejects.toThrow('Invalid newValues');
+    expect((await getAmendment(amendment.id)).applicationStatus).toBe(
+      'legacy_review',
+    );
+    expect(await service.reviewHistory(amendment.id, actor)).toHaveLength(0);
+    expect(
+      (
+        await service.review(
+          amendment.id,
+          await reviewRequest(amendment.id),
+          actor,
+        )
+      ).amendment.status,
+    ).toBe('cancelled');
+  });
+  it('requires a fresh observed version, reason and a valid recovery key', async () => {
+    const amendment = await create();
+    const dto = await reviewRequest(amendment.id);
+    await service.submit(amendment.id, actor);
+    await expect(service.review(amendment.id, dto, actor)).rejects.toThrow(
+      'reload before reviewing',
+    );
+    for (const invalid of [
+      { reason: ' ' },
+      { idempotencyKey: 'bad-key' },
+      { expectedUpdatedAt: 'yesterday' },
+    ])
+      await expect(
+        service.review(amendment.id, { ...dto, ...invalid }, actor),
+      ).rejects.toThrow('Valid review');
+    expect(await service.reviewHistory(amendment.id, actor)).toHaveLength(0);
+  });
+  it('rejects cancellation of applied amendments and scheduling of normal approvals', async () => {
+    const amendment = await approve(await create());
+    await expect(
+      service.review(amendment.id, await reviewRequest(amendment.id), actor),
+    ).rejects.toThrow('Applied amendments');
+    const future = await approve(
+      await create('2098-01-01', Change.RENT_INCREASE, { monthlyRent: 1400 }),
+    );
+    await expect(
+      service.review(
+        future.id,
+        await reviewRequest(future.id, 'schedule'),
+        actor,
+      ),
+    ).rejects.toThrow('Only historical');
+    expect(await service.reviewHistory(amendment.id, actor)).toHaveLength(0);
+  });
+  it('allows cancelling an obsolete queued change after the contract and property were soft-deleted', async () => {
+    const amendment = await approve(await create('2098-01-01'));
+    const dto = await reviewRequest(amendment.id);
+    await db.query('UPDATE leases SET deleted_at=now() WHERE id=$1', [leaseId]);
+    await db.query('UPDATE properties SET deleted_at=now() WHERE id=$1', [
+      propertyId,
+    ]);
+    try {
+      expect(
+        (await service.review(amendment.id, dto, actor)).amendment.status,
+      ).toBe('cancelled');
+      expect(await service.reviewHistory(amendment.id, actor)).toHaveLength(1);
+    } finally {
+      await db.query('UPDATE properties SET deleted_at=NULL WHERE id=$1', [
+        propertyId,
+      ]);
+    }
+  });
+  it('serializes cancellation against application without allowing both effects', async () => {
+    const amendment = await create();
+    await db.query(
+      "UPDATE lease_amendments SET status='approved',application_status='pending' WHERE id=$1",
+      [amendment.id],
+    );
+    const dto = await reviewRequest(amendment.id);
+    const outcomes = await Promise.allSettled([
+      service.review(amendment.id, dto, actor),
+      service.processDue(),
+    ]);
+    const result = await getAmendment(amendment.id);
+    if (outcomes[0].status === 'fulfilled') {
+      expect(result.status).toBe('cancelled');
+      expect((await getLease()).monthlyRent).toBe('1000.00');
+      expect(await service.reviewHistory(amendment.id, actor)).toHaveLength(1);
+    } else {
+      expect(result.applicationStatus).toBe('applied');
+      expect((await getLease()).monthlyRent).toBe('1200.00');
+      expect(await service.reviewHistory(amendment.id, actor)).toHaveLength(0);
+    }
+  });
+  it('rolls back scheduling, contract application and receipt if review audit insertion fails', async () => {
+    const amendment = await create();
+    await db.query(
+      "UPDATE lease_amendments SET status='approved',application_status='legacy_review' WHERE id=$1",
+      [amendment.id],
+    );
+    const dto = await reviewRequest(amendment.id, 'schedule');
+    await db.query(
+      `CREATE OR REPLACE FUNCTION test_amendment_review_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.company_id='${companyId}'::uuid THEN RAISE EXCEPTION 'Review audit failed'; END IF; RETURN NEW; END $$`,
+    );
+    await db.query(
+      'CREATE TRIGGER test_amendment_review_failure BEFORE INSERT ON lease_amendment_reviews FOR EACH ROW EXECUTE FUNCTION test_amendment_review_failure()',
+    );
+    try {
+      await expect(service.review(amendment.id, dto, actor)).rejects.toThrow(
+        'Review audit failed',
+      );
+      expect((await getLease()).monthlyRent).toBe('1000.00');
+      expect((await getAmendment(amendment.id)).applicationStatus).toBe(
+        'legacy_review',
+      );
+      expect(
+        await db.query(
+          'SELECT execution_key FROM domain_operation_receipts WHERE company_id=$1 AND execution_key=$2',
+          [companyId, dto.idempotencyKey],
+        ),
+      ).toHaveLength(0);
+    } finally {
+      await db.query(
+        'DROP TRIGGER test_amendment_review_failure ON lease_amendment_reviews',
+      );
+      await db.query('DROP FUNCTION test_amendment_review_failure()');
+    }
+    expect(
+      (await service.review(amendment.id, dto, actor)).amendment
+        .applicationStatus,
+    ).toBe('applied');
+  });
+  it('protects HTTP review/history by role, company and UUID and keeps audit immutable', async () => {
+    const amendment = await create();
+    const dto = await reviewRequest(amendment.id);
+    await request(app.getHttpServer())
+      .post(`/amendments/${amendment.id}/reviews`)
+      .auth(foreignToken, { type: 'bearer' })
+      .send(dto)
+      .expect(404);
+    await request(app.getHttpServer())
+      .post(`/amendments/${amendment.id}/reviews`)
+      .auth(tenantToken, { type: 'bearer' })
+      .send(dto)
+      .expect(403);
+    await request(app.getHttpServer())
+      .post('/amendments/not-a-uuid/reviews')
+      .auth(token, { type: 'bearer' })
+      .send(dto)
+      .expect(400);
+    await expect(
+      service.review(amendment.id, dto, { ...actor, role: UserRole.OWNER }),
+    ).rejects.toThrow('Administrative review');
+    const result = (
+      await request(app.getHttpServer())
+        .post(`/amendments/${amendment.id}/reviews`)
+        .auth(token, { type: 'bearer' })
+        .send(dto)
+        .expect(201)
+    ).body;
+    expect(
+      (
+        await request(app.getHttpServer())
+          .get(`/amendments/${amendment.id}/reviews`)
+          .auth(token, { type: 'bearer' })
+          .expect(200)
+      ).body,
+    ).toHaveLength(1);
+    await request(app.getHttpServer())
+      .get(`/amendments/${amendment.id}/reviews`)
+      .auth(foreignToken, { type: 'bearer' })
+      .expect(404);
+    await request(app.getHttpServer())
+      .get(`/amendments/${amendment.id}/reviews`)
+      .auth(tenantToken, { type: 'bearer' })
+      .expect(403);
+    await expect(
+      db.query(
+        "UPDATE lease_amendment_reviews SET reason='Overwritten audit explanation' WHERE id=$1",
+        [result.review.id],
+      ),
+    ).rejects.toThrow('cannot be overwritten');
+  });
   it.each([
     'post_amendments',
     'patch_amendment_submit',
     'patch_amendment_approve',
     'patch_amendment_reject',
+    'post_amendment_review',
   ])(
     'recovers a lost approved %s result through the real action inbox',
     async (toolName) => {
@@ -564,7 +971,13 @@ describe('Automatic lease amendments (PostgreSQL)', () => {
           description: 'Inbox amendment',
           newValues: { monthlyRent: 1200 },
         };
-      else {
+      else if (toolName === 'post_amendment_review') {
+        const amendment = await create();
+        const { idempotencyKey: _key, ...dto } = await reviewRequest(
+          amendment.id,
+        );
+        payload = { id: amendment.id, ...dto };
+      } else {
         const amendment = await create();
         if (toolName !== 'patch_amendment_submit')
           await service.submit(amendment.id, actor);
@@ -581,7 +994,7 @@ describe('Automatic lease amendments (PostgreSQL)', () => {
               )
             : value;
       const [action] = await db.query(
-        `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at) VALUES($1,$2,$3,'update','lease','Amendment recovery',$4::jsonb,$5,now()+interval '15 minutes') RETURNING id,execution_key`,
+        `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,review,expires_at) VALUES($1,$2,$3,'update','lease','Amendment recovery',$4::jsonb,$5,$6::jsonb,now()+interval '15 minutes') RETURNING id,execution_key,review`,
         [
           companyId,
           requesterId,
@@ -590,6 +1003,15 @@ describe('Automatic lease amendments (PostgreSQL)', () => {
           createHash('sha256')
             .update(JSON.stringify(sort(payload)))
             .digest('hex'),
+          JSON.stringify(
+            await buildMutationReview(
+              db.manager,
+              companyId,
+              toolName,
+              payload,
+              new Date(Date.now() + 15 * 60_000).toISOString(),
+            ),
+          ),
         ],
       );
       const reauthToken = (
@@ -631,6 +1053,7 @@ describe('Automatic lease amendments (PostgreSQL)', () => {
           userId: actor.id,
           role: UserRole.ADMIN,
           idempotencyKey: action.execution_key,
+          mutationReview: action.review,
         };
         expect(
           await Promise.all([

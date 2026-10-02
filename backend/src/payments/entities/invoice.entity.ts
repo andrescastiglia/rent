@@ -8,6 +8,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
+import type { LateFeeCalculation } from '../late-fee-calculation';
 import type { RentCalculation } from '../rent-adjustment';
 import { Lease } from '../../leases/entities/lease.entity';
 import { Owner } from '../../owners/entities/owner.entity';
@@ -124,6 +125,9 @@ export class Invoice {
     default: 0,
   })
   lateFee: number;
+
+  @Column({ name: 'late_fee_calculation', type: 'jsonb', nullable: true })
+  lateFeeCalculation: LateFeeCalculation | null;
 
   @Column({
     name: 'discount_amount',

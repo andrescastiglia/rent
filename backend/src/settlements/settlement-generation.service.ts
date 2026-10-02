@@ -147,7 +147,9 @@ export class SettlementGenerationService {
           if (
             !isDeepStrictEqual(
               existing.request,
-              JSON.parse(JSON.stringify(dto)),
+              Object.fromEntries(
+                Object.entries(dto).filter(([, value]) => value !== undefined),
+              ),
             )
           )
             throw new ConflictException(

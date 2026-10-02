@@ -188,56 +188,45 @@ export class DigitalSignaturesService {
       return;
     }
 
-    const webhookEvents = [...(request.webhookEvents as object[]), event];
-    request.webhookEvents = webhookEvents;
-
-    if (event.status === 'completed') {
-      request.status = SignatureStatus.COMPLETED;
-      request.completedAt = event.completedAt
-        ? new Date(event.completedAt)
-        : new Date();
-
-      await this.sigRequestRepo.save(request);
-
-      const lease = await this.leaseRepo.findOne({
-        where: { id: request.leaseId },
-      });
-
-      if (lease) {
-        lease.signatureStatus = ContractSignatureStatus.SIGNED;
-        await this.leaseRepo.save(lease);
-      }
-    } else if (
-      event.status === 'voided' ||
-      event.status === 'declined' ||
-      event.status === 'expired'
-    ) {
-      request.status =
-        event.status === 'voided'
-          ? SignatureStatus.VOIDED
-          : event.status === 'declined'
-            ? SignatureStatus.DECLINED
-            : SignatureStatus.EXPIRED;
-      request.voidedAt = new Date();
-
-      await this.sigRequestRepo.save(request);
-
-      const lease = await this.leaseRepo.findOne({
-        where: { id: request.leaseId },
-      });
-
-      if (lease) {
-        lease.signatureStatus =
-          event.status === 'voided'
-            ? ContractSignatureStatus.VOIDED
-            : event.status === 'declined'
-              ? ContractSignatureStatus.DECLINED
-              : ContractSignatureStatus.EXPIRED;
-        await this.leaseRepo.save(lease);
-      }
-    } else {
-      await this.sigRequestRepo.save(request);
+    request.webhookEvents = [...(request.webhookEvents as object[]), event];
+    const target = this.providerTerminalStatus(event.status);
+    if (target) {
+      request.status = target;
+      if (target === SignatureStatus.COMPLETED)
+        request.completedAt = event.completedAt
+          ? new Date(event.completedAt)
+          : new Date();
+      else request.voidedAt = new Date();
     }
+    await this.sigRequestRepo.save(request);
+    if (!target) return;
+    const lease = await this.leaseRepo.findOne({
+      where: { id: request.leaseId },
+    });
+    if (lease) {
+      lease.signatureStatus = this.contractSignatureStatus(target);
+      await this.leaseRepo.save(lease);
+    }
+  }
+
+  private providerTerminalStatus(status: string): SignatureStatus | undefined {
+    return new Map<string, SignatureStatus>([
+      ['completed', SignatureStatus.COMPLETED],
+      ['voided', SignatureStatus.VOIDED],
+      ['declined', SignatureStatus.DECLINED],
+      ['expired', SignatureStatus.EXPIRED],
+    ]).get(status);
+  }
+  private contractSignatureStatus(
+    status: SignatureStatus,
+  ): ContractSignatureStatus {
+    return (
+      new Map<SignatureStatus, ContractSignatureStatus>([
+        [SignatureStatus.COMPLETED, ContractSignatureStatus.SIGNED],
+        [SignatureStatus.DECLINED, ContractSignatureStatus.DECLINED],
+        [SignatureStatus.EXPIRED, ContractSignatureStatus.EXPIRED],
+      ]).get(status) ?? ContractSignatureStatus.VOIDED
+    );
   }
 
   async acceptWebhook(
@@ -451,14 +440,7 @@ export class DigitalSignaturesService {
         ],
       );
 
-      const signatureStatus =
-        targetStatus === SignatureStatus.COMPLETED
-          ? ContractSignatureStatus.SIGNED
-          : targetStatus === SignatureStatus.DECLINED
-            ? ContractSignatureStatus.DECLINED
-            : targetStatus === SignatureStatus.EXPIRED
-              ? ContractSignatureStatus.EXPIRED
-              : ContractSignatureStatus.VOIDED;
+      const signatureStatus = this.contractSignatureStatus(targetStatus);
       await manager.query(
         `UPDATE leases SET signature_status = $3, updated_at = NOW()
           WHERE id = $1::uuid AND company_id = $2::uuid

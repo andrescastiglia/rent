@@ -64,6 +64,21 @@ export class PaymentGatewayTransaction {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
 
+  @Column({ name: 'idempotency_key', type: 'uuid', nullable: true })
+  idempotencyKey: string | null;
+
+  @Column({ name: 'payment_id', type: 'uuid', nullable: true })
+  paymentId: string | null;
+
+  @Column({
+    name: 'refunded_amount',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
+  refundedAmount: number;
+
   @Column({ length: 3, default: 'ARS' })
   currency: string;
 

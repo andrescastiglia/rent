@@ -75,6 +75,7 @@ const getPreview = (value: unknown): string => {
 };
 
 function JsonResponseTable({ value, path = "root" }: JsonTableProps) {
+  const t = useTranslations("common");
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const entries = useMemo(() => getEntries(value), [value]);
 
@@ -88,13 +89,13 @@ function JsonResponseTable({ value, path = "root" }: JsonTableProps) {
         <thead className="bg-gray-100 dark:bg-gray-800">
           <tr>
             <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-200">
-              Field
+              {t("aiJsonField")}
             </th>
             <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-200">
-              Type
+              {t("aiJsonType")}
             </th>
             <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-200">
-              Value
+              {t("aiJsonValue")}
             </th>
           </tr>
         </thead>
@@ -118,8 +119,9 @@ function JsonResponseTable({ value, path = "root" }: JsonTableProps) {
                           onClick={() => toggleRow(rowPath)}
                           className="rounded-sm p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700"
                           aria-label={
-                            isExpanded ? "Collapse row" : "Expand row"
+                            isExpanded ? t("aiJsonCollapse") : t("aiJsonExpand")
                           }
+                          aria-expanded={isExpanded}
                         >
                           {isExpanded ? (
                             <ChevronDown className="h-3.5 w-3.5" />
@@ -191,12 +193,14 @@ type AiAssistantPanelProps = {
   readonly isOpen: boolean;
   readonly mode: AiToolsMode;
   readonly onClose: () => void;
+  readonly conversationScope: string;
 };
 
 export default function AiAssistantPanel({
   isOpen,
   mode,
   onClose,
+  conversationScope,
 }: AiAssistantPanelProps) {
   const t = useTranslations("common");
   const [prompt, setPrompt] = useState("");
@@ -206,6 +210,8 @@ export default function AiAssistantPanel({
   const [isMaximized, setIsMaximized] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const sendingRef = useRef(false);
+  const storageKey = `${AI_CONVERSATION_STORAGE_KEY}:${conversationScope}`;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -216,17 +222,17 @@ export default function AiAssistantPanel({
   useEffect(() => {
     if (!isOpen || hydrated) return;
 
-    const savedConversationId = globalThis.localStorage.getItem(
-      AI_CONVERSATION_STORAGE_KEY,
-    );
+    const savedConversationId = globalThis.localStorage.getItem(storageKey);
     if (!savedConversationId) {
       setHydrated(true);
       return;
     }
 
+    let active = true;
     aiApi
       .getConversation(savedConversationId)
       .then((conversation) => {
+        if (!active) return;
         setConversationId(conversation.conversationId);
         setMessages(
           conversation.messages.map((message) => ({
@@ -242,19 +248,26 @@ export default function AiAssistantPanel({
         );
       })
       .catch(() => {
-        globalThis.localStorage.removeItem(AI_CONVERSATION_STORAGE_KEY);
+        if (!active) return;
+        globalThis.localStorage.removeItem(storageKey);
         setConversationId(null);
         setMessages([]);
       })
-      .finally(() => setHydrated(true));
-  }, [hydrated, isOpen]);
+      .finally(() => {
+        if (active) setHydrated(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [hydrated, isOpen, storageKey]);
 
   if (!isOpen) return null;
 
   const submitPrompt = async (event?: SyntheticEvent) => {
     event?.preventDefault();
     const trimmed = prompt.trim();
-    if (!trimmed || sending) return;
+    if (!trimmed || sendingRef.current || !hydrated || mode === "NONE") return;
+    sendingRef.current = true;
 
     setPrompt("");
     setMessages((prev) => [
@@ -274,10 +287,7 @@ export default function AiAssistantPanel({
 
       if (response.conversationId) {
         setConversationId(response.conversationId);
-        globalThis.localStorage.setItem(
-          AI_CONVERSATION_STORAGE_KEY,
-          response.conversationId,
-        );
+        globalThis.localStorage.setItem(storageKey, response.conversationId);
       }
       const assistantText = response.outputText || "";
       setMessages((prev) => [
@@ -302,6 +312,7 @@ export default function AiAssistantPanel({
         },
       ]);
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   };
@@ -316,6 +327,7 @@ export default function AiAssistantPanel({
   return (
     <section
       id="ai-assistant-panel"
+      aria-labelledby="ai-assistant-title"
       className={`fixed z-30 flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900 ${
         isMaximized
           ? "top-20 right-4 bottom-4 left-4 lg:left-[calc(16rem+1rem)]"
@@ -326,7 +338,10 @@ export default function AiAssistantPanel({
         <div className="flex items-center gap-2">
           <Bot className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           <div>
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+            <h2
+              id="ai-assistant-title"
+              className="text-sm font-semibold text-gray-900 dark:text-gray-100"
+            >
               {t("aiAssistant")}
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -339,7 +354,7 @@ export default function AiAssistantPanel({
             type="button"
             onClick={() => setIsMaximized((prev) => !prev)}
             className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-            aria-label={isMaximized ? "Restaurar tamaño" : "Maximizar"}
+            aria-label={isMaximized ? t("aiRestore") : t("aiMaximize")}
           >
             {isMaximized ? (
               <Minimize2 className="h-4 w-4" />
@@ -418,7 +433,7 @@ export default function AiAssistantPanel({
           );
         })}
 
-        {sending ? (
+        {sending || !hydrated ? (
           <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>{t("loading")}</span>
@@ -436,13 +451,17 @@ export default function AiAssistantPanel({
             onChange={(event) => setPrompt(event.target.value)}
             onKeyDown={onTextareaKeyDown}
             placeholder={t("aiPromptPlaceholder")}
+            aria-label={t("aiPromptPlaceholder")}
+            disabled={!hydrated || mode === "NONE"}
             rows={3}
             className="w-full resize-none rounded-t-lg border-0 bg-transparent px-3 py-2 text-sm text-gray-900 focus:outline-none dark:text-gray-100"
           />
           <div className="flex justify-end px-2 py-2">
             <button
               type="submit"
-              disabled={sending || !prompt.trim()}
+              disabled={
+                sending || !hydrated || mode === "NONE" || !prompt.trim()
+              }
               className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {sending ? (

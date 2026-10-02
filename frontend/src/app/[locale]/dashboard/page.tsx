@@ -12,7 +12,15 @@ import {
   PersonActivityStatus,
 } from "@/lib/api/dashboard";
 import { formatMoneyByCode, normalizeRoundedNumber } from "@/lib/format-money";
-import { Building2, CalendarClock, CreditCard, TrendingUp } from "lucide-react";
+import PendingActionReviewDialog from "@/components/ai/PendingActionReviewDialog";
+import {
+  Button,
+  Dialog,
+  PageHeader,
+  StatePanel,
+  Surface,
+} from "@/components/ui";
+import { formatCalendarDate } from "@/lib/calendar-date";
 
 const STATUS_COLORS: Record<PersonActivityStatus, string> = {
   pending:
@@ -22,138 +30,28 @@ const STATUS_COLORS: Record<PersonActivityStatus, string> = {
   cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 };
 
-function formatPersonName(name: string | null | undefined): string {
-  return name?.trim() || "Sin asignar";
-}
-
-function getMetricValue(value: number | null | undefined): number {
-  return normalizeRoundedNumber(value ?? 0, 0);
+function getMetricValue(value: number | null | undefined): number | string {
+  return value == null ? "—" : normalizeRoundedNumber(value, 0);
 }
 
 function shouldShowEmptyState(
   loading: boolean,
   items: ReadonlyArray<unknown> | null | undefined,
 ): boolean {
-  return loading ? false : (items?.length ?? 0) === 0;
-}
-
-interface PendingActionDialogProps {
-  item: PersonActivityItem | null;
-  password: string;
-  error: string | null;
-  busy: boolean;
-  onPasswordChange: (password: string) => void;
-  onCancel: () => void;
-  onConfirm: () => void;
-}
-
-function PendingActionDialog({
-  item,
-  password,
-  error,
-  busy,
-  onPasswordChange,
-  onCancel,
-  onConfirm,
-}: Readonly<PendingActionDialogProps>) {
-  const t = useTranslations("dashboard");
-
-  if (!item) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <dialog
-        open
-        aria-modal="true"
-        aria-labelledby="dashboard-reauth-title"
-        className="relative m-0 w-full max-w-md rounded-lg border border-gray-200 bg-white p-0 shadow-xl dark:border-gray-700 dark:bg-gray-800"
-        onKeyDown={(event) => {
-          if (event.key === "Escape") onCancel();
-        }}
-      >
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            onConfirm();
-          }}
-        >
-          <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-            <h2
-              id="dashboard-reauth-title"
-              className="text-base font-semibold text-gray-900 dark:text-white"
-            >
-              {t("peopleActivity.reauthTitle")}
-            </h2>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {item.subject}
-            </p>
-          </div>
-          <div className="p-4">
-            {item.canRetry && (
-              <p className="mb-3 text-sm">{t("peopleActivity.retryPrompt")}</p>
-            )}
-            <label
-              htmlFor="dashboard-reauth-password"
-              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
-            >
-              {t("peopleActivity.reauthPassword")}
-            </label>
-            <input
-              id="dashboard-reauth-password"
-              type="password"
-              autoComplete="current-password"
-              autoFocus
-              required
-              aria-invalid={Boolean(error)}
-              aria-describedby={error ? "dashboard-reauth-error" : undefined}
-              value={password}
-              onChange={(event) => onPasswordChange(event.target.value)}
-              className="w-full rounded-md border border-gray-300 bg-white p-2 text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-            />
-            {error ? (
-              <p
-                id="dashboard-reauth-error"
-                role="alert"
-                className="mt-2 text-sm text-red-600 dark:text-red-400"
-              >
-                {error}
-              </p>
-            ) : null}
-          </div>
-          <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 dark:border-gray-600 dark:text-gray-200"
-            >
-              {t("peopleActivity.actions.cancel")}
-            </button>
-            <button
-              type="submit"
-              disabled={!password || busy}
-              className="rounded-md bg-green-600 px-3 py-2 text-sm text-white disabled:opacity-50"
-            >
-              {t(
-                item.canRetry
-                  ? "peopleActivity.actions.retry"
-                  : "peopleActivity.actions.approve",
-              )}
-            </button>
-          </div>
-        </form>
-      </dialog>
-    </div>
-  );
+  return !loading && items?.length === 0;
 }
 
 export default function DashboardPage() {
   const { loading: authLoading } = useAuth();
   const t = useTranslations("dashboard");
+  const tr = useTranslations("actionReview");
   const locale = useLocale();
   const [overview, setOverview] = useState<DashboardOperationsOverview | null>(
     null,
   );
   const [loading, setLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState(false);
+  const [activityError, setActivityError] = useState(false);
   const [peopleActivity, setPeopleActivity] =
     useState<PeopleActivityResponse | null>(null);
   const [activityLoading, setActivityLoading] = useState(true);
@@ -173,9 +71,11 @@ export default function DashboardPage() {
   const fetchOverview = useCallback(async () => {
     try {
       setLoading(true);
+      setOverviewError(false);
       const data = await dashboardApi.getOperationsOverview();
       setOverview(data);
     } catch (error) {
+      setOverviewError(true);
       console.error("Error fetching dashboard operations overview:", error);
     } finally {
       setLoading(false);
@@ -184,10 +84,12 @@ export default function DashboardPage() {
 
   const fetchPeopleActivity = useCallback(async () => {
     setActivityLoading(true);
+    setActivityError(false);
     try {
       const data = await dashboardApi.getRecentActivity(activityLimit);
       setPeopleActivity(data);
     } catch (error) {
+      setActivityError(true);
       console.error("Error fetching people activity:", error);
     } finally {
       setActivityLoading(false);
@@ -210,7 +112,7 @@ export default function DashboardPage() {
 
   const formatDate = (dateStr: string | null | undefined): string => {
     if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString(locale);
+    return formatCalendarDate(dateStr, locale);
   };
 
   const formatDateTime = (dateStr: string | null): string => {
@@ -228,6 +130,7 @@ export default function DashboardPage() {
       await fetchPeopleActivity();
     } catch (error) {
       console.error("Failed to complete activity", error);
+      setActivityError(true);
     } finally {
       setUpdatingActivityId(null);
     }
@@ -261,6 +164,7 @@ export default function DashboardPage() {
       closeEditCommentDialog();
     } catch (error) {
       console.error("Failed to edit activity comment", error);
+      setActivityError(true);
     } finally {
       setUpdatingActivityId(null);
     }
@@ -291,6 +195,7 @@ export default function DashboardPage() {
       await fetchPeopleActivity();
     } catch (error) {
       console.error("Failed to process queued action", error);
+      setActivityError(true);
     } finally {
       setUpdatingActivityId(null);
     }
@@ -317,6 +222,86 @@ export default function DashboardPage() {
     } finally {
       setUpdatingActivityId(null);
     }
+  };
+
+  const renderActivityActions = (item: PersonActivityItem) => {
+    if (item.actionKind === "communication")
+      return (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void handleQueuedAction(item, "reply")}
+            disabled={updatingActivityId === item.id}
+            className="px-2 py-1 rounded-sm bg-green-600 text-white disabled:opacity-50"
+          >
+            {t("peopleActivity.actions.reply")}
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleQueuedAction(item, "read")}
+            disabled={updatingActivityId === item.id}
+            className="px-2 py-1 rounded-sm bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 disabled:opacity-50"
+          >
+            {t("peopleActivity.actions.markRead")}
+          </button>
+        </div>
+      );
+    if (item.actionKind === "pending_action")
+      return (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void handleQueuedAction(item, "approve")}
+            disabled={updatingActivityId === item.id}
+            className="px-2 py-1 rounded-sm bg-green-600 text-white disabled:opacity-50"
+          >
+            {t(
+              item.canRetry
+                ? "peopleActivity.actions.retry"
+                : "peopleActivity.actions.approve",
+            )}
+          </button>
+          {!item.canRetry && (
+            <button
+              type="button"
+              onClick={() => void handleQueuedAction(item, "reject")}
+              disabled={updatingActivityId === item.id}
+              className="px-2 py-1 rounded-sm bg-red-600 text-white disabled:opacity-50"
+            >
+              {t("peopleActivity.actions.reject")}
+            </button>
+          )}
+        </div>
+      );
+    if (item.actionKind === "registration")
+      return (
+        <Link
+          href={`/${locale}/users`}
+          className="text-blue-600 hover:underline"
+        >
+          {t("peopleActivity.actions.review")}
+        </Link>
+      );
+    return (
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => handleCompleteActivity(item)}
+          disabled={updatingActivityId === item.id}
+          className="px-2 py-1 rounded-sm bg-green-600 text-white disabled:opacity-50"
+        >
+          {t("peopleActivity.actions.complete")}
+        </button>
+        <button
+          type="button"
+          onClick={() => handleEditComment(item)}
+          disabled={updatingActivityId === item.id}
+          className="px-2 py-1 rounded-sm bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 disabled:opacity-50"
+        >
+          {t("peopleActivity.actions.editComment")}
+        </button>
+      </div>
+    );
   };
 
   const renderPeopleTable = (
@@ -381,79 +366,7 @@ export default function DashboardPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm">
-                  {item.actionKind === "communication" ? (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void handleQueuedAction(item, "reply")}
-                        disabled={updatingActivityId === item.id}
-                        className="px-2 py-1 rounded-sm bg-green-600 text-white disabled:opacity-50"
-                      >
-                        {t("peopleActivity.actions.reply")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleQueuedAction(item, "read")}
-                        disabled={updatingActivityId === item.id}
-                        className="px-2 py-1 rounded-sm bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 disabled:opacity-50"
-                      >
-                        {t("peopleActivity.actions.markRead")}
-                      </button>
-                    </div>
-                  ) : item.actionKind === "pending_action" ? (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => void handleQueuedAction(item, "approve")}
-                        disabled={updatingActivityId === item.id}
-                        className="px-2 py-1 rounded-sm bg-green-600 text-white disabled:opacity-50"
-                      >
-                        {t(
-                          item.canRetry
-                            ? "peopleActivity.actions.retry"
-                            : "peopleActivity.actions.approve",
-                        )}
-                      </button>
-                      {!item.canRetry && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void handleQueuedAction(item, "reject")
-                          }
-                          disabled={updatingActivityId === item.id}
-                          className="px-2 py-1 rounded-sm bg-red-600 text-white disabled:opacity-50"
-                        >
-                          {t("peopleActivity.actions.reject")}
-                        </button>
-                      )}
-                    </div>
-                  ) : item.actionKind === "registration" ? (
-                    <Link
-                      href={`/${locale}/users`}
-                      className="text-blue-600 hover:underline"
-                    >
-                      {t("peopleActivity.actions.review")}
-                    </Link>
-                  ) : (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleCompleteActivity(item)}
-                        disabled={updatingActivityId === item.id}
-                        className="px-2 py-1 rounded-sm bg-green-600 text-white disabled:opacity-50"
-                      >
-                        {t("peopleActivity.actions.complete")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleEditComment(item)}
-                        disabled={updatingActivityId === item.id}
-                        className="px-2 py-1 rounded-sm bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200 disabled:opacity-50"
-                      >
-                        {t("peopleActivity.actions.editComment")}
-                      </button>
-                    </div>
-                  )}
+                  {renderActivityActions(item)}
                 </td>
               </tr>
             ))}
@@ -466,13 +379,89 @@ export default function DashboardPage() {
   const propertyPanel = overview?.propertiesPanel;
   const paymentsPanel = overview?.paymentsPanel;
 
+  let panelContent1;
+  if (activityError) {
+    panelContent1 = (
+      <StatePanel
+        error
+        title={tr("activityError")}
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => void fetchPeopleActivity()}
+          >
+            {tr("retryPanel")}
+          </Button>
+        }
+      />
+    );
+  } else {
+    panelContent1 = (
+      <>
+        <section>
+          <h2 className="text-md font-semibold text-red-700 dark:text-red-400 mb-3">
+            {t("peopleActivity.overdueTitle")}
+          </h2>
+          {activityLoading ? (
+            <p className="text-muted">{t("loading")}</p>
+          ) : (
+            renderPeopleTable(
+              peopleActivity?.overdue ?? [],
+              t("peopleActivity.noOverdue"),
+            )
+          )}
+        </section>
+        <section>
+          <h2 className="text-md font-semibold text-blue-700 dark:text-blue-400 mb-3">
+            {t("peopleActivity.todayTitle")}
+          </h2>
+          {activityLoading ? (
+            <p className="text-muted">{t("loading")}</p>
+          ) : (
+            renderPeopleTable(
+              peopleActivity?.today ?? [],
+              t("peopleActivity.noToday"),
+            )
+          )}
+        </section>
+        <section>
+          <h2 className="text-md font-semibold text-green-700 dark:text-green-400 mb-3">
+            {t("peopleActivity.newTitle")}
+          </h2>
+          {activityLoading ? (
+            <p className="text-muted">{t("loading")}</p>
+          ) : (
+            renderPeopleTable(
+              peopleActivity?.new ?? [],
+              t("peopleActivity.noNew"),
+            )
+          )}
+        </section>
+      </>
+    );
+  }
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+      <PageHeader
+        title={tr("dashboardTitle")}
+        description={tr("dashboardDescription")}
+      />
+      {overviewError && (
+        <StatePanel
+          error
+          title={tr("loadError")}
+          action={
+            <Button variant="secondary" onClick={() => void fetchOverview()}>
+              {tr("retryPanel")}
+            </Button>
+          }
+        />
+      )}
+      <div id="pending-actions" className="ui-surface scroll-mt-24">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h2 className="text-lg font-semibold text-foreground">
             {t("peopleActivity.title")}
-          </h1>
+          </h2>
           <label htmlFor="dashboard-activity-limit" className="sr-only">
             {t("peopleActivity.title")}
           </label>
@@ -490,405 +479,178 @@ export default function DashboardPage() {
           </select>
         </div>
 
-        <div className="p-6 space-y-6">
-          {activityLoading ? (
-            <p className="text-gray-600 dark:text-gray-400">{t("loading")}</p>
-          ) : (
-            <>
-              <section>
-                <h2 className="text-md font-semibold text-green-700 dark:text-green-400 mb-3">
-                  {t("peopleActivity.newTitle")}
-                </h2>
-                {renderPeopleTable(
-                  peopleActivity?.new ?? [],
-                  t("peopleActivity.noNew"),
-                )}
-              </section>
-              <section>
-                <h2 className="text-md font-semibold text-red-700 dark:text-red-400 mb-3">
-                  {t("peopleActivity.overdueTitle")}
-                </h2>
-                {renderPeopleTable(
-                  peopleActivity?.overdue ?? [],
-                  t("peopleActivity.noOverdue"),
-                )}
-              </section>
-              <section>
-                <h2 className="text-md font-semibold text-blue-700 dark:text-blue-400 mb-3">
-                  {t("peopleActivity.todayTitle")}
-                </h2>
-                {renderPeopleTable(
-                  peopleActivity?.today ?? [],
-                  t("peopleActivity.noToday"),
-                )}
-              </section>
-            </>
-          )}
+        <div className="p-6 space-y-6">{panelContent1}</div>
+      </div>
+
+      <Surface className="p-5">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <p className="text-xs font-medium text-muted">
+              {t("workspace.saleProperties")}
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">
+              {loading ? "…" : getMetricValue(propertyPanel?.saleCount)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted">
+              {t("workspace.activeContracts")}
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">
+              {loading ? "…" : getMetricValue(propertyPanel?.rentalActiveCount)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted">
+              {t("workspace.renewalsThisMonth")}
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">
+              {loading
+                ? "…"
+                : getMetricValue(propertyPanel?.expiringThisMonthCount)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted">
+              {t("workspace.overdueInvoices")}
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">
+              {loading ? "…" : getMetricValue(paymentsPanel?.overdueInvoices)}
+            </p>
+          </div>
         </div>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="border-b border-slate-200 bg-slate-950 px-6 py-5 text-white dark:border-slate-800">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
-                  <Building2 size={20} />
-                </span>
-                <div>
-                  <p className="text-sm uppercase tracking-[0.18em] text-slate-300">
-                    Panel Principal
-                  </p>
-                  <h2 className="text-xl font-semibold">Propiedades</h2>
-                </div>
-              </div>
-              <Link
-                href={`/${locale}/properties`}
-                className="rounded-full border border-white/20 px-4 py-2 text-sm hover:bg-white/10"
-              >
-                Ver panel
-              </Link>
-            </div>
-          </div>
-
-          <div className="space-y-6 p-6">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl bg-emerald-50 p-4 dark:bg-emerald-950/40">
-                <p className="text-xs uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
-                  Venta
-                </p>
-                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading ? "..." : getMetricValue(propertyPanel?.saleCount)}
-                </p>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  propiedades publicadas para venta
-                </p>
-              </div>
-              <div className="rounded-2xl bg-blue-50 p-4 dark:bg-blue-950/40">
-                <p className="text-xs uppercase tracking-[0.16em] text-blue-700 dark:text-blue-300">
-                  Alquileres Vigentes
-                </p>
-                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading
-                    ? "..."
-                    : getMetricValue(propertyPanel?.rentalActiveCount)}
-                </p>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  contratos activos para seguimiento
-                </p>
-              </div>
-              <div className="rounded-2xl bg-amber-50 p-4 dark:bg-amber-950/40">
-                <p className="text-xs uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
-                  Vencen Este Mes
-                </p>
-                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading
-                    ? "..."
-                    : getMetricValue(propertyPanel?.expiringThisMonthCount)}
-                </p>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  revisar para renovar ahora
-                </p>
-              </div>
-              <div className="rounded-2xl bg-rose-50 p-4 dark:bg-rose-950/40">
-                <p className="text-xs uppercase tracking-[0.16em] text-rose-700 dark:text-rose-300">
-                  Vencidos
-                </p>
-                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading
-                    ? "..."
-                    : getMetricValue(propertyPanel?.rentalExpiredCount)}
-                </p>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  contratos para regularizar o renovar
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                    Venta destacada
-                  </h3>
-                  <Link
-                    href={`/${locale}/properties`}
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    Ir a ventas
-                  </Link>
-                </div>
-                <div className="space-y-3">
-                  {(propertyPanel?.saleHighlights ?? []).map((item) => (
-                    <div
-                      key={item.propertyId}
-                      className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800"
+        <div className="mt-5 flex flex-wrap gap-2">
+          <Link
+            href={`/${locale}/payments`}
+            className="btn btn-primary"
+            data-guide="attention"
+          >
+            {t("workspace.openPayments")}
+          </Link>
+          <Link href={`/${locale}/leases`} className="btn btn-secondary">
+            {t("workspace.openContracts")}
+          </Link>
+          <Link href={`/${locale}/properties`} className="btn btn-secondary">
+            {t("workspace.openProperties")}
+          </Link>
+        </div>
+      </Surface>
+      <Surface className="p-5">
+        <details>
+          <summary className="min-h-11 cursor-pointer font-semibold">
+            {t("workspace.information")}
+          </summary>
+          <div className="mt-4 grid gap-6 lg:grid-cols-2">
+            <section>
+              <h2 className="mb-3 text-sm font-semibold">
+                {t("workspace.contractsEnding")}
+              </h2>
+              <ul className="space-y-3">
+                {propertyPanel?.expiringThisMonth.map((lease) => (
+                  <li key={lease.leaseId}>
+                    <Link
+                      href={`/${locale}/leases/${lease.leaseId}`}
+                      className="action-link action-link-primary"
                     >
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        {item.propertyName}
-                      </p>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
-                        {item.propertyAddress || "Sin dirección"}
-                      </p>
-                      <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">
-                        {item.salePrice === null
-                          ? "Precio a definir"
-                          : formatMoneyByCode(
-                              item.salePrice,
-                              item.saleCurrency,
-                              locale,
-                            )}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Propietario: {formatPersonName(item.ownerName)}
-                      </p>
-                    </div>
-                  ))}
-                  {shouldShowEmptyState(
-                    loading,
-                    propertyPanel?.saleHighlights,
-                  ) ? (
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      No hay propiedades en venta para mostrar.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                      Vencimientos del Mes
-                    </h3>
-                    <CalendarClock size={16} className="text-amber-500" />
-                  </div>
-                  <div className="space-y-2">
-                    {(propertyPanel?.expiringThisMonth ?? []).map((item) => (
-                      <div
-                        key={item.leaseId}
-                        className="rounded-2xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900 dark:bg-amber-950/20"
-                      >
-                        <p className="font-medium text-slate-900 dark:text-white">
-                          {item.propertyName}
-                        </p>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          {formatPersonName(item.tenantName)} · vence{" "}
-                          {formatDate(item.endDate)}
-                        </p>
-                      </div>
-                    ))}
-                    {shouldShowEmptyState(
-                      loading,
-                      propertyPanel?.expiringThisMonth,
-                    ) ? (
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
-                        No hay vencimientos este mes.
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                      Próximos 4 Meses
-                    </h3>
-                    <TrendingUp size={16} className="text-blue-500" />
-                  </div>
-                  <div className="space-y-2">
-                    {(propertyPanel?.expiringNextFourMonths ?? []).map(
-                      (item) => (
-                        <div
-                          key={item.leaseId}
-                          className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800"
-                        >
-                          <p className="font-medium text-slate-900 dark:text-white">
-                            {item.propertyName}
-                          </p>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">
-                            {formatPersonName(item.ownerName)} · vence{" "}
-                            {formatDate(item.endDate)}
-                          </p>
-                        </div>
-                      ),
-                    )}
-                    {shouldShowEmptyState(
-                      loading,
-                      propertyPanel?.expiringNextFourMonths,
-                    ) ? (
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
-                        No hay renovaciones en la ventana de cuatro meses.
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="border-b border-slate-200 bg-linear-to-r from-slate-900 to-slate-800 px-6 py-5 text-white dark:border-slate-800">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
-                  <CreditCard size={20} />
-                </span>
-                <div>
-                  <p className="text-sm uppercase tracking-[0.18em] text-slate-300">
-                    Panel Principal
-                  </p>
-                  <h2 className="text-xl font-semibold">Pagos</h2>
-                </div>
-              </div>
-              <Link
-                href={`/${locale}/payments`}
-                className="rounded-full border border-white/20 px-4 py-2 text-sm hover:bg-white/10"
-              >
-                Ver panel
-              </Link>
-            </div>
-          </div>
-
-          <div className="space-y-6 p-6">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                  Total
-                </p>
-                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading
-                    ? "..."
-                    : getMetricValue(paymentsPanel?.totalPayments)}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900 dark:bg-amber-950/20">
-                <p className="text-xs uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
-                  Pendientes
-                </p>
-                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading
-                    ? "..."
-                    : getMetricValue(paymentsPanel?.pendingPayments)}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900 dark:bg-emerald-950/20">
-                <p className="text-xs uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
-                  Realizados
-                </p>
-                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading
-                    ? "..."
-                    : getMetricValue(paymentsPanel?.completedPayments)}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 dark:border-rose-900 dark:bg-rose-950/20">
-                <p className="text-xs uppercase tracking-[0.16em] text-rose-700 dark:text-rose-300">
-                  Facturas Vencidas
-                </p>
-                <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-                  {loading
-                    ? "..."
-                    : getMetricValue(paymentsPanel?.overdueInvoices)}
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                Últimos movimientos
-              </h3>
-              <div className="space-y-3">
-                {(paymentsPanel?.recentPayments ?? []).map((payment) => (
-                  <div
-                    key={payment.paymentId}
-                    className="rounded-2xl border border-slate-200 p-4 dark:border-slate-800"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-slate-900 dark:text-white">
-                          {payment.propertyName || "Propiedad sin vincular"}
-                        </p>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          {formatPersonName(payment.tenantName)} ·{" "}
-                          {payment.activityType}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {formatDate(payment.paymentDate)} · estado{" "}
-                          {payment.status}
-                        </p>
-                      </div>
-                      <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
-                        {formatMoneyByCode(
-                          payment.amount,
-                          payment.currencyCode,
-                          locale,
-                        )}
-                      </p>
-                    </div>
-                  </div>
+                      {lease.propertyName} · {formatDate(lease.endDate)}
+                    </Link>
+                  </li>
                 ))}
-                {shouldShowEmptyState(
-                  loading,
-                  paymentsPanel?.recentPayments,
-                ) ? (
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    No hay pagos recientes para mostrar.
-                  </p>
-                ) : null}
-              </div>
-            </div>
+              </ul>
+              {shouldShowEmptyState(
+                loading,
+                propertyPanel?.expiringThisMonth,
+              ) && (
+                <p className="text-sm text-muted">{t("workspace.noEndings")}</p>
+              )}
+            </section>
+            <section>
+              <h2 className="mb-3 text-sm font-semibold">
+                {t("workspace.recordedMovements")}
+              </h2>
+              <ul className="space-y-3">
+                {paymentsPanel?.recentPayments.map((payment) => (
+                  <li
+                    key={payment.paymentId}
+                    className="flex flex-wrap justify-between gap-2 border-t border-line pt-3"
+                  >
+                    <Link
+                      href={`/${locale}/payments/${payment.paymentId}`}
+                      className="action-link action-link-primary"
+                    >
+                      {payment.propertyName || t("workspace.payment")} ·{" "}
+                      {formatDate(payment.paymentDate)}
+                    </Link>
+                    <span className="self-center font-semibold tabular-nums">
+                      {formatMoneyByCode(
+                        payment.amount,
+                        payment.currencyCode,
+                        locale,
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {shouldShowEmptyState(loading, paymentsPanel?.recentPayments) && (
+                <p className="text-sm text-muted">
+                  {t("workspace.noMovements")}
+                </p>
+              )}
+            </section>
           </div>
-        </section>
-      </div>
+        </details>
+      </Surface>
 
       {editingActivity ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-lg bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700">
-            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-                {t("peopleActivity.editCommentTitle")}
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {editingActivity.subject}
-              </p>
-            </div>
-            <div className="p-4">
-              <label htmlFor="dashboard-activity-comment" className="sr-only">
-                {t("peopleActivity.editCommentTitle")}
-              </label>
-              <textarea
-                id="dashboard-activity-comment"
-                value={editingComment}
-                onChange={(e) => setEditingComment(e.target.value)}
-                rows={5}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm text-gray-900 dark:text-white"
-                placeholder={t("peopleActivity.editCommentPlaceholder")}
-              />
-            </div>
-            <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={closeEditCommentDialog}
-                className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200"
-              >
-                {t("peopleActivity.actions.cancel")}
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSaveComment()}
-                disabled={updatingActivityId === editingActivity.id}
-                className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm disabled:opacity-50"
-              >
-                {t("peopleActivity.actions.save")}
-              </button>
-            </div>
+        <Dialog
+          open
+          onClose={closeEditCommentDialog}
+          title={t("peopleActivity.editCommentTitle")}
+          busy={updatingActivityId === editingActivity.id}
+        >
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+              {t("peopleActivity.editCommentTitle")}
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {editingActivity.subject}
+            </p>
           </div>
-        </div>
+          <div className="p-4">
+            <label htmlFor="dashboard-activity-comment" className="sr-only">
+              {t("peopleActivity.editCommentTitle")}
+            </label>
+            <textarea
+              id="dashboard-activity-comment"
+              value={editingComment}
+              onChange={(e) => setEditingComment(e.target.value)}
+              rows={5}
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm text-gray-900 dark:text-white"
+              placeholder={t("peopleActivity.editCommentPlaceholder")}
+            />
+          </div>
+          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={closeEditCommentDialog}
+              disabled={updatingActivityId === editingActivity.id}
+              className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-200"
+            >
+              {t("peopleActivity.actions.cancel")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSaveComment()}
+              disabled={updatingActivityId === editingActivity.id}
+              className="px-3 py-2 rounded-md bg-blue-600 text-white text-sm disabled:opacity-50"
+            >
+              {t("peopleActivity.actions.save")}
+            </button>
+          </div>
+        </Dialog>
       ) : null}
 
-      <PendingActionDialog
+      <PendingActionReviewDialog
         item={approvalItem}
         password={reauthPassword}
         error={approvalError}

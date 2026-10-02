@@ -1,8 +1,9 @@
+import { Text, View } from '@/components/themed-native';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
 
@@ -10,6 +11,7 @@ import { Screen } from '@/components/screen';
 import { TurnstileCaptcha } from '@/components/turnstile-captcha';
 import { AppButton, Field, H1 } from '@/components/ui';
 import { useAuth } from '@/contexts/auth-context';
+import { useTheme } from '@/contexts/theme-context';
 
 const schema = z
   .object({
@@ -28,6 +30,7 @@ const schema = z
 type FormData = z.infer<typeof schema>;
 
 export default function RegisterScreen() {
+  const { colors } = useTheme();
   const { t } = useTranslation();
   const { register } = useAuth();
   const [submitting, setSubmitting] = useState(false);
@@ -183,14 +186,14 @@ export default function RegisterScreen() {
         />
       </View>
 
-      {Object.values(formState.errors).map((fieldError) => {
+      {Object.entries(formState.errors).map(([fieldName, fieldError]) => {
         if (!fieldError?.message) return null;
         const message =
           fieldError.message === 'password_mismatch'
             ? t('auth.errors.passwordMismatch')
             : fieldError.message;
         return (
-          <Text key={`${fieldError.message}-${message}`} style={styles.error}>
+          <Text key={fieldName} style={styles.error}>
             {message}
           </Text>
         );
@@ -208,7 +211,10 @@ export default function RegisterScreen() {
 
       <View style={styles.linkRow}>
         <Text style={styles.linkText}>{t('auth.alreadyHaveAccount')} </Text>
-        <Link href="/(auth)/login" style={styles.linkAction}>
+        <Link
+          href="/(auth)/login"
+          style={[styles.linkAction, { color: colors.primary }]}
+        >
           {t('auth.login')}
         </Link>
       </View>

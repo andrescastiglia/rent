@@ -18,7 +18,7 @@ import { z } from 'zod';
 
 export const updateUserZodSchema = z
   .object({
-    email: z.string().email().max(USER_EMAIL_MAX_LENGTH).optional(),
+    email: z.email().max(USER_EMAIL_MAX_LENGTH).optional(),
     firstName: z.string().min(1).optional(),
     lastName: z.string().min(1).optional(),
     phone: z.string().min(1).optional(),

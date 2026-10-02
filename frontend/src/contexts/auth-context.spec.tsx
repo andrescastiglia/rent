@@ -119,89 +119,29 @@ describe("AuthProvider", () => {
   });
 
   describe("login", () => {
-    it("navigates to the task dashboard for tenant role", async () => {
+    it.each([
+      ["tenant", "/es/portal/tenant"],
+      ["owner", "/es/portal/owner"],
+      ["admin", "/es/dashboard"],
+      ["buyer", "/es/portal/buyer"],
+    ])("navigates role %s to %s", async (role, destination) => {
       (usePathname as jest.Mock).mockReturnValue("/es/login");
       (apiClient.post as jest.Mock).mockResolvedValue({
         accessToken: "tok",
         user: {
-          role: "tenant",
+          role,
           id: "1",
           email: "a@b.com",
           firstName: "A",
           lastName: "B",
         },
       });
-
       const ctx = getAuthContext();
       await act(async () => {
         await ctx.login({ email: "a@b.com", password: "pass" });
       });
-
       expect(setToken).toHaveBeenCalledWith("tok");
-      expect(mockPush).toHaveBeenCalledWith("/es/dashboard");
-    });
-
-    it("navigates to the task dashboard for owner role", async () => {
-      (usePathname as jest.Mock).mockReturnValue("/es/login");
-      (apiClient.post as jest.Mock).mockResolvedValue({
-        accessToken: "tok",
-        user: {
-          role: "owner",
-          id: "1",
-          email: "a@b.com",
-          firstName: "A",
-          lastName: "B",
-        },
-      });
-
-      const ctx = getAuthContext();
-      await act(async () => {
-        await ctx.login({ email: "a@b.com", password: "pass" });
-      });
-
-      expect(mockPush).toHaveBeenCalledWith("/es/dashboard");
-    });
-
-    it("navigates to dashboard for admin role", async () => {
-      (usePathname as jest.Mock).mockReturnValue("/es/login");
-      (apiClient.post as jest.Mock).mockResolvedValue({
-        accessToken: "tok",
-        user: {
-          role: "admin",
-          id: "1",
-          email: "a@b.com",
-          firstName: "A",
-          lastName: "B",
-        },
-      });
-
-      const ctx = getAuthContext();
-      await act(async () => {
-        await ctx.login({ email: "a@b.com", password: "pass" });
-      });
-
-      expect(mockPush).toHaveBeenCalledWith("/es/dashboard");
-    });
-
-    it("keeps buyers away from company dashboard aggregates", async () => {
-      (usePathname as jest.Mock).mockReturnValue("/es/login");
-      (apiClient.post as jest.Mock).mockResolvedValue({
-        accessToken: "tok",
-        user: {
-          role: "buyer",
-          id: "1",
-          email: "buyer@example.com",
-          firstName: "B",
-          lastName: "Y",
-        },
-      });
-
-      const ctx = getAuthContext();
-      await act(async () => {
-        await ctx.login({ email: "buyer@example.com", password: "pass" });
-      });
-
-      expect(mockPush).toHaveBeenCalledWith("/es/settings");
+      expect(mockPush).toHaveBeenCalledWith(destination);
     });
 
     it('uses "es" fallback when locale in path is invalid', async () => {

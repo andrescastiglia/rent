@@ -1,15 +1,14 @@
+import { Pressable, Text } from '@/components/themed-native';
 import type { ComponentProps } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Href } from 'expo-router';
 import { Tabs, useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useRoleNavigation } from '@/hooks/use-role-navigation';
-import { getLandingPathForUser } from '@/config/navigation';
+import { canUserAccessPath, getLandingPathForUser } from '@/config/navigation';
 import { useAuth } from '@/contexts/auth-context';
-
-const isEnabled = (allowed: string[], route: string) => allowed.includes(route);
+import { useTheme } from '@/contexts/theme-context';
 
 type TabBarIconProps = Readonly<{
   color: ComponentProps<typeof Ionicons>['color'];
@@ -39,13 +38,14 @@ function TabBarIcon({ color, size, name }: TabBarIconProps) {
 }
 
 function HeaderBackButton({ onPress, testID }: HeaderBackButtonProps) {
+  const { colors } = useTheme();
   return (
     <Pressable
       style={styles.headerBackButton}
       onPress={onPress}
       testID={testID}
     >
-      <Ionicons name="arrow-back" color="#0f172a" size={20} />
+      <Ionicons name="arrow-back" color={colors.text} size={20} />
     </Pressable>
   );
 }
@@ -71,6 +71,7 @@ type DashboardHeaderBackButtonProps = Readonly<{
 }>;
 
 type NewRouteHeaderActionProps = Readonly<{
+  labelKey?: string;
   route: Href;
   testID: string;
 }>;
@@ -89,13 +90,17 @@ function DashboardHeaderBackButton({ testID }: DashboardHeaderBackButtonProps) {
   );
 }
 
-function NewRouteHeaderAction({ route, testID }: NewRouteHeaderActionProps) {
+function NewRouteHeaderAction({
+  route,
+  testID,
+  labelKey,
+}: NewRouteHeaderActionProps) {
   const router = useRouter();
   const { t } = useTranslation();
 
   return (
     <HeaderActionButton
-      label={t('breadcrumbs.new')}
+      label={t(labelKey ?? 'breadcrumbs.new')}
       onPress={() => {
         router.push(route);
       }}
@@ -129,7 +134,10 @@ function AiTabBarIcon(props: TabBarRenderProps) {
 }
 
 function SettingsTabBarIcon(props: TabBarRenderProps) {
-  return <TabBarIcon {...props} name="settings-outline" />;
+  return <TabBarIcon {...props} name="ellipsis-horizontal" />;
+}
+function TasksTabBarIcon(props: TabBarRenderProps) {
+  return <TabBarIcon {...props} name="checkmark-circle-outline" />;
 }
 
 function PropertiesHeaderLeft() {
@@ -163,7 +171,13 @@ function SettingsHeaderLeft() {
 }
 
 function PropertiesHeaderRight() {
-  return <NewRouteHeaderAction route="/(app)/owners/new" testID="owners.new" />;
+  return (
+    <NewRouteHeaderAction
+      route="/(app)/properties/new"
+      testID="properties.new"
+      labelKey="properties.newProperty"
+    />
+  );
 }
 
 function InterestedHeaderRight() {
@@ -176,98 +190,128 @@ function InterestedHeaderRight() {
 }
 
 export default function TabsLayout() {
+  const { colors } = useTheme();
   const { t } = useTranslation();
-  const roleNavigation = useRoleNavigation();
-  const allowedRoutes = roleNavigation.map((item) => item.href);
+  const { user } = useAuth();
 
   return (
     <Tabs
       screenOptions={{
         headerTitleAlign: 'left',
+        headerStyle: { backgroundColor: colors.surface },
+        headerTintColor: colors.text,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+        },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.muted,
         headerLeftContainerStyle: styles.headerLeftContainer,
         headerTitleStyle: styles.headerTitle,
       }}
     >
-      {isEnabled(allowedRoutes, '/dashboard') && (
-        <Tabs.Screen
-          name="dashboard"
-          options={{
-            title: t('nav.dashboard'),
-            href: null,
-            tabBarIcon: DashboardTabBarIcon,
-          }}
-        />
-      )}
-      {isEnabled(allowedRoutes, '/properties') && (
-        <Tabs.Screen
-          name="properties"
-          options={{
-            title: t('properties.title'),
-            tabBarButtonTestID: 'tab.properties',
-            headerLeft: PropertiesHeaderLeft,
-            headerRight: PropertiesHeaderRight,
-            tabBarIcon: PropertiesTabBarIcon,
-          }}
-        />
-      )}
-      {isEnabled(allowedRoutes, '/tenants') && (
-        <Tabs.Screen
-          name="tenants"
-          options={{
-            title: t('tenants.title'),
-            tabBarButtonTestID: 'tab.tenants',
-            headerLeft: TenantsHeaderLeft,
-            headerRight: TenantsHeaderRight,
-            tabBarIcon: TenantsTabBarIcon,
-          }}
-        />
-      )}
-      {isEnabled(allowedRoutes, '/interested') && (
-        <Tabs.Screen
-          name="interested"
-          options={{
-            title: t('interested.title'),
-            tabBarButtonTestID: 'tab.interested',
-            headerLeft: InterestedHeaderLeft,
-            headerRight: InterestedHeaderRight,
-            tabBarIcon: InterestedTabBarIcon,
-          }}
-        />
-      )}
-      {isEnabled(allowedRoutes, '/leases') && (
-        <Tabs.Screen
-          name="leases"
-          options={{
-            href: null,
-            title: t('leases.title'),
-            headerLeft: LeasesHeaderLeft,
-          }}
-        />
-      )}
-      {isEnabled(allowedRoutes, '/payments') && (
-        <Tabs.Screen
-          name="payments"
-          options={{
-            title: t('payments.title'),
-            tabBarButtonTestID: 'tab.payments',
-            headerLeft: PaymentsHeaderLeft,
-            tabBarIcon: PaymentsTabBarIcon,
-          }}
-        />
-      )}
-      {isEnabled(allowedRoutes, '/ai') && (
-        <Tabs.Screen
-          name="ai"
-          options={{
-            title: t('common.aiAssistant'),
-            tabBarButtonTestID: 'tab.ai',
-            tabBarIcon: AiTabBarIcon,
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="home"
+        options={{
+          title: t('navigation.home'),
+          tabBarButtonTestID: 'tab.home',
+          tabBarIcon: DashboardTabBarIcon,
+        }}
+      />
+      <Tabs.Screen
+        name="tasks"
+        options={{
+          title: t('navigation.tasks'),
+          tabBarButtonTestID: 'tab.tasks',
+          tabBarIcon: TasksTabBarIcon,
+        }}
+      />
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: t('navigation.more'),
+          tabBarButtonTestID: 'tab.more',
+          tabBarIcon: SettingsTabBarIcon,
+        }}
+      />
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: t('nav.dashboard'),
+          href: null,
+          tabBarIcon: DashboardTabBarIcon,
+        }}
+      />
+      <Tabs.Screen
+        name="properties"
+        options={{
+          href: null,
+          title: t('properties.title'),
+          tabBarButtonTestID: 'tab.properties',
+          headerLeft: PropertiesHeaderLeft,
+          headerRight:
+            user && canUserAccessPath(user, '/properties/new')
+              ? PropertiesHeaderRight
+              : undefined,
+          tabBarIcon: PropertiesTabBarIcon,
+        }}
+      />
+      <Tabs.Screen
+        name="tenants"
+        options={{
+          href: null,
+          title: t('tenants.title'),
+          tabBarButtonTestID: 'tab.tenants',
+          headerLeft: TenantsHeaderLeft,
+          headerRight:
+            user && canUserAccessPath(user, '/tenants/new')
+              ? TenantsHeaderRight
+              : undefined,
+          tabBarIcon: TenantsTabBarIcon,
+        }}
+      />
+      <Tabs.Screen
+        name="interested"
+        options={{
+          href: null,
+          title: t('interested.title'),
+          tabBarButtonTestID: 'tab.interested',
+          headerLeft: InterestedHeaderLeft,
+          headerRight: InterestedHeaderRight,
+          tabBarIcon: InterestedTabBarIcon,
+        }}
+      />
+      <Tabs.Screen
+        name="leases"
+        options={{
+          href: null,
+          title: t('leases.title'),
+          headerLeft: LeasesHeaderLeft,
+        }}
+      />
+      <Tabs.Screen
+        name="payments"
+        options={{
+          href: null,
+          title: t('payments.title'),
+          tabBarButtonTestID: 'tab.payments',
+          headerLeft: PaymentsHeaderLeft,
+          tabBarIcon: PaymentsTabBarIcon,
+        }}
+      />
+      <Tabs.Screen
+        name="ai"
+        options={{
+          href: null,
+          title: t('common.aiAssistant'),
+          tabBarButtonTestID: 'tab.ai',
+          tabBarIcon: AiTabBarIcon,
+        }}
+      />
       <Tabs.Screen
         name="settings"
         options={{
+          href: null,
           title: t('common.settings'),
           tabBarButtonTestID: 'tab.settings',
           headerLeft: SettingsHeaderLeft,
@@ -286,13 +330,15 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   headerBackButton: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerActionButton: {
-    paddingHorizontal: 6,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
     paddingVertical: 4,
   },
   headerActionText: {

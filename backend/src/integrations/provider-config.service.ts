@@ -46,7 +46,7 @@ export class ProviderConfigService {
       !companyId ||
       !accounts ||
       typeof accounts !== 'object' ||
-      !Object.prototype.hasOwnProperty.call(accounts, companyId)
+      !Object.hasOwn(accounts, companyId)
     ) {
       throw new ServiceUnavailableException(
         `${provider} account is not configured for this company`,

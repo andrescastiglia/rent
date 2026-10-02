@@ -1,4 +1,5 @@
 import type { ZodType } from 'zod';
+import type { MutationReview } from '../../common/helpers/mutation-review';
 import {
   UserModulePermissions,
   UserRole,
@@ -21,6 +22,7 @@ export interface AiExecutionContext {
   mutationIntent?: boolean;
   roleDataContext?: string;
   idempotencyKey?: string;
+  mutationReview?: MutationReview;
 }
 
 export interface AiToolDefinition<TSchema extends ZodType = ZodType> {

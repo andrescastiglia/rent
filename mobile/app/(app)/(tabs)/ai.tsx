@@ -1,16 +1,16 @@
-import { useQuery } from '@tanstack/react-query';
-import { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
-} from 'react-native';
+} from '@/components/themed-native';
+import { useTheme } from '@/contexts/theme-context';
+import { useQuery } from '@tanstack/react-query';
+import { useMemo, useRef, useState } from 'react';
+import { Platform, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { aiApi, AiConversationMessage } from '@/api/ai';
@@ -40,6 +40,7 @@ const getModeLabel = (
 };
 
 export default function AiScreen() {
+  const { colors } = useTheme();
   const { t } = useTranslation();
   const { data, isLoading, error } = useQuery({
     queryKey: ['ai', 'tools-status'],
@@ -142,7 +143,12 @@ export default function AiScreen() {
   };
 
   return (
-    <Screen scrollable={false} padded={false}>
+    <Screen
+      scrollable={false}
+      padded={false}
+      guidanceReady={chatEnabled && !isLoading}
+      guidanceBlocked={Boolean(error) || sending}
+    >
       <KeyboardAvoidingView
         style={styles.container}
         behavior="padding"
@@ -222,7 +228,14 @@ export default function AiScreen() {
                     {message.text}
                   </Text>
                   {message.model ? (
-                    <Text style={styles.modelTag}>{message.model}</Text>
+                    <Text
+                      style={[
+                        styles.modelTag,
+                        { color: isUser ? colors.onPrimary : colors.muted },
+                      ]}
+                    >
+                      {message.model}
+                    </Text>
                   ) : null}
                 </View>
               </View>

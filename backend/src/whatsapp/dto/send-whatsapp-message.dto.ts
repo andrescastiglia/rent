@@ -35,7 +35,7 @@ const sendWhatsappMessageZodSchema = z
       .optional(),
     templateParameters: z.array(z.string().max(1024)).max(20).optional(),
     activityEntity: z.enum(['tenant', 'owner', 'interested']).optional(),
-    activityId: z.string().uuid().optional(),
+    activityId: z.uuid().optional(),
     relatedEntityType: z
       .enum([
         'tenant',
@@ -47,12 +47,12 @@ const sendWhatsappMessageZodSchema = z
         'lease',
       ])
       .optional(),
-    relatedEntityId: z.string().uuid().optional(),
-    companyId: z.string().uuid().optional(),
+    relatedEntityId: z.uuid().optional(),
+    companyId: z.uuid().optional(),
     recipientRole: z
       .enum(['admin', 'staff', 'buyer', 'tenant', 'owner', 'interested'])
       .optional(),
-    recipientId: z.string().uuid().optional(),
+    recipientId: z.uuid().optional(),
     idempotencyKey: z
       .string()
       .min(1)

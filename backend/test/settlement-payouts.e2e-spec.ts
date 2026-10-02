@@ -284,7 +284,7 @@ describe('Durable settlement payouts (e2e)', () => {
     const query = jest.spyOn(db, 'query');
     const count = query.mock.calls.length;
     expect(await worker()).toMatchObject({ disabled: true, processed: 0 });
-    expect(query.mock.calls.length).toBe(count);
+    expect(query.mock.calls).toHaveLength(count);
     query.mockRestore();
     expect(await job()).toBeUndefined();
     expect(create).not.toHaveBeenCalled();
@@ -791,7 +791,7 @@ describe('Durable settlement payouts (e2e)', () => {
       disabled: true,
       processed: 0,
     });
-    expect(scan.mock.calls.length).toBe(before);
+    expect(scan.mock.calls).toHaveLength(before);
     scan.mockRestore();
   });
   it('blocks delivery when WhatsApp consent is absent and never falls back to email or SMS', async () => {
@@ -898,7 +898,7 @@ describe('Durable settlement payouts (e2e)', () => {
   });
 
   it('rejects modified receipt bytes on both movement and legacy receipt download paths', async () => {
-    await post().expect(201);
+    expect((await post().expect(201)).status).toBe(201);
     await worker();
     await effectWorker();
     await db.query('UPDATE documents SET file_data=$2 WHERE company_id=$1', [
@@ -912,7 +912,7 @@ describe('Durable settlement payouts (e2e)', () => {
       .expect(409);
   });
   it('does not follow a receipt URL to another company document', async () => {
-    await post().expect(201);
+    expect((await post().expect(201)).status).toBe(201);
     await worker();
     await effectWorker();
     const [foreignDoc] = await db.query(

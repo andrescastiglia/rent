@@ -15,6 +15,8 @@ import { SaleFolder } from '../sales/entities/sale-folder.entity';
 import { PropertyReservation } from './entities/property-reservation.entity';
 import { Buyer } from '../buyers/entities/buyer.entity';
 import { CommunicationsModule } from '../communications/communications.module';
+import { InterestedWorkflowController } from './interested-workflow.controller';
+import { InterestedWorkflowService } from './interested-workflow.service';
 
 @Module({
   imports: [
@@ -34,8 +36,8 @@ import { CommunicationsModule } from '../communications/communications.module';
       SaleFolder,
     ]),
   ],
-  controllers: [InterestedController],
-  providers: [InterestedService],
+  controllers: [InterestedWorkflowController, InterestedController],
+  providers: [InterestedService, InterestedWorkflowService],
   exports: [InterestedService, TypeOrmModule],
 })
 export class InterestedModule {}

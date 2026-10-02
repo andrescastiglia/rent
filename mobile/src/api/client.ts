@@ -2,6 +2,16 @@ import { API_URL } from '@/api/env';
 import { clearAuth, getToken } from '@/storage/auth-storage';
 import { isTokenExpired } from '@/utils/jwt';
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 type SessionExpiredHandler = (() => void | Promise<void>) | null;
 
@@ -39,6 +49,11 @@ async function handleSessionExpired(): Promise<void> {
   } finally {
     isHandlingSessionExpired = false;
   }
+}
+
+function errorMessage(value: unknown, fallback: string): string {
+  if (Array.isArray(value)) return value.join('. ');
+  return typeof value === 'string' ? value : fallback;
 }
 
 class ApiClient {
@@ -82,7 +97,8 @@ class ApiClient {
       const payload = await response
         .json()
         .catch(() => ({ message: fallback }));
-      throw new Error(payload.message ?? fallback);
+      const message = errorMessage(payload.message, fallback);
+      throw new ApiError(message, response.status);
     }
 
     if (response.status === 204) {
@@ -96,12 +112,22 @@ class ApiClient {
     return this.request<T>(path, { method: 'GET', token });
   }
 
-  post<T>(path: string, body: unknown, token?: string | null): Promise<T> {
-    return this.request<T>(path, { method: 'POST', body, token });
+  post<T>(
+    path: string,
+    body: unknown,
+    token?: string | null,
+    headers?: Record<string, string>,
+  ): Promise<T> {
+    return this.request<T>(path, { method: 'POST', body, token, headers });
   }
 
-  patch<T>(path: string, body: unknown, token?: string | null): Promise<T> {
-    return this.request<T>(path, { method: 'PATCH', body, token });
+  patch<T>(
+    path: string,
+    body: unknown,
+    token?: string | null,
+    headers?: Record<string, string>,
+  ): Promise<T> {
+    return this.request<T>(path, { method: 'PATCH', body, token, headers });
   }
 
   put<T>(path: string, body: unknown, token?: string | null): Promise<T> {

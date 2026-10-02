@@ -1,20 +1,15 @@
+import { Pressable, Text, View } from '@/components/themed-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import DateTimePicker, {
-  DateTimePickerEvent,
+  DateTimePickerChangeEvent,
 } from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  Alert,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Platform, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { propertiesApi } from '@/api/properties';
+import { QueryStatus } from '@/components/query-status';
 import { Screen } from '@/components/screen';
 import { AppButton, Field, H1 } from '@/components/ui';
 
@@ -36,11 +31,14 @@ export default function NewPropertyMaintenanceTaskScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [notes, setNotes] = useState('');
 
-  const handlePickerChange = (event: DateTimePickerEvent, selected?: Date) => {
+  const handlePickerChange = (
+    _event: DateTimePickerChangeEvent,
+    selected?: Date,
+  ) => {
     if (Platform.OS === 'android') {
       setShowPicker(false);
     }
-    if (event.type === 'dismissed' || !selected) {
+    if (!selected) {
       return;
     }
     setScheduledAt(selected);
@@ -78,8 +76,25 @@ export default function NewPropertyMaintenanceTaskScreen() {
     },
   });
 
+  if (propertyQuery.isLoading || propertyQuery.isError || !propertyQuery.data)
+    return (
+      <QueryStatus
+        query={propertyQuery}
+        empty={!propertyQuery.data}
+        emptyLabel={t('common.notFound')}
+      />
+    );
+
   return (
-    <Screen>
+    <Screen
+      guidanceReady={!propertyQuery.isLoading}
+      guidanceBlocked={
+        propertyQuery.isError ||
+        mutation.isPending ||
+        mutation.isError ||
+        showPicker
+      }
+    >
       <H1>{t('properties.saveMaintenanceTask')}</H1>
       <Text style={styles.subtitle}>
         {propertyQuery.data?.name ?? `${t('properties.title')} ${id}`}
@@ -130,7 +145,8 @@ export default function NewPropertyMaintenanceTaskScreen() {
           value={scheduledAt}
           mode={pickerMode}
           is24Hour
-          onChange={handlePickerChange}
+          onValueChange={handlePickerChange}
+          onDismiss={() => setShowPicker(false)}
           testID="maintenanceCreate.scheduledAt.picker"
         />
       ) : null}
@@ -146,6 +162,11 @@ export default function NewPropertyMaintenanceTaskScreen() {
           title={t('properties.saveMaintenanceTask')}
           onPress={() => mutation.mutate()}
           loading={mutation.isPending}
+          disabled={
+            !propertyQuery.data ||
+            propertyQuery.isLoading ||
+            propertyQuery.isError
+          }
           testID="maintenanceCreate.submit"
         />
       </View>

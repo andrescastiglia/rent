@@ -44,6 +44,14 @@ export class PendingActionsController {
     return this.service.approve(id, request.user, dto.reauthToken);
   }
 
+  @Get(':id')
+  detail(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Request() request: StaffRequest,
+  ) {
+    return this.service.findOne(id, request.user.companyId);
+  }
+
   @Post(':id/reject')
   reject(
     @Param('id', ParseUUIDPipe) id: string,

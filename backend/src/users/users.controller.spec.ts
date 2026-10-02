@@ -61,7 +61,12 @@ describe('UsersController', () => {
       adminRequest,
     );
     expect(result.data).toEqual([{ id: 'u1' }, { id: 'u2' }]);
-    expect(usersService.findAll).toHaveBeenCalledWith(1, 10, 'company-1');
+    expect(usersService.findAll).toHaveBeenCalledWith(
+      1,
+      10,
+      'company-1',
+      undefined,
+    );
   });
 
   it('getProfile returns authenticated user', () => {

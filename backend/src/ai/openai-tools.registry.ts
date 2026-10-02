@@ -1,3 +1,4 @@
+import { ReviewAmendmentDto } from '../leases/dto/review-amendment.dto';
 import {
   settlementFiltersSchema,
   settlementSummaryFiltersSchema,
@@ -177,11 +178,11 @@ const ALL_ROLES = [
 const PROFILE_READ_ROLES = [...ALL_ROLES, UserRole.BUYER];
 const LEASE_READ_ROLES = [...ALL_ROLES, UserRole.BUYER];
 
-const asObjectSchema = (schema: z.ZodTypeAny): z.ZodObject<any> =>
+const asObjectSchema = (schema: z.ZodType): z.ZodObject<any> =>
   schema as unknown as z.ZodObject<any>;
 
 const withParams = (
-  schema: z.ZodTypeAny,
+  schema: z.ZodType,
   shape: z.ZodRawShape,
 ): z.ZodObject<any> =>
   asObjectSchema(schema).extend(shape).strict() as z.ZodObject<any>;
@@ -782,12 +783,14 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The newly created property record with assigned UUID.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: CreatePropertyDto.zodSchema,
       execute: async (args, context) =>
         deps.propertiesService.create(
           CreatePropertyDto.zodSchema.parse(args),
           toScopedUser(context) as any,
+          context.idempotencyKey,
         ),
     },
     {
@@ -828,6 +831,7 @@ export function buildAiToolDefinitions(
         "Updates a property's fields (address, description, status, etc.) by UUID.",
       responseDescription: 'The updated property record.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(UpdatePropertyDto.zodSchema, { id: uuidSchema }),
       execute: async (args, context) => {
@@ -838,6 +842,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -847,11 +852,16 @@ export function buildAiToolDefinitions(
         'Deletes a property by UUID. Fails if the property has active leases.',
       responseDescription: 'Confirmation that the property was deleted.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.propertiesService.remove(id, toScopedUser(context) as any);
+        await deps.propertiesService.remove(
+          id,
+          toScopedUser(context) as any,
+          context.idempotencyKey,
+        );
         return { message: 'Property deleted successfully' };
       },
     },
@@ -916,11 +926,14 @@ export function buildAiToolDefinitions(
       mutability: 'readonly',
       allowedRoles: ALL_ROLES,
       parameters: z.object({ imageId: uuidSchema }).strict(),
-      execute: async (args) => {
+      execute: async (args, context) => {
         const { imageId } = z
           .object({ imageId: uuidSchema })
           .parse(args) as any;
-        const image = await deps.propertiesService.getPropertyImage(imageId);
+        const image = await deps.propertiesService.getPropertyImageScoped(
+          imageId,
+          toScopedUser(context) as any,
+        );
         return {
           id: image.id,
           mimeType: image.mimeType,
@@ -934,6 +947,7 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_property_visits',
+      supportsIdempotentRecovery: true,
       description:
         'Schedules a visit for a property. Specify property, date, time, and visitor details.',
       responseDescription:
@@ -951,6 +965,7 @@ export function buildAiToolDefinitions(
           parsed.propertyId,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -974,6 +989,7 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_property_visit_maintenance_tasks',
+      supportsIdempotentRecovery: true,
       description:
         'Creates a maintenance task associated with a property visit. Specify description, priority, and status.',
       responseDescription: 'The created maintenance task record.',
@@ -990,6 +1006,7 @@ export function buildAiToolDefinitions(
           parsed.propertyId,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -1014,6 +1031,7 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_units',
+      supportsIdempotentRecovery: true,
       description:
         'Creates a unit within a property (e.g., apartment, office). Specify propertyId, label, and unit details.',
       responseDescription: 'The newly created unit record with assigned UUID.',
@@ -1024,6 +1042,7 @@ export function buildAiToolDefinitions(
         deps.unitsService.create(
           CreateUnitDto.zodSchema.parse(args),
           toScopedUser(context) as any,
+          context.idempotencyKey,
         ),
     },
     {
@@ -1058,6 +1077,7 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'patch_unit_by_id',
+      supportsIdempotentRecovery: true,
       description:
         "Updates a unit's fields (label, area, description, etc.) by UUID.",
       responseDescription: 'The updated unit record.',
@@ -1068,15 +1088,18 @@ export function buildAiToolDefinitions(
         const parsed = withParams(UpdateUnitDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
+        const { id, ...dto } = parsed;
         return deps.unitsService.update(
-          parsed.id,
-          parsed,
+          id,
+          dto,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
     {
       name: 'delete_unit_by_id',
+      supportsIdempotentRecovery: true,
       description:
         'Deletes a unit by UUID. Fails if the unit has active leases.',
       responseDescription: 'Confirmation that the unit was deleted.',
@@ -1085,7 +1108,11 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.unitsService.remove(id, toScopedUser(context) as any);
+        await deps.unitsService.remove(
+          id,
+          toScopedUser(context) as any,
+          context.idempotencyKey,
+        );
         return { message: 'Unit deleted successfully' };
       },
     },
@@ -1529,6 +1556,31 @@ export function buildAiToolDefinitions(
           id,
           toRequestUser(context) as any,
           context.idempotencyKey,
+        );
+      },
+    },
+
+    {
+      name: 'post_amendment_review',
+      description:
+        'Resolves an unapplied amendment with an audited reason. cancel withdraws a draft, pending or approved change; schedule explicitly enables a historical approval awaiting review. Read the current amendment first and supply its updatedAt. Applied amendments cannot be undone.',
+      responseDescription:
+        'The amendment and administrative review record. Check applicationStatus/applicationError; scheduling may still require correction of billing or contract conflicts. Recovery returns the original result.',
+      mutability: 'mutable',
+      supportsIdempotentRecovery: true,
+      allowedRoles: ADMIN_STAFF,
+      parameters: ReviewAmendmentDto.zodSchema
+        .omit({ idempotencyKey: true })
+        .extend({ id: uuidSchema }),
+      execute: async (args, context) => {
+        const { id, ...dto } = ReviewAmendmentDto.zodSchema
+          .omit({ idempotencyKey: true })
+          .extend({ id: uuidSchema })
+          .parse(args);
+        return deps.amendmentsService.review(
+          id,
+          { ...dto, idempotencyKey: context.idempotencyKey ?? '' },
+          toRequestUser(context) as any,
         );
       },
     },
@@ -2048,12 +2100,14 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The newly created tenant record with assigned UUID and linked user account.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: CreateTenantDto.zodSchema,
       execute: async (args, context) =>
         deps.tenantsService.create(
           CreateTenantDto.zodSchema.parse(args),
           toScopedUser(context) as any,
+          context.idempotencyKey,
         ),
     },
     {
@@ -2123,6 +2177,7 @@ export function buildAiToolDefinitions(
         'Creates a CRM activity for a tenant. Types: call, task, note, email, whatsapp, visit. Specify description and optional scheduled date.',
       responseDescription: 'The created activity record with assigned UUID.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(CreateTenantActivityDto.zodSchema, {
         id: uuidSchema,
@@ -2131,12 +2186,17 @@ export function buildAiToolDefinitions(
         const parsed = withParams(CreateTenantActivityDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.tenantsService.createActivity(parsed.id, parsed, {
-          id: context.userId,
-          companyId: context.companyId ?? '',
-          role: context.role,
-          roles: context.roles,
-        });
+        return deps.tenantsService.createActivity(
+          parsed.id,
+          parsed,
+          {
+            id: context.userId,
+            companyId: context.companyId ?? '',
+            role: context.role,
+            roles: context.roles,
+          },
+          context.idempotencyKey,
+        );
       },
     },
     {
@@ -2145,6 +2205,7 @@ export function buildAiToolDefinitions(
         "Updates an existing tenant CRM activity's fields (description, status, date) by activityId.",
       responseDescription: 'The updated activity record.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(UpdateTenantActivityDto.zodSchema, {
         id: uuidSchema,
@@ -2160,6 +2221,7 @@ export function buildAiToolDefinitions(
           parsed.activityId,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -2169,6 +2231,7 @@ export function buildAiToolDefinitions(
         "Updates a tenant's profile fields (name, phone, address, etc.) by UUID.",
       responseDescription: 'The updated tenant record.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateTenantDto.zodSchema, { id: uuidSchema }),
       execute: async (args, context) => {
@@ -2179,6 +2242,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -2188,11 +2252,16 @@ export function buildAiToolDefinitions(
         'Deletes a tenant by UUID. Fails if the tenant has active leases.',
       responseDescription: 'Confirmation that the tenant was deleted.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.tenantsService.remove(id, toScopedUser(context) as any);
+        await deps.tenantsService.remove(
+          id,
+          toScopedUser(context) as any,
+          context.idempotencyKey,
+        );
         return { message: 'Tenant deleted successfully' };
       },
     },
@@ -2204,12 +2273,14 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The newly created interested profile with assigned UUID and initial pipeline stage.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: CreateInterestedProfileDto.zodSchema,
       execute: async (args, context) =>
         deps.interestedService.create(
           CreateInterestedProfileDto.zodSchema.parse(args),
           toScopedUser(context) as any,
+          context.idempotencyKey,
         ),
     },
     {
@@ -2325,6 +2396,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Updated array of recalculated property matches with new scores.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
@@ -2332,6 +2404,7 @@ export function buildAiToolDefinitions(
         return deps.interestedService.refreshMatches(
           id,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -2341,6 +2414,7 @@ export function buildAiToolDefinitions(
         'Updates the status of a property match (e.g., contacted → visit_scheduled → accepted/rejected) by matchId.',
       responseDescription: 'The updated match record with new status.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateInterestedMatchDto.zodSchema, {
         id: uuidSchema,
@@ -2356,6 +2430,7 @@ export function buildAiToolDefinitions(
           parsed.matchId,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -2366,6 +2441,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The updated interested profile with new stage and transition timestamp.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(ChangeInterestedStageDto.zodSchema, {
         id: uuidSchema,
@@ -2378,6 +2454,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -2387,6 +2464,7 @@ export function buildAiToolDefinitions(
         'Creates a CRM activity for an interested profile. Types: call, task, note, email, whatsapp, visit.',
       responseDescription: 'The created activity record with assigned UUID.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(CreateInterestedActivityDto.zodSchema, {
         id: uuidSchema,
@@ -2399,6 +2477,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -2409,6 +2488,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The created reservation record with property and date details.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(CreatePropertyReservationDto.zodSchema, {
         id: uuidSchema,
@@ -2421,6 +2501,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -2447,6 +2528,7 @@ export function buildAiToolDefinitions(
         'Updates a CRM activity for an interested profile by activityId. Modify description, status, or scheduled date.',
       responseDescription: 'The updated activity record.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateInterestedActivityDto.zodSchema, {
         id: uuidSchema,
@@ -2462,6 +2544,7 @@ export function buildAiToolDefinitions(
           parsed.activityId,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -2472,6 +2555,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The created tenant record and updated interested profile with converted status.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(ConvertInterestedToTenantDto.zodSchema, {
         id: uuidSchema,
@@ -2484,6 +2568,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -2494,6 +2579,7 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The created sale agreement and updated interested profile with converted status.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(ConvertInterestedToBuyerDto.zodSchema, {
         id: uuidSchema,
@@ -2506,6 +2592,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -2515,6 +2602,7 @@ export function buildAiToolDefinitions(
         "Updates an interested profile's fields (contact info, preferences, budget, qualification) by UUID.",
       responseDescription: 'The updated interested profile record.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: withParams(UpdateInterestedProfileDto.zodSchema, {
         id: uuidSchema,
@@ -2527,6 +2615,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -2537,11 +2626,16 @@ export function buildAiToolDefinitions(
       responseDescription:
         'Confirmation that the interested profile was deleted.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.interestedService.remove(id, toScopedUser(context) as any);
+        await deps.interestedService.remove(
+          id,
+          toScopedUser(context) as any,
+          context.idempotencyKey,
+        );
         return { message: 'Interested profile deleted successfully' };
       },
     },
@@ -2605,12 +2699,14 @@ export function buildAiToolDefinitions(
       responseDescription:
         'The newly created owner record with assigned UUID and linked user account.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_STAFF,
       parameters: CreateOwnerDto.zodSchema,
       execute: async (args, context) =>
         deps.ownersService.create(
           CreateOwnerDto.zodSchema.parse(args),
           context.companyId ?? '',
+          context.idempotencyKey,
         ),
     },
     {
@@ -2636,6 +2732,7 @@ export function buildAiToolDefinitions(
         "Updates an owner's profile fields (name, phone, commission rate, etc.) by UUID.",
       responseDescription: 'The updated owner record.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(UpdateOwnerDto.zodSchema, { id: uuidSchema }),
       execute: async (args, context) => {
@@ -2646,6 +2743,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -2721,6 +2819,7 @@ export function buildAiToolDefinitions(
         'Creates a CRM activity for an owner. Types: call, task, note, email, whatsapp, visit, reserve.',
       responseDescription: 'The created activity record with assigned UUID.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(CreateOwnerActivityDto.zodSchema, {
         id: uuidSchema,
@@ -2733,6 +2832,7 @@ export function buildAiToolDefinitions(
           parsed.id,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -2742,6 +2842,7 @@ export function buildAiToolDefinitions(
         "Updates an existing owner CRM activity's fields (description, status, date) by activityId.",
       responseDescription: 'The updated activity record.',
       mutability: 'mutable',
+      supportsIdempotentRecovery: true,
       allowedRoles: ADMIN_OWNER_STAFF,
       parameters: withParams(UpdateOwnerActivityDto.zodSchema, {
         id: uuidSchema,
@@ -2757,6 +2858,7 @@ export function buildAiToolDefinitions(
           parsed.activityId,
           parsed,
           toScopedUser(context) as any,
+          context.idempotencyKey,
         );
       },
     },
@@ -2890,6 +2992,7 @@ export function buildAiToolDefinitions(
 
     {
       name: 'post_sales_folders',
+      supportsIdempotentRecovery: true,
       description:
         'Creates a new sale folder to group related sale agreements. Specify name and optional description.',
       responseDescription:
@@ -2901,6 +3004,7 @@ export function buildAiToolDefinitions(
         deps.salesService.createFolder(
           CreateSaleFolderDto.zodSchema.parse(args),
           { companyId: context.companyId },
+          context.idempotencyKey,
         ),
     },
     {
@@ -2916,6 +3020,7 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_sales_agreements',
+      supportsIdempotentRecovery: true,
       description:
         'Creates a sale agreement within a folder. Specify buyer, property, price, and payment terms.',
       responseDescription:
@@ -2927,6 +3032,7 @@ export function buildAiToolDefinitions(
         deps.salesService.createAgreement(
           CreateSaleAgreementDto.zodSchema.parse(args),
           { companyId: context.companyId },
+          context.idempotencyKey,
         ),
     },
     {
@@ -2980,6 +3086,7 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_sales_agreement_receipt',
+      supportsIdempotentRecovery: true,
       description:
         'Creates a payment receipt for a sale agreement. Specify amount, date, and payment method.',
       responseDescription: 'The created receipt record with assigned UUID.',
@@ -2992,9 +3099,15 @@ export function buildAiToolDefinitions(
         const parsed = withParams(CreateSaleReceiptDto.zodSchema, {
           id: uuidSchema,
         }).parse(args) as any;
-        return deps.salesService.createReceipt(parsed.id, parsed, {
-          companyId: context.companyId,
-        });
+        const { id, ...dto } = parsed;
+        return deps.salesService.createReceipt(
+          id,
+          dto,
+          {
+            companyId: context.companyId,
+          },
+          context.idempotencyKey,
+        );
       },
     },
     {
@@ -3142,6 +3255,7 @@ export function buildAiToolDefinitions(
     },
     {
       name: 'post_maintenance_ticket',
+      supportsIdempotentRecovery: true,
       description:
         'Creates a new maintenance ticket. Requires title and propertyId. Optional: description, area, priority, source, scheduledAt, estimatedCost.',
       responseDescription:
@@ -3154,11 +3268,13 @@ export function buildAiToolDefinitions(
         return deps.maintenanceService.create(
           toScopedUser(context) as any,
           dto,
+          context.idempotencyKey,
         );
       },
     },
     {
       name: 'patch_maintenance_ticket',
+      supportsIdempotentRecovery: true,
       description:
         'Updates a maintenance ticket by UUID. Can update status, assignment, resolution notes, and costs.',
       responseDescription: 'The updated maintenance ticket record.',
@@ -3174,11 +3290,13 @@ export function buildAiToolDefinitions(
           id,
           toScopedUser(context) as any,
           dto,
+          context.idempotencyKey,
         );
       },
     },
     {
       name: 'delete_maintenance_ticket',
+      supportsIdempotentRecovery: true,
       description: 'Soft-deletes a maintenance ticket by UUID.',
       responseDescription: 'Confirmation that the ticket was deleted.',
       mutability: 'mutable',
@@ -3186,7 +3304,11 @@ export function buildAiToolDefinitions(
       parameters: z.object({ id: uuidSchema }).strict(),
       execute: async (args, context) => {
         const { id } = z.object({ id: uuidSchema }).parse(args) as any;
-        await deps.maintenanceService.remove(id, toScopedUser(context) as any);
+        await deps.maintenanceService.remove(
+          id,
+          toScopedUser(context) as any,
+          context.idempotencyKey,
+        );
         return { message: 'Maintenance ticket deleted successfully' };
       },
     },

@@ -25,6 +25,9 @@ import { useAuth } from "@/contexts/auth-context";
 import { IS_MOCK_MODE } from "@/lib/api";
 import { encodeRouteSegment } from "@/lib/safe-url";
 import { canManageTenantsForUser } from "@/lib/permissions";
+import { collectPages } from "@/lib/pagination";
+import { formatCalendarDate } from "@/lib/calendar-date";
+import { Button, StatePanel } from "@/components/ui";
 
 export default function TenantDetailPage() {
   const { loading: authLoading, token, user } = useAuth();
@@ -49,10 +52,12 @@ export default function TenantDetailPage() {
     string | null
   >(null);
   const [loading, setLoading] = useState(true);
+  const [readFailed, setReadFailed] = useState(false);
 
   const loadTenant = useCallback(
     async (id: string) => {
       setLoading(true);
+      setReadFailed(false);
       try {
         const normalizedId = typeof id === "string" ? id : String(id);
         let data: Tenant | null = null;
@@ -61,15 +66,6 @@ export default function TenantDetailPage() {
           data = await tenantsApi.getById(normalizedId);
         } catch (error) {
           console.warn("Failed to load tenant by id", error);
-        }
-
-        if (!data) {
-          try {
-            const fallbackTenants = await tenantsApi.getAll();
-            data = fallbackTenants[0] ?? null;
-          } catch (error) {
-            console.warn("Failed to load fallback tenants", error);
-          }
         }
 
         const allowMockFallback =
@@ -110,24 +106,35 @@ export default function TenantDetailPage() {
             : [];
 
         const paymentsResult = canManage
-          ? await paymentsApi
-              .getAll({ tenantId: data.id, limit: 100 })
-              .catch(() => null)
-          : null;
+          ? await collectPages((page) =>
+              paymentsApi.getAll({ tenantId: data.id, page, limit: 100 }),
+            ).catch(() => {
+              setReadFailed(true);
+              return [];
+            })
+          : [];
         const invoicesByLease = canManage
           ? await Promise.allSettled(
               leaseHistory.map((lease) =>
-                invoicesApi.getAll({ leaseId: lease.id, limit: 100 }),
+                collectPages((page) =>
+                  invoicesApi.getAll({ leaseId: lease.id, page, limit: 100 }),
+                ),
               ),
             )
           : [];
 
         const nextInvoicesById = buildInvoicesById(invoicesByLease);
+        if (
+          leaseHistoryResult.status === "rejected" ||
+          activitiesResult.status === "rejected" ||
+          invoicesByLease.some((result) => result.status === "rejected")
+        )
+          setReadFailed(true);
 
         setTenant(data);
         setLeases(leaseHistory);
         setInvoicesById(nextInvoicesById);
-        setPayments(paymentsByDateDesc(paymentsResult?.data ?? []));
+        setPayments(paymentsByDateDesc(paymentsResult));
         setActivities(
           activitiesResult.status === "fulfilled"
             ? activitiesByDateDesc(activitiesResult.value)
@@ -135,6 +142,7 @@ export default function TenantDetailPage() {
         );
       } catch (error) {
         console.error("Failed to load tenant", error);
+        setReadFailed(true);
         setTenant(null);
         setLeases([]);
         setPayments([]);
@@ -217,7 +225,7 @@ export default function TenantDetailPage() {
   };
 
   const handleCompleteActivity = async (activity: TenantActivity) => {
-    if (!tenantToRender) return;
+    if (!tenantToRender || !canManage) return;
     try {
       setCompletingActivityId(activity.id);
       const updated = await tenantsApi.updateActivity(
@@ -278,6 +286,20 @@ export default function TenantDetailPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {readFailed && (
+        <StatePanel
+          error
+          title={tCommon("error")}
+          action={
+            <Button
+              variant="secondary"
+              onClick={() => tenantId && void loadTenant(tenantId)}
+            >
+              {tCommon("retry")}
+            </Button>
+          }
+        />
+      )}
       <div className="mb-6">
         <Link
           href={`/${locale}/tenants`}
@@ -330,13 +352,15 @@ export default function TenantDetailPage() {
                   </Link>
                 </>
               ) : null}
-              <Link
-                href={`/${locale}/tenants/${tenantRouteId}/activities/new`}
-                className="btn btn-primary"
-              >
-                <Plus size={16} className="mr-2" />
-                {t("activities.add")}
-              </Link>
+              {canManage && (
+                <Link
+                  href={`/${locale}/tenants/${tenantRouteId}/activities/new`}
+                  className="btn btn-primary"
+                >
+                  <Plus size={16} className="mr-2" />
+                  {t("activities.add")}
+                </Link>
+              )}
             </div>
           </div>
 
@@ -353,7 +377,7 @@ export default function TenantDetailPage() {
                     </span>
                     <span className="font-medium text-gray-900 dark:text-white">
                       {activeLease.startDate
-                        ? new Date(activeLease.startDate).toLocaleDateString()
+                        ? formatCalendarDate(activeLease.startDate, locale)
                         : "-"}
                     </span>
                   </div>
@@ -363,7 +387,7 @@ export default function TenantDetailPage() {
                     </span>
                     <span className="font-medium text-gray-900 dark:text-white">
                       {activeLease.endDate
-                        ? new Date(activeLease.endDate).toLocaleDateString()
+                        ? formatCalendarDate(activeLease.endDate, locale)
                         : "-"}
                     </span>
                   </div>
@@ -431,7 +455,7 @@ export default function TenantDetailPage() {
                               </p>
                             ) : null}
                           </div>
-                          {activity.status === "pending" ? (
+                          {canManage && activity.status === "pending" ? (
                             <button
                               type="button"
                               onClick={() => {
@@ -496,9 +520,10 @@ export default function TenantDetailPage() {
                                 {Number(payment.amount).toLocaleString(locale)}
                               </p>
                               <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {new Date(
+                                {formatCalendarDate(
                                   payment.paymentDate,
-                                ).toLocaleDateString(locale)}{" "}
+                                  locale,
+                                )}{" "}
                                 · {tPayments(`method.${payment.method}`)}
                               </p>
                               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -609,12 +634,12 @@ function activitiesByDateDesc(items: TenantActivity[]): TenantActivity[] {
 }
 
 function buildInvoicesById(
-  results: PromiseSettledResult<{ data: Invoice[] }>[],
+  results: PromiseSettledResult<Invoice[]>[],
 ): Record<string, Invoice> {
   const map: Record<string, Invoice> = {};
   for (const result of results) {
     if (result.status !== "fulfilled") continue;
-    for (const invoice of result.value.data) {
+    for (const invoice of result.value) {
       map[invoice.id] = invoice;
     }
   }

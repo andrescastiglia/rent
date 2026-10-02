@@ -1,6 +1,8 @@
+import { Text, View } from '@/components/themed-native';
+import { useConfirmationDialog } from '@/components/use-confirmation-dialog';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -8,6 +10,7 @@ import {
   getTemplate,
   type TemplateKind,
 } from '@/api/templates';
+import { QueryStatus } from '@/components/query-status';
 import { Screen } from '@/components/screen';
 import { AppButton, H1 } from '@/components/ui';
 
@@ -34,9 +37,6 @@ const getTemplateTypeDescription = (
   template.kind === 'lease'
     ? `${t('leases.fields.contractType')}: ${template.contractType ?? '-'}`
     : `${t('templatesHub.scopes.invoice')}: ${template.paymentType ?? '-'}`;
-
-const getTemplateErrorMessage = (error: unknown, fallback: string): string =>
-  error instanceof Error ? error.message : fallback;
 
 type TemplateDetailTranslations = ReturnType<typeof useTranslation>['t'];
 
@@ -101,6 +101,7 @@ function TemplateActions({
 }
 
 export default function TemplateDetailScreen() {
+  const dialog = useConfirmationDialog();
   const { id, kind } = useLocalSearchParams<{ id: string; kind: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -130,10 +131,6 @@ export default function TemplateDetailScreen() {
   });
 
   const template = query.data;
-  const errorMessage = getTemplateErrorMessage(
-    query.error,
-    t('messages.loadError'),
-  );
 
   if (!validKind) {
     return (
@@ -152,7 +149,7 @@ export default function TemplateDetailScreen() {
     router.push(`/(app)/templates/${template.kind}/${template.id}/edit`);
   };
   const handleDelete = () => {
-    Alert.alert(t('common.delete'), t('messages.deleteConfirm'), [
+    dialog.confirm(t('common.delete'), t('messages.deleteConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.delete'),
@@ -163,11 +160,23 @@ export default function TemplateDetailScreen() {
   };
 
   return (
-    <Screen>
+    <Screen
+      guidanceReady={!query.isLoading}
+      guidanceBlocked={
+        dialog.open ||
+        Boolean(query.error) ||
+        deleteMutation.isPending ||
+        deleteMutation.isError
+      }
+    >
       <H1>{t('templatesHub.listTitle')}</H1>
-      {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {query.error ? <Text style={styles.error}>{errorMessage}</Text> : null}
-      {!query.isLoading && !template ? (
+      <QueryStatus
+        query={query}
+        empty={false}
+        emptyLabel={t('templatesHub.templateNotFound')}
+      />
+
+      {!query.isLoading && !query.error && !template ? (
         <Text>{t('templatesHub.templateNotFound')}</Text>
       ) : null}
 

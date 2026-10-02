@@ -3,6 +3,9 @@
 import { CurrencySelect } from "@/components/common/CurrencySelect";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
+import { tenantsApi } from "@/lib/api/tenants";
+import type { Tenant } from "@/types/tenant";
+import { collectPages } from "@/lib/pagination";
 import { buyersApi } from "@/lib/api/buyers";
 import { interestedApi } from "@/lib/api/interested";
 import { leasesApi } from "@/lib/api/leases";
@@ -16,7 +19,7 @@ import { Property } from "@/types/property";
 import { InterestedProfile } from "@/types/interested";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Upload } from "lucide-react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   type SyntheticEvent,
   useEffect,
@@ -50,20 +53,38 @@ function getProfileOperations(profile: InterestedProfile): string[] {
 
 function buildRentalPartyOptions(
   profiles: InterestedProfile[],
+  tenants: Tenant[],
 ): QuickPartyOption[] {
-  return profiles
+  const converted = profiles
     .filter((profile) => getProfileOperations(profile).includes("rent"))
     .map((profile) => ({
       id: profile.convertedToTenantId
         ? profile.convertedToTenantId
         : `${INTERESTED_TENANT_PREFIX}${profile.id}`,
-      source: profile.convertedToTenantId ? "tenant" : "interested",
+      source: profile.convertedToTenantId
+        ? ("tenant" as const)
+        : ("interested" as const),
       tenantId: profile.convertedToTenantId,
       profileId: profile.id,
       label:
         `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim() ||
         profile.phone,
     }));
+  const independent = tenants.map((tenant) => ({
+    id: tenant.tenantEntityId ?? tenant.id,
+    tenantId: tenant.tenantEntityId ?? tenant.id,
+    profileId: tenant.id,
+    source: "tenant" as const,
+    label:
+      `${tenant.firstName} ${tenant.lastName}`.trim() ||
+      tenant.email ||
+      tenant.id,
+  }));
+  const knownIds = new Set(independent.map((tenant) => tenant.id));
+  return [
+    ...independent,
+    ...converted.filter((option) => !knownIds.has(option.id)),
+  ];
 }
 
 function buildSalePartyOptions(
@@ -120,10 +141,14 @@ function buildSalePartyOptions(
 
 export default function ImportCurrentLeasePage() {
   const locale = useLocale();
+  const t = useTranslations("leaseImport");
   const router = useLocalizedRouter();
   const { loading: authLoading, user } = useAuth();
   const submitting = useRef(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
   const [saving, setSaving] = useState(false);
   const [properties, setProperties] = useState<Property[]>([]);
   const [owners, setOwners] = useState<Owner[]>([]);
@@ -179,28 +204,33 @@ export default function ImportCurrentLeasePage() {
           interestedData,
           buyersData,
           leasesData,
+          tenantsData,
         ] = await Promise.all([
           propertiesApi.getAll(),
           ownersApi.getAll(),
-          interestedApi.getAll({ limit: 100 }),
+          collectPages((page) => interestedApi.getAll({ page, limit: 100 })),
           buyersApi.getAll({ limit: 100 }),
           leasesApi.getAll({ includeFinalized: true }),
+          tenantsApi.getAll(),
         ]);
 
         setProperties(propertiesData);
         setOwners(ownersData);
-        setProfiles(interestedData.data);
+        setProfiles(interestedData);
+        setTenants(tenantsData);
+        setLoadError(false);
         setBuyers(buyersData);
         setAllLeases(leasesData);
       } catch (error) {
         console.error("Failed to load current contract import data", error);
+        setLoadError(true);
       } finally {
         setLoading(false);
       }
     };
 
     void loadData();
-  }, [authLoading]);
+  }, [authLoading, loadAttempt]);
 
   const filteredProperties = useMemo(
     () =>
@@ -213,8 +243,8 @@ export default function ImportCurrentLeasePage() {
     [form.contractType, properties],
   );
   const rentalPartyOptions = useMemo(
-    () => buildRentalPartyOptions(profiles),
-    [profiles],
+    () => buildRentalPartyOptions(profiles, tenants),
+    [profiles, tenants],
   );
   const salePartyOptions = useMemo(
     () => buildSalePartyOptions(profiles, buyers),
@@ -296,9 +326,7 @@ export default function ImportCurrentLeasePage() {
     const email = quickInterestedForm.email.trim();
 
     if (!firstName || !lastName || !phone) {
-      alert(
-        "Nombre, apellido y telefono son obligatorios para crear el interesado.",
-      );
+      alert(t("quickRequired"));
       return;
     }
 
@@ -332,7 +360,7 @@ export default function ImportCurrentLeasePage() {
       setShowQuickInterestedForm(false);
     } catch (error) {
       console.error("Failed to create interested profile", error);
-      alert("No se pudo crear el interesado.");
+      alert(t("quickError"));
     } finally {
       setCreatingInterested(false);
     }
@@ -344,6 +372,7 @@ export default function ImportCurrentLeasePage() {
       submitting.current ||
       !user?.companyId ||
       !user?.id ||
+      loadError ||
       !form.file ||
       !form.propertyId ||
       !form.ownerId ||
@@ -451,7 +480,7 @@ export default function ImportCurrentLeasePage() {
       router.refresh();
     } catch (error) {
       console.error("Failed to import current contract", error);
-      alert("No se pudo cargar el contrato actual.");
+      alert(t("importError"));
     } finally {
       submitting.current = false;
       setSaving(false);
@@ -474,25 +503,35 @@ export default function ImportCurrentLeasePage() {
           className="inline-flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
         >
           <ArrowLeft size={16} className="mr-1" />
-          Volver a contratos
+          {t("back")}
         </Link>
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="mb-6">
           <p className="text-sm uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-            Carga de contratos actuales
+            {t("eyebrow")}
           </p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-            Subir contrato vigente al sistema
+            {t("title")}
           </h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-            Permite asociar el archivo existente, dejar elegidas las partes y
-            crear el contrato operativo para seguir pagos, renovaciones o
-            ventas.
+            {t("description")}
           </p>
         </div>
 
+        {loadError && (
+          <div role="alert">
+            <p>{t("readError")}</p>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setLoadAttempt((value) => value + 1)}
+            >
+              {t("retry")}
+            </button>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
@@ -500,7 +539,7 @@ export default function ImportCurrentLeasePage() {
                 htmlFor="import-contract-type"
                 className="block text-sm font-medium text-slate-700 dark:text-slate-200"
               >
-                Tipo de contrato
+                {t("contractType")}
               </label>
               <select
                 id="import-contract-type"
@@ -514,8 +553,8 @@ export default function ImportCurrentLeasePage() {
                 }
                 className="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               >
-                <option value="rental">Alquiler</option>
-                <option value="sale">Venta</option>
+                <option value="rental">{t("rental")}</option>
+                <option value="sale">{t("sale")}</option>
               </select>
             </div>
 
@@ -524,7 +563,7 @@ export default function ImportCurrentLeasePage() {
                 htmlFor="import-property"
                 className="block text-sm font-medium text-slate-700 dark:text-slate-200"
               >
-                Propiedad
+                {t("property")}
               </label>
               <select
                 id="import-property"
@@ -537,7 +576,7 @@ export default function ImportCurrentLeasePage() {
                 }
                 className="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               >
-                <option value="">Seleccionar propiedad</option>
+                <option value="">{t("chooseProperty")}</option>
                 {filteredProperties.map((property) => (
                   <option key={property.id} value={property.id}>
                     {property.name}
@@ -551,7 +590,7 @@ export default function ImportCurrentLeasePage() {
                 htmlFor="import-owner"
                 className="block text-sm font-medium text-slate-700 dark:text-slate-200"
               >
-                {form.contractType === "sale" ? "Vendedor" : "Locador"}
+                {form.contractType === "sale" ? t("seller") : t("owner")}
               </label>
               <select
                 id="import-owner"
@@ -561,7 +600,7 @@ export default function ImportCurrentLeasePage() {
                 }
                 className="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               >
-                <option value="">Seleccionar persona</option>
+                <option value="">{t("choosePerson")}</option>
                 {owners.map((owner) => (
                   <option key={owner.id} value={owner.id}>
                     {owner.firstName} {owner.lastName}
@@ -575,9 +614,7 @@ export default function ImportCurrentLeasePage() {
                 htmlFor="import-party"
                 className="block text-sm font-medium text-slate-700 dark:text-slate-200"
               >
-                {form.contractType === "sale"
-                  ? "Comprador / interesado"
-                  : "Locatario / interesado"}
+                {form.contractType === "sale" ? t("buyer") : t("tenant")}
               </label>
               <select
                 id="import-party"
@@ -587,7 +624,7 @@ export default function ImportCurrentLeasePage() {
                 }
                 className="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               >
-                <option value="">Seleccionar persona</option>
+                <option value="">{t("choosePerson")}</option>
                 {selectedPartyOptions.map((option) => (
                   <option key={option.id} value={option.id}>
                     {option.label}
@@ -599,18 +636,13 @@ export default function ImportCurrentLeasePage() {
 
           {selectedExistingLease ? (
             <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
-              <p className="font-medium">
-                Ya existe un contrato abierto para esta propiedad y esta parte.
-              </p>
-              <p className="mt-1">
-                Si continuas, te llevo directo a ese contrato para evitar
-                duplicados.
-              </p>
+              <p className="font-medium">{t("existingContract")}</p>
+              <p className="mt-1">{t("existingHint")}</p>
               <Link
                 href={`/${locale}/leases/${selectedExistingLease.id}`}
                 className="mt-3 inline-flex rounded-full border border-amber-300 px-3 py-1.5 text-xs font-medium hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/40"
               >
-                Abrir contrato existente
+                {t("openExisting")}
               </Link>
             </div>
           ) : null}
@@ -619,8 +651,7 @@ export default function ImportCurrentLeasePage() {
           selectedParty &&
           !selectedParty.tenantId ? (
             <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100">
-              El perfil elegido todavia no esta convertido en inquilino. Lo voy
-              a convertir automaticamente al cargar el contrato.
+              {t("conversionHint")}
             </div>
           ) : null}
 
@@ -629,11 +660,11 @@ export default function ImportCurrentLeasePage() {
               <div>
                 <p className="text-sm font-medium text-slate-900 dark:text-white">
                   {form.contractType === "sale"
-                    ? "No encontras al comprador en la lista?"
-                    : "No encontras al interesado de alquiler en la lista?"}
+                    ? t("missingBuyer")
+                    : t("missingTenant")}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Podes crearlo desde este mismo flujo y queda seleccionado.
+                  {t("quickHint")}
                 </p>
               </div>
               <button
@@ -641,9 +672,7 @@ export default function ImportCurrentLeasePage() {
                 onClick={() => setShowQuickInterestedForm((prev) => !prev)}
                 className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900"
               >
-                {showQuickInterestedForm
-                  ? "Ocultar formulario"
-                  : "Crear interesado"}
+                {showQuickInterestedForm ? t("hideForm") : t("createProspect")}
               </button>
             </div>
 
@@ -654,7 +683,7 @@ export default function ImportCurrentLeasePage() {
                     htmlFor="quick-interested-first-name"
                     className="block text-sm font-medium text-slate-700 dark:text-slate-200"
                   >
-                    Nombre
+                    {t("firstName")}
                   </label>
                   <input
                     id="quick-interested-first-name"
@@ -674,7 +703,7 @@ export default function ImportCurrentLeasePage() {
                     htmlFor="quick-interested-last-name"
                     className="block text-sm font-medium text-slate-700 dark:text-slate-200"
                   >
-                    Apellido
+                    {t("lastName")}
                   </label>
                   <input
                     id="quick-interested-last-name"
@@ -694,7 +723,7 @@ export default function ImportCurrentLeasePage() {
                     htmlFor="quick-interested-phone"
                     className="block text-sm font-medium text-slate-700 dark:text-slate-200"
                   >
-                    Telefono
+                    {t("phone")}
                   </label>
                   <input
                     id="quick-interested-phone"
@@ -714,7 +743,7 @@ export default function ImportCurrentLeasePage() {
                     htmlFor="quick-interested-email"
                     className="block text-sm font-medium text-slate-700 dark:text-slate-200"
                   >
-                    Email
+                    {t("email")}
                   </label>
                   <input
                     id="quick-interested-email"
@@ -753,7 +782,7 @@ export default function ImportCurrentLeasePage() {
                   htmlFor="import-start-date"
                   className="block text-sm font-medium text-slate-700 dark:text-slate-200"
                 >
-                  Inicio
+                  {t("startDate")}
                 </label>
                 <input
                   id="import-start-date"
@@ -773,7 +802,7 @@ export default function ImportCurrentLeasePage() {
                   htmlFor="import-end-date"
                   className="block text-sm font-medium text-slate-700 dark:text-slate-200"
                 >
-                  Fin
+                  {t("endDate")}
                 </label>
                 <input
                   id="import-end-date"
@@ -793,7 +822,7 @@ export default function ImportCurrentLeasePage() {
                   htmlFor="import-rent-amount"
                   className="block text-sm font-medium text-slate-700 dark:text-slate-200"
                 >
-                  Canon actual
+                  {t("rentAmount")}
                 </label>
                 <input
                   id="import-rent-amount"
@@ -813,7 +842,7 @@ export default function ImportCurrentLeasePage() {
                   htmlFor="import-deposit-amount"
                   className="block text-sm font-medium text-slate-700 dark:text-slate-200"
                 >
-                  Deposito
+                  {t("deposit")}
                 </label>
                 <input
                   id="import-deposit-amount"
@@ -836,7 +865,7 @@ export default function ImportCurrentLeasePage() {
                   htmlFor="import-fiscal-value"
                   className="block text-sm font-medium text-slate-700 dark:text-slate-200"
                 >
-                  Valor del acuerdo
+                  {t("fiscalValue")}
                 </label>
                 <input
                   id="import-fiscal-value"
@@ -851,24 +880,29 @@ export default function ImportCurrentLeasePage() {
                   className="mt-1 block w-full rounded-md border border-gray-300 bg-white p-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 />
               </div>
-              <div>
-                <p className="block text-sm font-medium text-slate-700 dark:text-slate-200">
-                  Moneda
-                </p>
-                <CurrencySelect
-                  value={form.currency}
-                  onChange={(value) =>
-                    setForm((prev) => ({ ...prev, currency: value }))
-                  }
-                />
-              </div>
             </div>
           )}
+
+          <div>
+            <label
+              htmlFor="import-currency"
+              className="block text-sm font-medium text-slate-700 dark:text-slate-200"
+            >
+              {t("currency")}
+            </label>
+            <CurrencySelect
+              id="import-currency"
+              value={form.currency}
+              onChange={(value) =>
+                setForm((prev) => ({ ...prev, currency: value }))
+              }
+            />
+          </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <p className="block text-sm font-medium text-slate-700 dark:text-slate-200">
-                Archivo del contrato
+                {t("file")}
               </p>
               <label
                 htmlFor="import-contract-file"
@@ -876,11 +910,10 @@ export default function ImportCurrentLeasePage() {
               >
                 <Upload className="mb-2 h-5 w-5 text-slate-500" />
                 <span className="text-sm text-slate-700 dark:text-slate-200">
-                  {form.file?.name ?? "Elegir PDF, DOCX, MD o TXT"}
+                  {form.file?.name ?? t("chooseFile")}
                 </span>
                 <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Solo se aceptan formatos interpretables sin OCR. Si no se
-                  puede reconstruir el texto, el archivo se rechaza.
+                  {t("fileHint")}
                 </span>
                 <input
                   id="import-contract-file"
@@ -900,9 +933,7 @@ export default function ImportCurrentLeasePage() {
                     );
 
                     if (!isSupported) {
-                      alert(
-                        "Solo se aceptan contratos en PDF, DOCX, MD o TXT.",
-                      );
+                      alert(t("unsupportedFile"));
                       event.currentTarget.value = "";
                       return;
                     }
@@ -921,7 +952,7 @@ export default function ImportCurrentLeasePage() {
                 htmlFor="import-notes"
                 className="block text-sm font-medium text-slate-700 dark:text-slate-200"
               >
-                Observaciones
+                {t("notes")}
               </label>
               <textarea
                 id="import-notes"
@@ -940,7 +971,7 @@ export default function ImportCurrentLeasePage() {
               href={`/${locale}/leases`}
               className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-950"
             >
-              Cancelar
+              {t("cancel")}
             </Link>
             <button
               type="submit"

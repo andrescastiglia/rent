@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # =============================================================================
 # MIGRATION RUNNER - Execute PostgreSQL Migrations
@@ -98,6 +99,8 @@ BASELINE_ALL_IF_MISSING=false
 FORCE_BASELINE_ALL_IF_MISSING=false
 BASELINE_THROUGH=""
 FORCE_BASELINE_THROUGH=false
+ADOPT_LEGACY_CHECKSUMS=false
+STATUS_ONLY=false
 
 # =============================================================================
 # FUNCIONES
@@ -139,10 +142,10 @@ run_query() {
 
 determine_exec_method() {
     if command -v psql &> /dev/null; then
-        EXEC_CMD=(psql -v ON_ERROR_STOP=1 -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB")
+        EXEC_CMD=(psql -X -v ON_ERROR_STOP=1 -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB")
         print_info "Using local psql client"
     elif command -v docker &> /dev/null && docker ps --format '{{.Names}}' | grep -qx "$CONTAINER_NAME"; then
-        EXEC_CMD=(docker exec -i -e "PGPASSWORD=$PGPASSWORD" "$CONTAINER_NAME" psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB")
+        EXEC_CMD=(docker exec -i -e PGPASSWORD "$CONTAINER_NAME" psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB")
         print_info "Using Docker container ($CONTAINER_NAME)"
     else
         print_error "Neither 'psql' nor running Docker container '$CONTAINER_NAME' found."
@@ -168,248 +171,38 @@ check_connection() {
     print_success "Database connection successful"
 }
 
-create_migration_table() {
-    print_info "Checking migrations tracking table..."
-    
-    run_query "CREATE TABLE IF NOT EXISTS schema_migrations (
-    id SERIAL PRIMARY KEY,
-    migration_name VARCHAR(255) NOT NULL UNIQUE,
-    executed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-);" &> /dev/null
-    
-    print_success "Migration tracking table ready"
-}
-
-migration_table_exists() {
-    run_query "SELECT to_regclass('public.schema_migrations') IS NOT NULL;" -t | tr -d ' \r'
-}
-
-database_has_existing_schema() {
-    run_query "SELECT COUNT(*) > 0 FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('companies', 'users');" -t | tr -d ' \r'
-}
-
-baseline_all_migrations() {
-    local baseline_count=0
-
-    echo ""
-    print_warning "schema_migrations was missing on an initialized database"
-    print_info "Baselining current migration files as already executed"
-
-    for migration_file in $(ls -1 "$SCRIPT_DIR"/*.sql 2>/dev/null | sort -V); do
-        local migration_name=$(basename "$migration_file")
-        run_query "INSERT INTO schema_migrations (migration_name) VALUES ('$migration_name') ON CONFLICT (migration_name) DO NOTHING;" &> /dev/null
-        ((baseline_count++))
-    done
-
-    print_success "Baselined $baseline_count migration(s)"
-}
-
-baseline_migrations_through() {
-    local through_migration="$1"
-    local baseline_count=0
-
-    if [ "$(basename "$through_migration")" != "$through_migration" ] \
-       || [ ! -f "$SCRIPT_DIR/$through_migration" ]; then
-        print_error "Baseline migration does not exist: $through_migration"
-        exit 1
-    fi
-
-    echo ""
-    print_warning "schema_migrations was missing on an initialized database"
-    print_info "Baselining snapshot migrations through $through_migration"
-
-    for migration_file in $(ls -1 "$SCRIPT_DIR"/*.sql 2>/dev/null | sort -V); do
-        local migration_name
-        migration_name=$(basename "$migration_file")
-        run_query "INSERT INTO schema_migrations (migration_name) VALUES ('$migration_name') ON CONFLICT (migration_name) DO NOTHING;" &> /dev/null
-        ((baseline_count++))
-        if [ "$migration_name" = "$through_migration" ]; then
-            break
-        fi
-    done
-
-    print_success "Baselined $baseline_count snapshot migration(s) through $through_migration"
-}
-
-get_executed_migrations() {
-    run_query "SELECT migration_name FROM schema_migrations ORDER BY migration_name;" -t | tr -d ' \r'
-}
-
-handle_missing_migration_table() {
-    local has_existing_schema="$1"
-
-    if [ "$has_existing_schema" != "t" ]; then
-        return 0
-    fi
-
-    echo ""
-    print_warning "Detected an initialized database without schema_migrations"
-
-    if [ "$BASELINE_ALL_IF_MISSING" != true ] && [ -z "$BASELINE_THROUGH" ]; then
-        print_error "Refusing to auto-baseline because pending migrations cannot be verified safely"
-        print_info "Recover schema_migrations manually, or rerun with:"
-        echo "  $0 --baseline-through <last-snapshot-migration> --force-baseline-through"
-        print_info "Use the force flag only after confirming the snapshot boundary."
-        exit 1
-    fi
-
-    if [ "$BASELINE_ALL_IF_MISSING" = true ] && [ "$FORCE_BASELINE_ALL_IF_MISSING" != true ]; then
-        print_error "--baseline-all-if-missing requires --force-baseline-all-if-missing on initialized databases"
-        print_info "This prevents silently marking unapplied migrations as executed."
-        exit 1
-    fi
-
-    if [ -n "$BASELINE_THROUGH" ] && [ "$FORCE_BASELINE_THROUGH" != true ]; then
-        print_error "--baseline-through requires --force-baseline-through on initialized databases"
-        print_info "This prevents selecting an unverified snapshot boundary."
-        exit 1
-    fi
-}
-
-run_migration() {
-    local migration_file=$1
-    local migration_name=$(basename "$migration_file")
-    
-    echo ""
-    print_info "Running migration: $migration_name"
-    
-    if [ "$DRY_RUN" = true ]; then
-        print_warning "DRY RUN - Would execute: $migration_file"
-        cat "$migration_file"
-        return 0
-    fi
-    
-    # Apply each migration atomically. Keep the original psql output so a
-    # failure is diagnosable without executing the migration a second time.
-    if "${EXEC_CMD[@]}" --single-transaction < "$migration_file"; then
-        
-        # Record migration
-        run_query "INSERT INTO schema_migrations (migration_name) VALUES ('$migration_name') ON CONFLICT (migration_name) DO NOTHING;" &> /dev/null
-        
-        print_success "Migration completed: $migration_name"
-    else
-        print_error "Migration failed: $migration_name"
-        exit 1
-    fi
-}
-
-run_all_migrations() {
-    local executed_migrations=$(get_executed_migrations)
-    local migration_count=0
-    local skipped_count=0
-    
-    # Get all .sql files sorted numerically
-    for migration_file in $(ls -1 "$SCRIPT_DIR"/*.sql 2>/dev/null | sort -V); do
-        local migration_name=$(basename "$migration_file")
-        
-        # Skip if already executed
-        if echo "$executed_migrations" | grep -q "^$migration_name$"; then
-            ((skipped_count++))
-            print_warning "Skipping (already executed): $migration_name"
-            continue
-        fi
-        
-        # Run migration
-        run_migration "$migration_file"
-        ((migration_count++))
-    done
-    
-    echo ""
-    echo -e "${BLUE}=========================================${NC}"
-    
-    if [ $migration_count -eq 0 ]; then
-        print_info "No new migrations to run"
-    else
-        print_success "Successfully ran $migration_count migration(s)"
-    fi
-    
-    if [ $skipped_count -gt 0 ]; then
-        print_info "Skipped $skipped_count already executed migration(s)"
-    fi
-    
-    echo -e "${BLUE}=========================================${NC}"
-    echo ""
-}
-
-show_migration_status() {
-    echo ""
-    print_info "Migration Status:"
-    echo ""
-    
-    run_query "SELECT 
-            migration_name,
-            executed_at,
-            EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - executed_at)) / 3600 as hours_ago
-        FROM schema_migrations 
-        ORDER BY executed_at DESC;" 2>/dev/null || print_warning "No migrations executed yet"
-    
-    echo ""
-}
-
-# =============================================================================
-# MAIN
-# =============================================================================
-
+# One psql session owns the execution lock from preflight through the last commit.
+# The builder validates all files before PostgreSQL receives any SQL.
 main() {
-    # Parse arguments
     while [[ $# -gt 0 ]]; do
-        case $1 in
-            --dry-run)
-                DRY_RUN=true
-                shift
-                ;;
-            --baseline-all-if-missing)
-                BASELINE_ALL_IF_MISSING=true
-                shift
-                ;;
-            --force-baseline-all-if-missing)
-                FORCE_BASELINE_ALL_IF_MISSING=true
-                shift
-                ;;
+        case "$1" in
+            --dry-run) DRY_RUN=true; shift ;;
+            --baseline-all-if-missing) BASELINE_ALL_IF_MISSING=true; shift ;;
+            --force-baseline-all-if-missing) FORCE_BASELINE_ALL_IF_MISSING=true; shift ;;
             --baseline-through)
                 if [ $# -lt 2 ] || [[ "$2" = --* ]]; then
                     print_error "--baseline-through requires a migration filename"
                     exit 1
                 fi
-                BASELINE_THROUGH="$2"
-                shift 2
-                ;;
-            --force-baseline-through)
-                FORCE_BASELINE_THROUGH=true
-                shift
-                ;;
-            --status)
-                determine_exec_method
-                check_connection
-                show_migration_status
-                exit 0
-                ;;
+                BASELINE_THROUGH="$2"; shift 2 ;;
+            --force-baseline-through) FORCE_BASELINE_THROUGH=true; shift ;;
+            --adopt-legacy-checksums) ADOPT_LEGACY_CHECKSUMS=true; shift ;;
+            --status) STATUS_ONLY=true; shift ;;
             --help)
-                echo "Usage: $0 [OPTIONS]"
-                echo ""
-                echo "Options:"
-                echo "  --dry-run    Show what would be executed without running"
-                echo "  --baseline-all-if-missing"
-                echo "               Prepare to baseline current migration files when"
-                echo "               schema_migrations is missing on an initialized DB"
-                echo "  --force-baseline-all-if-missing"
-                echo "               Required together with --baseline-all-if-missing"
-                echo "               after manually verifying the schema is up to date"
-                echo "  --baseline-through <migration>"
-                echo "               Mark only snapshot migrations through the named file"
-                echo "               and execute every later migration normally"
-                echo "  --force-baseline-through"
-                echo "               Required together with --baseline-through"
-                echo "  --status     Show migration execution history"
-                echo "  --help       Show this help message"
-                echo ""
-                exit 0
-                ;;
-            *)
-                print_error "Unknown option: $1"
-                echo "Use --help for usage information"
-                exit 1
-                ;;
+                cat <<EOF
+Usage: $0 [OPTIONS]
+
+  --dry-run                       Validate history and show pending files without writes
+  --baseline-through <file>        Record only a verified snapshot boundary
+  --force-baseline-through         Required with --baseline-through
+  --baseline-all-if-missing        Record a verified complete snapshot
+  --force-baseline-all-if-missing  Required with --baseline-all-if-missing
+  --adopt-legacy-checksums         Record current checksums for reviewed legacy history
+  --status                        Show history, including checksum verification state
+  --help                          Show this help
+EOF
+                return 0 ;;
+            *) print_error "Unknown option: $1"; exit 1 ;;
         esac
     done
 
@@ -417,88 +210,45 @@ main() {
         print_error "--baseline-all-if-missing and --baseline-through are mutually exclusive"
         exit 1
     fi
-    
-    print_header
-    
-    if [ "$DRY_RUN" = true ]; then
-        print_warning "Running in DRY RUN mode - no changes will be made"
-        echo ""
-    fi
-    
-    determine_exec_method
-    check_connection
-
-    local had_migration_table
-    local has_existing_schema="f"
-    had_migration_table=$(migration_table_exists)
-
-    if [ "$had_migration_table" != "t" ]; then
-        has_existing_schema=$(database_has_existing_schema)
-        handle_missing_migration_table "$has_existing_schema"
-    fi
-
-    create_migration_table
-
-    if [ "$had_migration_table" != "t" ] && [ "$has_existing_schema" = "t" ] && [ "$BASELINE_ALL_IF_MISSING" = true ] && [ "$FORCE_BASELINE_ALL_IF_MISSING" = true ]; then
-        baseline_all_migrations
-    elif [ "$had_migration_table" != "t" ] && [ "$has_existing_schema" = "t" ] && [ -n "$BASELINE_THROUGH" ] && [ "$FORCE_BASELINE_THROUGH" = true ]; then
-        baseline_migrations_through "$BASELINE_THROUGH"
-    fi
-
-    # Run migrations
-    local executed_migrations=$(get_executed_migrations)
-    local migration_count=0
-    local skipped_count=0
-    local failed=false
-    
-    # Get all .sql files sorted numerically
-    for migration_file in $(ls -1 "$SCRIPT_DIR"/*.sql 2>/dev/null | sort -V); do
-        local migration_name=$(basename "$migration_file")
-        
-        # Skip if already executed
-        if echo "$executed_migrations" | grep -q "^$migration_name$"; then
-            ((skipped_count++))
-            print_warning "Skipping (already executed): $migration_name"
-            continue
-        fi
-        
-        # Run migration
-        if run_migration "$migration_file"; then
-            ((migration_count++))
-        else
-            failed=true
-            break
-        fi
-    done
-    
-    echo ""
-    echo -e "${BLUE}=========================================${NC}"
-    
-    if [ $migration_count -eq 0 ]; then
-        print_info "No new migrations to run"
-    else
-        print_success "Successfully ran $migration_count migration(s)"
-    fi
-    
-    if [ $skipped_count -gt 0 ]; then
-        print_info "Skipped $skipped_count already executed migration(s)"
-    fi
-    
-    echo -e "${BLUE}=========================================${NC}"
-    echo ""
-    
-    if [ "$failed" = true ]; then
-        print_error "Migration process failed!"
+    if [ "$BASELINE_ALL_IF_MISSING" = true ] && [ "$FORCE_BASELINE_ALL_IF_MISSING" != true ]; then
+        print_error "--baseline-all-if-missing requires --force-baseline-all-if-missing"
         exit 1
     fi
-    
-    if [ "$DRY_RUN" = false ]; then
-        show_migration_status
+    if [ -n "$BASELINE_THROUGH" ] && [ "$FORCE_BASELINE_THROUGH" != true ]; then
+        print_error "--baseline-through requires --force-baseline-through"
+        exit 1
     fi
-    
-    print_success "Migrations completed successfully!"
-    echo ""
+    if [ "$STATUS_ONLY" = true ] && { [ "$DRY_RUN" = true ] || [ "$ADOPT_LEGACY_CHECKSUMS" = true ] || [ "$BASELINE_ALL_IF_MISSING" = true ] || [ -n "$BASELINE_THROUGH" ]; }; then
+        print_error "--status cannot be combined with migration actions"
+        exit 1
+    fi
+    if ! command -v python3 >/dev/null; then
+        print_error "Python 3 is required to validate migration transaction boundaries"
+        exit 1
+    fi
+
+    local sql_file
+    sql_file=$(mktemp "${TMPDIR:-/tmp}/rent-migrations.XXXXXX")
+    trap 'rm -f "$sql_file"' EXIT
+    local builder_args=(--directory "$SCRIPT_DIR" --lock-timeout "${MIGRATIONS_LOCK_TIMEOUT_SECONDS:-30}")
+    if [ "$DRY_RUN" = true ]; then builder_args+=(--dry-run); fi
+    if [ "$STATUS_ONLY" = true ]; then builder_args+=(--status); fi
+    if [ "$BASELINE_ALL_IF_MISSING" = true ]; then builder_args+=(--baseline-all); fi
+    if [ -n "$BASELINE_THROUGH" ]; then builder_args+=(--baseline-through "$BASELINE_THROUGH"); fi
+    if [ "$ADOPT_LEGACY_CHECKSUMS" = true ]; then builder_args+=(--adopt-legacy-checksums); fi
+    python3 "$SCRIPT_DIR/build-runner.py" "${builder_args[@]}" > "$sql_file"
+
+    print_header
+    determine_exec_method
+    check_connection
+    if "${EXEC_CMD[@]}" < "$sql_file"; then
+        print_success "Migration verification completed successfully"
+    else
+        print_error "Migration execution or verification failed; pending work was not marked as applied"
+        exit 1
+    fi
+    rm -f "$sql_file"
+    trap - EXIT
 }
 
-# Execute
 main "$@"

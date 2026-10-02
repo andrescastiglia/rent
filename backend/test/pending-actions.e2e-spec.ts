@@ -8,6 +8,7 @@ import { UsersService } from '../src/users/users.service';
 import { User, UserRole } from '../src/users/entities/user.entity';
 import { Company } from '../src/companies/entities/company.entity';
 import { AiToolExecutorService } from '../src/ai/ai-tool-executor.service';
+import { buildMutationReview } from '../src/common/helpers/mutation-review';
 import {
   configureE2eApp,
   createActiveTestUser,
@@ -112,18 +113,27 @@ describe('Pending action claims with PostgreSQL (e2e)', () => {
       recoverable?: boolean;
     } = {},
   ) => {
+    const tool = options.recoverable
+      ? 'post_invoices_generate_for_lease'
+      : 'create_fixture';
+    const review = await buildMutationReview(
+      db,
+      company.id,
+      tool,
+      payload,
+      new Date(Date.now() + 900_000).toISOString(),
+    );
     const [row] = await db.query(
-      `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at)
-      VALUES($1,$2,$6,'create','fixture','Create fixture',$3::jsonb,$4,now()+$5::interval) RETURNING *`,
+      `INSERT INTO pending_actions(company_id,requested_by,tool_name,action_type,entity_type,summary,payload,payload_hash,expires_at,review)
+      VALUES($1,$2,$6,'create','fixture','Create fixture',$3::jsonb,$4,now()+$5::interval,$7::jsonb) RETURNING *`,
       [
         company.id,
         requester.id,
         JSON.stringify(payload),
         options.corrupt ? 'a'.repeat(64) : hash,
         options.expired ? '-1 minute' : '15 minutes',
-        options.recoverable
-          ? 'post_invoices_generate_for_lease'
-          : 'create_fixture',
+        tool,
+        JSON.stringify(review),
       ],
     );
     return row;

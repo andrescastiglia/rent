@@ -1,20 +1,16 @@
+import { Pressable, Text, View } from '@/components/themed-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import DateTimePicker, {
-  DateTimePickerEvent,
+  DateTimePickerChangeEvent,
 } from '@react-native-community/datetimepicker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  Alert,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Platform, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { parseMoneyInput } from '@/utils/money';
 import { propertiesApi } from '@/api/properties';
+import { QueryStatus } from '@/components/query-status';
 import { Screen } from '@/components/screen';
 import { AppButton, Field } from '@/components/ui';
 
@@ -39,11 +35,14 @@ export default function NewPropertyVisitScreen() {
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
   const [showPicker, setShowPicker] = useState(false);
 
-  const handlePickerChange = (event: DateTimePickerEvent, selected?: Date) => {
+  const handlePickerChange = (
+    _event: DateTimePickerChangeEvent,
+    selected?: Date,
+  ) => {
     if (Platform.OS === 'android') {
       setShowPicker(false);
     }
-    if (event.type === 'dismissed' || !selected) {
+    if (!selected) {
       return;
     }
 
@@ -74,7 +73,8 @@ export default function NewPropertyVisitScreen() {
       if (!interestedName.trim()) {
         throw new Error('El nombre del interesado es obligatorio.');
       }
-      if (hasOffer && (!offerAmount || Number(offerAmount) <= 0)) {
+      const parsedOffer = hasOffer ? parseMoneyInput(offerAmount) : undefined;
+      if (hasOffer && parsedOffer === null) {
         throw new Error(
           'Si la visita tiene oferta, el monto debe ser mayor a cero.',
         );
@@ -85,7 +85,7 @@ export default function NewPropertyVisitScreen() {
         comments: comments.trim() || undefined,
         visitedAt: visitedAt.toISOString(),
         hasOffer,
-        offerAmount: hasOffer ? Number(offerAmount) : undefined,
+        offerAmount: parsedOffer ?? undefined,
         offerCurrency: hasOffer ? offerCurrency : undefined,
       });
     },
@@ -103,8 +103,25 @@ export default function NewPropertyVisitScreen() {
     },
   });
 
+  if (propertyQuery.isLoading || propertyQuery.isError || !propertyQuery.data)
+    return (
+      <QueryStatus
+        query={propertyQuery}
+        empty={!propertyQuery.data}
+        emptyLabel={t('common.notFound')}
+      />
+    );
+
   return (
-    <Screen>
+    <Screen
+      guidanceReady={!propertyQuery.isLoading}
+      guidanceBlocked={
+        propertyQuery.isError ||
+        mutation.isPending ||
+        mutation.isError ||
+        showPicker
+      }
+    >
       <Text style={styles.title}>
         {t('properties.registerVisit', { defaultValue: 'Registrar visita' })}
       </Text>
@@ -157,7 +174,8 @@ export default function NewPropertyVisitScreen() {
           value={visitedAt}
           mode={pickerMode}
           is24Hour
-          onChange={handlePickerChange}
+          onValueChange={handlePickerChange}
+          onDismiss={() => setShowPicker(false)}
           testID="visitCreate.visitedAt.picker"
         />
       ) : null}
@@ -206,6 +224,11 @@ export default function NewPropertyVisitScreen() {
         })}
         onPress={() => mutation.mutate()}
         loading={mutation.isPending}
+        disabled={
+          !propertyQuery.data ||
+          propertyQuery.isLoading ||
+          propertyQuery.isError
+        }
         testID="visitCreate.submit"
       />
     </Screen>

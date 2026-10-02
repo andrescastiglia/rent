@@ -1,3 +1,4 @@
+import { collectPages } from "../pagination";
 import { importCurrentLease } from "./lease-import";
 import {
   Lease,
@@ -150,7 +151,10 @@ type BackendLeasePayload = {
   draftFormat?: LeaseTemplateFormat;
 };
 
-type LeaseListFilters = {
+export type LeaseListFilters = {
+  propertyAddress?: string;
+  page?: number;
+  limit?: number;
   includeFinalized?: boolean;
   status?: Lease["status"];
   contractType?: Lease["contractType"];
@@ -581,6 +585,51 @@ const filterMockLeases = (
 };
 
 export const leasesApi = {
+  getPage: async (
+    filters?: LeaseListFilters,
+  ): Promise<PaginatedResponse<Lease>> => {
+    const page = filters?.page ?? 1,
+      limit = filters?.limit ?? 20;
+    if (IS_MOCK_MODE) {
+      await delay(DELAY);
+      const data = filterMockLeases(
+        await Promise.all(MOCK_LEASES.map(enrichMockLeaseWithRelations)),
+        filters,
+      ).filter(
+        (lease) =>
+          !filters?.propertyAddress ||
+          [
+            lease.property?.name,
+            lease.property?.address.street,
+            lease.property?.address.city,
+          ]
+            .join(" ")
+            .toLocaleLowerCase()
+            .includes(filters.propertyAddress.toLocaleLowerCase()),
+      );
+      return {
+        data: data.slice((page - 1) * limit, page * limit),
+        total: data.length,
+        page,
+        limit,
+      };
+    }
+    const query = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    if (filters?.propertyAddress)
+      query.set("propertyAddress", filters.propertyAddress);
+    if (filters?.includeFinalized !== undefined)
+      query.set("includeFinalized", String(filters.includeFinalized));
+    if (filters?.status) query.set("status", filters.status.toLowerCase());
+    if (filters?.contractType) query.set("contractType", filters.contractType);
+    const result = await apiClient.get<PaginatedResponse<BackendLease>>(
+      `/contracts?${query}`,
+      getToken() ?? undefined,
+    );
+    return { ...result, data: result.data.map(mapBackendLeaseToLease) };
+  },
   getAll: async (filters?: LeaseListFilters): Promise<Lease[]> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
@@ -592,6 +641,8 @@ export const leasesApi = {
 
     const token = getToken();
     const queryParams = new URLSearchParams();
+    if (filters?.propertyAddress)
+      queryParams.set("propertyAddress", filters.propertyAddress);
     if (filters?.includeFinalized !== undefined) {
       queryParams.append("includeFinalized", String(filters.includeFinalized));
     }
@@ -599,6 +650,8 @@ export const leasesApi = {
       queryParams.append("status", filters.status.toLowerCase());
     if (filters?.contractType)
       queryParams.append("contractType", filters.contractType);
+    if (filters?.page) queryParams.set("page", String(filters.page));
+    if (filters?.limit) queryParams.set("limit", String(filters.limit));
     const result = await apiClient.get<
       PaginatedResponse<BackendLease> | BackendLease[]
     >(
@@ -613,7 +666,19 @@ export const leasesApi = {
     }
 
     if (isPaginatedResponse<BackendLease>(result)) {
-      return result.data.map(mapBackendLeaseToLease);
+      if (filters?.page || result.total <= result.data.length)
+        return result.data.map(mapBackendLeaseToLease);
+      return collectPages(async (page) => {
+        if (page === 1)
+          return { ...result, data: result.data.map(mapBackendLeaseToLease) };
+        queryParams.set("page", String(page));
+        queryParams.set("limit", String(result.limit));
+        const next = await apiClient.get<PaginatedResponse<BackendLease>>(
+          `/contracts?${queryParams}`,
+          token ?? undefined,
+        );
+        return { ...next, data: next.data.map(mapBackendLeaseToLease) };
+      });
     }
 
     throw new Error("Unexpected response shape from /contracts");

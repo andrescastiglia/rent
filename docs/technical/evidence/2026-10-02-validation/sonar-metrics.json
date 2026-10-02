@@ -1,0 +1,39 @@
+{
+  "component": {
+    "key": "andrescastiglia_rent",
+    "name": "Real Estate Management System",
+    "qualifier": "TRK",
+    "measures": [
+      {
+        "metric": "coverage",
+        "value": "88.0",
+        "bestValue": false
+      },
+      {
+        "metric": "duplicated_lines_density",
+        "value": "2.7",
+        "bestValue": false
+      },
+      {
+        "metric": "branch_coverage",
+        "value": "81.5",
+        "bestValue": false
+      },
+      {
+        "metric": "violations",
+        "value": "0",
+        "bestValue": true
+      },
+      {
+        "metric": "line_coverage",
+        "value": "91.8",
+        "bestValue": false
+      },
+      {
+        "metric": "security_hotspots",
+        "value": "0",
+        "bestValue": true
+      }
+    ]
+  }
+}

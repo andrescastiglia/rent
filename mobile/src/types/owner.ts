@@ -1,3 +1,4 @@
+import type { CreateOwnerDto } from '@/generated/openapi';
 export type PaymentMethod =
   'bank_transfer' | 'check' | 'cash' | 'digital_wallet';
 
@@ -72,26 +73,18 @@ export interface OwnerActivity {
   updatedAt: string;
 }
 
-export interface CreateOwnerInput {
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone?: string;
-  taxId?: string;
-  taxIdType?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  postalCode?: string;
-  bankName?: string;
-  bankAccountType?: string;
-  bankAccountNumber?: string;
-  bankCbu?: string;
-  bankAlias?: string;
+type OwnerDtoFields = {
+  [
+    Key in keyof CreateOwnerDto as string extends Key
+      ? never
+      : number extends Key
+        ? never
+        : Key
+  ]: CreateOwnerDto[Key];
+};
+
+export type CreateOwnerInput = Omit<OwnerDtoFields, 'paymentMethod'> & {
   paymentMethod?: PaymentMethod;
-  commissionRate?: number;
-  notes?: string;
-}
+};
 
 export type UpdateOwnerInput = Partial<CreateOwnerInput>;

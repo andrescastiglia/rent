@@ -42,6 +42,8 @@ export enum CommunicationEvent {
   PROPERTY_VISIT_SCHEDULED = 'property_visit_scheduled',
   PROPERTY_VISIT_COMPLETED = 'property_visit_completed',
   PROPERTY_VISIT_OFFER = 'property_visit_offer',
+  MAINTENANCE_ASSIGNED = 'maintenance_assigned',
+  MAINTENANCE_RESOLVED = 'maintenance_resolved',
 }
 
 @Entity('communication_templates')

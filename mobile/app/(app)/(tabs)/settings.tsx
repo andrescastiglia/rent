@@ -1,78 +1,26 @@
-import { useRouter } from 'expo-router';
-import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-
-import { AppButton, H1 } from '@/components/ui';
+import { AppButton, ChoiceGroup } from '@/components/ui';
+import { useTheme } from '@/contexts/theme-context';
 import { Screen } from '@/components/screen';
 import { useAuth } from '@/contexts/auth-context';
-import { useRoleNavigation } from '@/hooks/use-role-navigation';
 
 export default function SettingsScreen() {
   const { logout } = useAuth();
   const { t } = useTranslation();
-  const router = useRouter();
-  const roleNavigation = useRoleNavigation();
-  const allowedRoutes = useMemo(
-    () => new Set(roleNavigation.map((item) => item.href)),
-    [roleNavigation],
-  );
-
+  const theme = useTheme();
   return (
     <Screen>
-      <H1>{t('common.settings')}</H1>
-
-      <View style={styles.links}>
-        {allowedRoutes.has('/leases') && (
-          <AppButton
-            title={t('leases.title')}
-            variant="secondary"
-            testID="settings.goto.leases"
-            onPress={() => router.push('/(app)/leases' as never)}
-          />
-        )}
-        {allowedRoutes.has('/users') && (
-          <AppButton
-            title={t('users.title')}
-            variant="secondary"
-            testID="settings.goto.users"
-            onPress={() => router.push('/(app)/users' as never)}
-          />
-        )}
-        {allowedRoutes.has('/reports') && (
-          <AppButton
-            title={t('reports.title')}
-            variant="secondary"
-            testID="settings.goto.reports"
-            onPress={() => router.push('/(app)/reports' as never)}
-          />
-        )}
-        {allowedRoutes.has('/sales') && (
-          <AppButton
-            title={t('sales.title')}
-            variant="secondary"
-            testID="settings.goto.sales"
-            onPress={() => router.push('/(app)/sales' as never)}
-          />
-        )}
-        {allowedRoutes.has('/invoices') && (
-          <AppButton
-            title={t('invoices.title')}
-            variant="secondary"
-            testID="settings.goto.invoices"
-            onPress={() => router.push('/(app)/invoices' as never)}
-          />
-        )}
-        {allowedRoutes.has('/templates') && (
-          <AppButton
-            title={t('templatesHub.listTitle')}
-            variant="secondary"
-            testID="settings.goto.templates"
-            onPress={() => router.push('/(app)/templates' as never)}
-          />
-        )}
-      </View>
-
+      <ChoiceGroup
+        label={t('theme.title')}
+        value={theme.preference}
+        onChange={theme.setPreference}
+        testID="theme.preference"
+        options={[
+          { value: 'system', label: t('theme.system') },
+          { value: 'light', label: t('theme.light') },
+          { value: 'dark', label: t('theme.dark') },
+        ]}
+      />
       <AppButton
         title={t('auth.logout')}
         onPress={() => void logout()}
@@ -81,13 +29,3 @@ export default function SettingsScreen() {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  links: {
-    gap: 8,
-    marginBottom: 20,
-  },
-  link: {
-    color: '#1f2937',
-  },
-});

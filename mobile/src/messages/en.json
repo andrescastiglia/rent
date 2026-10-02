@@ -37,11 +37,12 @@
     "aiPromptPlaceholder": "Type your message...",
     "notImplemented": "Not implemented yet",
     "accessDenied": "Access Denied",
-    "accessDeniedMessage": "You don't have permission to access this section. Contact your administrator if you believe this is an error."
+    "accessDeniedMessage": "You don't have permission to access this section. Contact your administrator if you believe this is an error.",
+    "retry": "Retry"
   },
   "nav": {
     "dashboard": "Dashboard",
-    "properties": "Owners",
+    "properties": "Properties",
     "tenants": "Tenants",
     "leases": "Leases",
     "payments": "Payments",
@@ -51,7 +52,8 @@
     "buyers": "Buyers",
     "users": "Users",
     "templates": "Templates",
-    "reports": "Reports"
+    "reports": "Reports",
+    "owners": "Owners"
   },
   "breadcrumbs": {
     "home": "Home",
@@ -618,7 +620,15 @@
       "empty": "No receipts yet.",
       "overdue": "Overdue",
       "balanceAfter": "Balance"
-    }
+    },
+    "balanceLabel": "Balance",
+    "installmentsCount": "Installments",
+    "totalAmount": "Total amount",
+    "overdueLabel": "Overdue",
+    "asOf": "As of {{date}}",
+    "installmentLabel": "Installment",
+    "amount": "Amount",
+    "paidLabel": "Paid"
   },
   "buyers": {
     "title": "Buyers",
@@ -1258,5 +1268,112 @@
     "ARS": "Argentine Peso",
     "BRL": "Brazilian Real",
     "USD": "US Dollar"
+  },
+  "navigation": {
+    "home": "Home",
+    "tasks": "Tasks",
+    "more": "More",
+    "summary": "Operations overview",
+    "welcome": "Hello, {{name}}.",
+    "taskDescription": "Choose the task you need to complete. Available actions depend on your permissions."
+  },
+  "pagination": {
+    "status": "Page {{page}} of {{pages}} · {{total}} records",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "channels": {
+    "title": "Available workflows",
+    "authentication": "Links open the web application. Sign in there to access your data with the same permissions.",
+    "openWeb": "Open web",
+    "openError": "Could not open the link. Try again.",
+    "ownerSummary": "My owner summary",
+    "ownerSettlements": "My settlements",
+    "tenantAccount": "My contract and account",
+    "maintenance": "Maintenance",
+    "salesInstallments": "Sales and installments",
+    "buyers": "Buyers",
+    "proposalReview": "Review pending proposals",
+    "downloadReceipt": "Download receipt",
+    "paymentAdjustments": "Payment cancellations and refunds",
+    "invoiceDocuments": "Invoice credit notes and documents",
+    "leaseAmendments": "Contract amendments and changes"
+  },
+  "guidance": {
+    "title": "Next step",
+    "close": "Close help",
+    "pause": "Pause help",
+    "resume": "Enable help",
+    "properties": {
+      "initial": "Search by address to review a property, contracts and visits.",
+      "next": "Open the property to review its details and next steps."
+    },
+    "owners": {
+      "initial": "Choose an owner to review properties and settlements.",
+      "next": "Review the owner details before saving changes."
+    },
+    "leases": {
+      "initial": "Choose a contract to review dates, terms and documents.",
+      "next": "Complete the dates and review the people and property before confirming the contract."
+    },
+    "payments": {
+      "initial": "Select the contract for this collection.",
+      "next": "Review the amount, currency and items before confirming the collection."
+    },
+    "invoices": {
+      "initial": "Search an invoice by number or status to review its balance.",
+      "next": "Open the invoice to review the period, due date and outstanding balance."
+    },
+    "interested": {
+      "initial": "Search a prospect by name and filter by operation.",
+      "next": "Open their profile to review preferences, visits and next activities."
+    },
+    "sales": {
+      "initial": "Open a sale to review installments and receipts.",
+      "next": "Review due dates, collected amounts and installment balances."
+    },
+    "tenants": {
+      "initial": "Search a tenant by name to review contracts and collections.",
+      "next": "Open their profile to review the contract and pending activities."
+    },
+    "reports": {
+      "initial": "Choose a report and review its period and generation status.",
+      "next": "If processing failed, review the details before running the report again."
+    },
+    "users": {
+      "initial": "Search a user to review their roles and access.",
+      "next": "Review roles and permissions before saving access changes."
+    },
+    "templates": {
+      "initial": "Choose a template to review its document content.",
+      "next": "Review content and variable data before saving the template."
+    },
+    "ai": {
+      "initial": "Describe your question and identify the property or person to review.",
+      "next": "Review the response source and date; operations require authorized confirmation."
+    },
+    "home": {
+      "initial": "Open Tasks to choose the work you need to complete.",
+      "next": "Use your summary to review pending work before starting an operation."
+    },
+    "dashboard": {
+      "initial": "Review overdue items and today’s tasks to choose what needs attention.",
+      "next": "Open the record that needs attention and review its details before confirming."
+    },
+    "tasks": {
+      "initial": "Choose an available task for your role and permissions.",
+      "next": "Open the module for the operation you want to complete."
+    },
+    "more": {
+      "initial": "Choose the task you need to complete. Available actions depend on your permissions.",
+      "next": "Choose the task you need to complete. Available actions depend on your permissions."
+    },
+    "control": "Continue with {{control}}. This hint marks the pending step and keeps your entered data."
+  },
+  "theme": {
+    "title": "Appearance",
+    "system": "Use system settings",
+    "light": "Light",
+    "dark": "Dark"
   }
 }

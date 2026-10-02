@@ -192,7 +192,7 @@ export class MercadoLibreCatalogService {
     if (
       category.id !== id ||
       category.path_from_root[0]?.id !== 'MLA1459' ||
-      category.path_from_root[category.path_from_root.length - 1]?.id !== id
+      category.path_from_root.at(-1)?.id !== id
     )
       throw new BadRequestException(
         'Only Argentine real estate categories are supported',

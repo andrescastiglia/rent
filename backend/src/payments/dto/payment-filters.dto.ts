@@ -1,4 +1,11 @@
-import { IsOptional, IsEnum, IsDateString, Matches } from 'class-validator';
+import {
+  IsString,
+  MaxLength,
+  IsOptional,
+  IsEnum,
+  IsDateString,
+  Matches,
+} from 'class-validator';
 import {
   PaymentActivityType,
   PaymentMethod,
@@ -48,8 +55,9 @@ const paymentFiltersZodSchema = z
       .optional()
       .describe('Start date filter (YYYY-MM-DD)'),
     toDate: z.iso.date().optional().describe('End date filter (YYYY-MM-DD)'),
+    search: z.string().trim().max(200).optional(),
     page: optionalPositiveInt,
-    limit: optionalPositiveInt,
+    limit: z.coerce.number().int().min(1).max(100).optional(),
   })
   .strict();
 
@@ -93,6 +101,11 @@ export class PaymentFiltersDto {
   @IsOptional()
   @IsDateString()
   toDate?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
 
   @IsOptional()
   page?: number;

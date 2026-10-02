@@ -49,7 +49,7 @@ export function BfaStamps({ leaseId }: Readonly<{ leaseId: string }>) {
     <section aria-label={t("title")} aria-busy={busy} className="space-y-3">
       <h2 className="text-lg font-semibold">{t("title")}</h2>
       <p className="text-sm">{t("description")}</p>
-      {overview && !overview.enabled && <p role="status">{t("disabled")}</p>}
+      {overview && !overview.enabled && <output>{t("disabled")}</output>}
       {error && <p role="alert">{t("error")}</p>}
       <button
         type="button"
@@ -66,7 +66,7 @@ export function BfaStamps({ leaseId }: Readonly<{ leaseId: string }>) {
         {overview?.documents.map((document) => (
           <li key={document.id} className="space-y-2">
             <h3 className="font-medium">{document.name}</h3>
-            <p role="status">{t(`status.${document.status ?? "none"}`)}</p>
+            <output>{t(`status.${document.status ?? "none"}`)}</output>
             {!document.currentVersion && <p>{t("changed")}</p>}
             {document.sha256 && (
               <details>

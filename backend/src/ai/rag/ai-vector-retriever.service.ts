@@ -138,42 +138,51 @@ export class AiVectorRetrieverService {
     );
   }
 
+  private staffFilter(context: AiRagContext): string {
+    const permissions = context.permissions;
+    if (!permissions || Object.keys(permissions).length === 0) return 'FALSE';
+    const clauses: string[] = [];
+    if (permissions.properties) {
+      clauses.push("c.entity_type = 'property_summary'");
+    }
+    if (permissions.owners) {
+      clauses.push("c.entity_type = 'owner_portfolio_summary'");
+    }
+    if (permissions.interested) {
+      clauses.push("c.entity_type = 'interested_profile_summary'");
+    }
+    if (permissions.leases) {
+      clauses.push("c.entity_type IN ('lease_summary', 'document_chunk')");
+    }
+    if (permissions.invoices || permissions.payments) {
+      clauses.push("c.entity_type = 'invoice_payment_summary'");
+    }
+    if (permissions.tenants || permissions.payments) {
+      clauses.push("c.entity_type = 'tenant_account_summary'");
+    }
+    const activityTypes: string[] = [];
+    if (permissions.owners) activityTypes.push("'owner_activity'");
+    if (permissions.tenants) activityTypes.push("'tenant_activity'");
+    if (permissions.interested) activityTypes.push("'interested_activity'");
+    if (activityTypes.length) {
+      clauses.push(
+        `(c.entity_type = 'activity_chunk' AND c.metadata->>'activitySourceType' IN (${activityTypes.join(', ')}))`,
+      );
+    }
+    return clauses.length ? `(${clauses.join(' OR ')})` : 'FALSE';
+  }
+
   private roleFilter(context: AiRagContext): string {
+    const roles = context.roles?.length ? context.roles : [context.role];
+    return roles
+      .map((role) => `(${this.singleRoleFilter({ ...context, role })})`)
+      .join(' OR ');
+  }
+
+  private singleRoleFilter(context: AiRagContext): string {
     const role = context.role;
     if (role === UserRole.ADMIN) return 'TRUE';
-    if (role === UserRole.STAFF) {
-      const permissions = context.permissions;
-      if (!permissions || Object.keys(permissions).length === 0) return 'FALSE';
-      const clauses: string[] = [];
-      if (permissions.properties) {
-        clauses.push("c.entity_type = 'property_summary'");
-      }
-      if (permissions.owners) {
-        clauses.push("c.entity_type = 'owner_portfolio_summary'");
-      }
-      if (permissions.interested) {
-        clauses.push("c.entity_type = 'interested_profile_summary'");
-      }
-      if (permissions.leases) {
-        clauses.push("c.entity_type IN ('lease_summary', 'document_chunk')");
-      }
-      if (permissions.invoices || permissions.payments) {
-        clauses.push("c.entity_type = 'invoice_payment_summary'");
-      }
-      if (permissions.tenants || permissions.payments) {
-        clauses.push("c.entity_type = 'tenant_account_summary'");
-      }
-      const activityTypes: string[] = [];
-      if (permissions.owners) activityTypes.push("'owner_activity'");
-      if (permissions.tenants) activityTypes.push("'tenant_activity'");
-      if (permissions.interested) activityTypes.push("'interested_activity'");
-      if (activityTypes.length) {
-        clauses.push(
-          `(c.entity_type = 'activity_chunk' AND c.metadata->>'activitySourceType' IN (${activityTypes.join(', ')}))`,
-        );
-      }
-      return clauses.length ? `(${clauses.join(' OR ')})` : 'FALSE';
-    }
+    if (role === UserRole.STAFF) return this.staffFilter(context);
     if (role === UserRole.OWNER) {
       return `(
         (c.entity_type = 'property_summary' AND EXISTS (

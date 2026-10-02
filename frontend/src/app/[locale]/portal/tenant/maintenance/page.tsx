@@ -1,247 +1,299 @@
 "use client";
-
-import React, { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { leasesApi } from "@/lib/api/leases";
+import { maintenanceApi } from "@/lib/api/maintenance";
+import { useWorkflowMutation } from "@/hooks/useWorkflowMutation";
 import { propertiesApi } from "@/lib/api/properties";
-import { Lease } from "@/types/lease";
-import { PropertyMaintenanceTask } from "@/types/property";
-import { Loader2, CheckCircle2 } from "lucide-react";
-
-function getLocaleCode(loc: string): string {
-  if (loc === "en") return "en-US";
-  if (loc === "pt") return "pt-BR";
-  return "es-AR";
-}
-
-type MaintenanceArea =
-  "kitchen" | "bathroom" | "electrical" | "plumbing" | "other";
-type UrgencyLevel = "low" | "medium" | "high";
-
-const AREAS: MaintenanceArea[] = [
-  "kitchen",
-  "bathroom",
-  "electrical",
-  "plumbing",
-  "other",
-];
-const URGENCIES: UrgencyLevel[] = ["low", "medium", "high"];
-
+import { useAuth } from "@/contexts/auth-context";
+import { hasUserRole } from "@/lib/permissions";
+import {
+  MaintenanceTicketArea,
+  MaintenanceTicketPriority,
+  MaintenanceTicketSource,
+  type MaintenanceTicket,
+} from "@/types/maintenance";
+import {
+  Button,
+  FormField,
+  PageHeader,
+  StatePanel,
+  Surface,
+} from "@/components/ui";
+import MaintenanceAttachments from "@/components/documents/MaintenanceAttachments";
+import TicketConversation from "@/components/maintenance/TicketConversation";
 export default function TenantMaintenancePage() {
-  const t = useTranslations("tenantPortal");
-  const locale = useLocale();
-  const [activeLease, setActiveLease] = useState<Lease | null>(null);
-  const [tasks, setTasks] = useState<PropertyMaintenanceTask[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    area: "other" as MaintenanceArea,
-    urgency: "medium" as UrgencyLevel,
-  });
-
-  const defaultTaskDate = useMemo(() => new Date().toISOString(), []);
-
+  const t = useTranslations("tenantMaintenance"),
+    tm = useTranslations("maintenance"),
+    locale = useLocale();
+  const { user } = useAuth();
+  const owner = hasUserRole(user, "owner");
+  const [properties, setProperties] = useState<
+      Array<{ id: string; name: string }>
+    >([]),
+    [tickets, setTickets] = useState<MaintenanceTicket[]>([]);
+  const [loading, setLoading] = useState(true),
+    [error, setError] = useState(false),
+    [revision, setRevision] = useState(0);
+  const [propertyId, setPropertyId] = useState(""),
+    [title, setTitle] = useState(""),
+    [description, setDescription] = useState("");
+  const [area, setArea] = useState(MaintenanceTicketArea.OTHER),
+    [priority, setPriority] = useState(MaintenanceTicketPriority.MEDIUM);
+  const [selected, setSelected] = useState<MaintenanceTicket>();
+  const mutation = useWorkflowMutation(maintenanceApi.create);
+  const locked = mutation.busy || Boolean(mutation.pending);
   useEffect(() => {
-    const load = async () => {
-      try {
-        const leases = await leasesApi.getAll({ status: "ACTIVE" });
-        const active =
-          leases.find((l) => l.status === "ACTIVE") ?? leases[0] ?? null;
-        setActiveLease(active);
-        setTasks([]);
-      } catch {
-        // fail silently
-      } finally {
-        setLoading(false);
-      }
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+    Promise.all([
+      owner
+        ? propertiesApi
+            .getAll()
+            .then((items) =>
+              items.map((item) => ({ id: item.id, name: item.name })),
+            )
+        : leasesApi.getAll({ status: "ACTIVE" }).then((items) =>
+            items.map((item) => ({
+              id: item.propertyId,
+              name: item.property?.name || item.propertyId,
+            })),
+          ),
+      maintenanceApi.getAll(),
+    ])
+      .then(([contracts, requests]) => {
+        if (cancelled) return;
+        setProperties(contracts);
+        setTickets(requests);
+        setPropertyId((previous) => previous || contracts[0]?.id || "");
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
     };
-    load();
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeLease?.propertyId) return;
-    setSubmitting(true);
-    try {
-      const newTask = await propertiesApi.createMaintenanceTask(
-        activeLease.propertyId,
-        {
-          title: `[${form.area.toUpperCase()}][${form.urgency.toUpperCase()}] ${form.title}`,
-          notes: form.description,
-          scheduledAt: defaultTaskDate,
-        },
-      );
-      setTasks((prev) => [newTask, ...prev]);
-      setForm({ title: "", description: "", area: "other", urgency: "medium" });
-      setSubmitted(true);
-      setTimeout(() => setSubmitted(false), 3000);
-    } catch {
-      // fail silently
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const formatDate = (dateStr?: string | null) => {
-    if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString(getLocaleCode(locale));
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-20">
-        <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
-      </div>
-    );
+  }, [revision, owner]);
+  async function submit() {
+    const success = await mutation.submit({
+      propertyId,
+      title: title.trim(),
+      description: description.trim(),
+      area,
+      priority,
+      source: owner
+        ? MaintenanceTicketSource.OWNER
+        : MaintenanceTicketSource.TENANT,
+    });
+    if (success) setRevision((value) => value + 1);
   }
-
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-        {t("maintenance")}
-      </h1>
-
-      {/* Submit form */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4">
-          {t("submitMaintenance")}
-        </h2>
-
-        {submitted && (
-          <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm mb-4 bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span>Solicitud enviada con éxito</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t("title")}
-            </label>
-            <input
-              type="text"
-              required
-              value={form.title}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, title: e.target.value }))
-              }
-              disabled={!activeLease?.propertyId}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t("description")}
-            </label>
-            <textarea
-              required
-              rows={3}
-              value={form.description}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, description: e.target.value }))
-              }
-              disabled={!activeLease?.propertyId}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 resize-none"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t("area")}
-              </label>
-              <select
-                value={form.area}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    area: e.target.value as MaintenanceArea,
-                  }))
-                }
-                disabled={!activeLease?.propertyId}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+      <PageHeader title={t("title")} description={t("description")} />
+      {loading && <StatePanel busy title={t("loading")} />}
+      {error && (
+        <StatePanel
+          error
+          title={t("readError")}
+          action={
+            <Button
+              variant="secondary"
+              onClick={() => setRevision((value) => value + 1)}
+            >
+              {t("retry")}
+            </Button>
+          }
+        />
+      )}
+      {!loading && !error && (
+        <>
+          <Surface className="space-y-4 p-5">
+            <h2 className="text-lg font-semibold">{t("newRequest")}</h2>
+            {properties.length === 0 ? (
+              <StatePanel title={t("noLease")} />
+            ) : (
+              <form
+                className="space-y-4"
+                aria-busy={mutation.busy}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void submit();
+                }}
               >
-                {AREAS.map((area) => (
-                  <option key={area} value={area}>
-                    {t(`maintenanceAreas.${area}` as Parameters<typeof t>[0])}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t("urgency")}
-              </label>
-              <select
-                value={form.urgency}
-                onChange={(e) =>
-                  setForm((f) => ({
-                    ...f,
-                    urgency: e.target.value as UrgencyLevel,
-                  }))
-                }
-                disabled={!activeLease?.propertyId}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {URGENCIES.map((u) => (
-                  <option key={u} value={u}>
-                    {t(`urgencyLevels.${u}` as Parameters<typeof t>[0])}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {!activeLease?.propertyId && (
-            <p className="text-xs text-orange-500">{t("noActiveContract")}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={submitting || !activeLease?.propertyId}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-2"
-          >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {t("submitRequest")}
-          </button>
-        </form>
-      </div>
-
-      {/* History */}
-      <div>
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-          {t("maintenanceHistory")}
-        </h2>
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 divide-y divide-gray-50 dark:divide-gray-700">
-          {tasks.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-center text-gray-400">
-              {t("noMaintenanceRequests")}
-            </p>
-          ) : (
-            tasks.map((task) => (
-              <div key={task.id} className="px-4 py-3">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {task.title}
-                </p>
-                {task.notes && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {task.notes}
-                  </p>
-                )}
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  {formatDate(task.scheduledAt)}
-                </p>
+                <FormField
+                  id="tenant-maintenance-property"
+                  label={tm("property")}
+                >
+                  {(attributes) => (
+                    <select
+                      {...attributes}
+                      className="ui-field"
+                      required
+                      disabled={locked}
+                      value={propertyId}
+                      onChange={(event) => {
+                        setPropertyId(event.target.value);
+                        mutation.reset();
+                      }}
+                    >
+                      {properties.map((property) => (
+                        <option key={property.id} value={property.id}>
+                          {property.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </FormField>
+                <FormField id="tenant-maintenance-title" label={tm("title")}>
+                  {(attributes) => (
+                    <input
+                      {...attributes}
+                      className="ui-field"
+                      required
+                      disabled={locked}
+                      value={title}
+                      onChange={(event) => {
+                        setTitle(event.target.value);
+                        mutation.reset();
+                      }}
+                    />
+                  )}
+                </FormField>
+                <FormField
+                  id="tenant-maintenance-description"
+                  label={tm("description")}
+                >
+                  {(attributes) => (
+                    <textarea
+                      {...attributes}
+                      className="ui-field min-h-24"
+                      disabled={locked}
+                      value={description}
+                      onChange={(event) => {
+                        setDescription(event.target.value);
+                        mutation.reset();
+                      }}
+                    />
+                  )}
+                </FormField>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField id="tenant-maintenance-area" label={tm("area")}>
+                    {(attributes) => (
+                      <select
+                        {...attributes}
+                        className="ui-field"
+                        disabled={locked}
+                        value={area}
+                        onChange={(event) =>
+                          setArea(event.target.value as MaintenanceTicketArea)
+                        }
+                      >
+                        {Object.values(MaintenanceTicketArea).map((value) => (
+                          <option key={value} value={value}>
+                            {tm(`areas.${value}`)}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </FormField>
+                  <FormField
+                    id="tenant-maintenance-priority"
+                    label={tm("priority")}
+                  >
+                    {(attributes) => (
+                      <select
+                        {...attributes}
+                        className="ui-field"
+                        disabled={locked}
+                        value={priority}
+                        onChange={(event) =>
+                          setPriority(
+                            event.target.value as MaintenanceTicketPriority,
+                          )
+                        }
+                      >
+                        {Object.values(MaintenanceTicketPriority).map(
+                          (value) => (
+                            <option key={value} value={value}>
+                              {tm(`priorities.${value}`)}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    )}
+                  </FormField>
+                </div>
+                <Button
+                  type="submit"
+                  busy={mutation.busy}
+                  disabled={!title.trim() || !propertyId || mutation.success}
+                >
+                  {t(mutation.pending ? "recover" : "submit")}
+                </Button>
+              </form>
+            )}
+            {mutation.error && <StatePanel error title={t(mutation.error)} />}
+            {mutation.success && (
+              <output className="block text-sm">{t("success")}</output>
+            )}
+          </Surface>
+          <Surface className="space-y-4 p-5">
+            <h2 className="text-lg font-semibold">{t("requests")}</h2>
+            {tickets.length === 0 && (
+              <p className="text-sm text-muted">{t("empty")}</p>
+            )}
+            <ul className="divide-y divide-line">
+              {tickets.map((ticket) => (
+                <li
+                  key={ticket.id}
+                  className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="break-words font-medium">{ticket.title}</p>
+                    <p className="text-xs text-muted">
+                      {new Date(ticket.createdAt).toLocaleDateString(locale)} ·{" "}
+                      {tm(`statuses.${ticket.status}`)}
+                    </p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={() => setSelected(ticket)}
+                  >
+                    {t("open")}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </Surface>
+          {selected && (
+            <Surface className="space-y-4 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="break-words text-lg font-semibold">
+                  {selected.title}
+                </h2>
+                <Button variant="ghost" onClick={() => setSelected(undefined)}>
+                  {t("close")}
+                </Button>
               </div>
-            ))
+              <p className="whitespace-pre-wrap text-sm">
+                {selected.description}
+              </p>
+              {selected.resolutionNotes && (
+                <p className="text-sm">{selected.resolutionNotes}</p>
+              )}
+              <TicketConversation key={selected.id} ticketId={selected.id} />
+              <MaintenanceAttachments
+                key={selected.id}
+                ticketId={selected.id}
+              />
+            </Surface>
           )}
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

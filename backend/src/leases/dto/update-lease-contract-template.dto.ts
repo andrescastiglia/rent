@@ -10,7 +10,7 @@ export class UpdateLeaseContractTemplateDto extends PartialType(
   static readonly zodSchema = createLeaseContractTemplateZodSchema
     .extend({
       templateFormat:
-        createLeaseContractTemplateZodSchema.shape.templateFormat.removeDefault(),
+        createLeaseContractTemplateZodSchema.shape.templateFormat.unwrap(),
     })
     .partial()
     .strict();

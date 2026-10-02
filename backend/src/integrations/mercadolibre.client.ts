@@ -17,7 +17,6 @@ type MercadoLibreAccount = {
   companyId: string;
 };
 const httpsUrl = z
-  .string()
   .url()
   .refine((value) => new URL(value).protocol === 'https:');
 const attribute = z.object({
@@ -46,7 +45,7 @@ const itemSchema = z.object({
     country_code2: z.string().min(1),
     area_code2: z.string(),
     phone2: z.string().min(1),
-    email: z.string().email().optional(),
+    email: z.email().optional(),
     other_info: z.string().optional(),
     webmail: z.string().optional(),
   }),
@@ -67,7 +66,7 @@ const responseSchema = z.object({
   id: z.string().regex(/^MLA\d+$/),
   seller_id: z.number(),
   title: z.string().optional(),
-  permalink: z.string().url(),
+  permalink: z.url(),
   status: z.string(),
 });
 @Injectable()

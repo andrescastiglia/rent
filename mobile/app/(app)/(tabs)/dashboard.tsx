@@ -1,15 +1,8 @@
+import { Pressable, Text, View } from '@/components/themed-native';
+import { useConfirmationDialog } from '@/components/use-confirmation-dialog';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 import { useRouter } from 'expo-router';
-import {
-  Alert,
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -21,7 +14,8 @@ import {
 } from '@/api/dashboard';
 import { Screen } from '@/components/screen';
 import { i18n } from '@/i18n';
-import { authApi } from '@/api/auth';
+import * as Linking from 'expo-linking';
+import { authenticatedWebUrl } from '@/config/channel-capabilities';
 
 function formatMoney(
   amount: number | null | undefined,
@@ -32,7 +26,7 @@ function formatMoney(
     return new Intl.NumberFormat(i18n.language || 'es', {
       style: 'currency',
       currency: currencyCode || 'ARS',
-      maximumFractionDigits: 0,
+      maximumFractionDigits: 2,
     }).format(amount);
   } catch {
     return `${currencyCode} ${amount}`;
@@ -280,15 +274,20 @@ function ReviewSection({
   );
 }
 
+function activityEmptyLabel(
+  query: { isError: boolean; isLoading: boolean },
+  key: string,
+  t: (key: string) => string,
+): string {
+  if (query.isError) return t('messages.loadError');
+  if (query.isLoading) return t('common.loading');
+  return t(key);
+}
+
 export default function DashboardScreen() {
+  const dialog = useConfirmationDialog();
   const router = useRouter();
   const { t } = useTranslation();
-  const [approvalItem, setApprovalItem] = useState<PersonActivityItem | null>(
-    null,
-  );
-  const [password, setPassword] = useState('');
-  const [approving, setApproving] = useState(false);
-
   const overviewQuery = useQuery({
     queryKey: ['dashboard', 'operations-overview'],
     queryFn: dashboardApi.getOperationsOverview,
@@ -310,34 +309,10 @@ export default function DashboardScreen() {
     await activityQuery.refetch();
   };
 
-  const approve = async () => {
-    if (!approvalItem?.actionId || !password) return;
-    setApproving(true);
-    try {
-      const reauthToken = await authApi.reauthenticate(password);
-      await dashboardApi.approvePendingAction(
-        approvalItem.actionId,
-        reauthToken,
-      );
-      setApprovalItem(null);
-      setPassword('');
-      await refreshActivity();
-    } catch (approvalError) {
-      Alert.alert(
-        t('dashboard.review.approveError'),
-        approvalError instanceof Error
-          ? approvalError.message
-          : t('dashboard.review.unexpectedError'),
-      );
-    } finally {
-      setApproving(false);
-    }
-  };
-
   const reject = (item: PersonActivityItem) => {
     const actionId = item.actionId;
     if (!actionId) return;
-    Alert.alert(
+    dialog.confirm(
       t('dashboard.review.rejectTitle'),
       t('dashboard.review.rejectConfirm'),
       [
@@ -379,7 +354,10 @@ export default function DashboardScreen() {
   };
 
   return (
-    <Screen>
+    <Screen
+      guidanceReady={!loading}
+      guidanceBlocked={dialog.open || Boolean(error)}
+    >
       <View style={styles.hero}>
         <Text style={styles.heroEyebrow}>Sistema de Gestión Inmobiliaria</Text>
         <Text style={styles.heroTitle}>{t('dashboard.title')}</Text>
@@ -541,13 +519,19 @@ export default function DashboardScreen() {
 
       <ReviewSection
         items={peopleActivity?.new ?? []}
-        onApprove={setApprovalItem}
+        onApprove={() => {
+          void Linking.openURL(
+            authenticatedWebUrl('/dashboard#pending-actions', i18n.language),
+          ).catch(() =>
+            Alert.alert(t('common.error'), t('channels.openError')),
+          );
+        }}
         onReject={reject}
         onRead={(item) => void markRead(item)}
         labels={{
           title: t('dashboard.review.title'),
-          empty: t('dashboard.review.empty'),
-          approve: t('dashboard.review.approve'),
+          empty: activityEmptyLabel(activityQuery, 'dashboard.review.empty', t),
+          approve: t('channels.proposalReview'),
           reject: t('dashboard.review.reject'),
           markRead: t('dashboard.review.markRead'),
         }}
@@ -555,57 +539,21 @@ export default function DashboardScreen() {
       <ActivitySection
         title={t('dashboard.peopleActivity.overdueTitle')}
         items={peopleActivity?.overdue ?? []}
-        emptyLabel={t('dashboard.peopleActivity.noOverdue')}
+        emptyLabel={activityEmptyLabel(
+          activityQuery,
+          'dashboard.peopleActivity.noOverdue',
+          t,
+        )}
       />
       <ActivitySection
         title={t('dashboard.peopleActivity.todayTitle')}
         items={peopleActivity?.today ?? []}
-        emptyLabel={t('dashboard.peopleActivity.noToday')}
+        emptyLabel={activityEmptyLabel(
+          activityQuery,
+          'dashboard.peopleActivity.noToday',
+          t,
+        )}
       />
-
-      <Modal
-        visible={approvalItem !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setApprovalItem(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard} accessibilityViewIsModal>
-            <Text style={styles.sectionTitle} accessibilityRole="header">
-              {t('dashboard.review.securityTitle')}
-            </Text>
-            <Text style={styles.itemMeta}>{approvalItem?.subject}</Text>
-            <TextInput
-              accessibilityLabel={t('userSettings.currentPassword')}
-              placeholder={t('userSettings.currentPassword')}
-              secureTextEntry
-              autoComplete="current-password"
-              value={password}
-              onChangeText={setPassword}
-              style={styles.passwordInput}
-            />
-            <View style={styles.actionsRow}>
-              <ActionPill
-                title={t('dashboard.review.cancel')}
-                onPress={() => {
-                  setApprovalItem(null);
-                  setPassword('');
-                }}
-              />
-              <ActionPill
-                title={
-                  approving
-                    ? t('dashboard.review.approving')
-                    : t('dashboard.review.approve')
-                }
-                variant="dark"
-                disabled={approving || !password}
-                onPress={() => void approve()}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
     </Screen>
   );
 }

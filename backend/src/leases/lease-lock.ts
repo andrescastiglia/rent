@@ -7,9 +7,11 @@ export async function lockLeaseRows(
   id: string,
   companyId: string,
   replacementPropertyId?: string,
+  includeDeleted = false,
 ): Promise<void> {
+  const liveClause = includeDeleted ? '' : ' AND deleted_at IS NULL';
   const [target] = await manager.query(
-    'SELECT property_id FROM leases WHERE id=$1 AND company_id=$2 AND deleted_at IS NULL',
+    `SELECT property_id FROM leases WHERE id=$1 AND company_id=$2${liveClause}`,
     [id, companyId],
   );
   if (!target) throw new NotFoundException('Lease not found');
@@ -22,13 +24,13 @@ export async function lockLeaseRows(
   ].sort((left, right) => left.localeCompare(right, 'en'));
   for (const propertyId of propertyIds) {
     const [property] = await manager.query(
-      'SELECT id FROM properties WHERE id=$1 AND company_id=$2 AND deleted_at IS NULL FOR NO KEY UPDATE',
+      `SELECT id FROM properties WHERE id=$1 AND company_id=$2${liveClause} FOR NO KEY UPDATE`,
       [propertyId, companyId],
     );
     if (!property) throw new NotFoundException('Property not found');
   }
   const [locked] = await manager.query(
-    'SELECT property_id FROM leases WHERE id=$1 AND company_id=$2 AND deleted_at IS NULL FOR UPDATE',
+    `SELECT property_id FROM leases WHERE id=$1 AND company_id=$2${liveClause} FOR UPDATE`,
     [id, companyId],
   );
   if (!locked) throw new NotFoundException('Lease not found');

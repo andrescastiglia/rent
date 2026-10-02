@@ -1,4 +1,5 @@
 import {
+  Headers,
   Body,
   Controller,
   Get,
@@ -10,6 +11,8 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
+import { ApiHeader } from '@nestjs/swagger';
+
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
@@ -55,19 +58,34 @@ export class BuyersController {
     return this.buyersService.findOne(id, req.user.companyId);
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Post()
   @Roles(UserRole.ADMIN, UserRole.STAFF)
-  create(@Body() dto: CreateBuyerDto, @Request() req: AuthenticatedRequest) {
-    return this.buyersService.create(dto, req.user.companyId);
+  create(
+    @Body() dto: CreateBuyerDto,
+    @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
+  ) {
+    return this.buyersService.create(dto, req.user.companyId, executionKey);
   }
 
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'UUID conservado para recuperar el resultado de un intento.',
+  })
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.STAFF)
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateBuyerDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.buyersService.update(id, dto, req.user.companyId);
+    return this.buyersService.update(id, dto, req.user.companyId, executionKey);
   }
 }

@@ -63,6 +63,19 @@ describe("ownersApi", () => {
   });
 
   describe("mock mode", () => {
+    it("searches, sorts and paginates mock owners without dropping metadata", async () => {
+      const { ownersApi } = await loadOwnersApi(true);
+      const result = await resolveMockDelay(
+        ownersApi.getPage({ page: 2, limit: 1, sortOrder: "DESC" }),
+      );
+      expect(result).toMatchObject({ total: 2, page: 2, limit: 1 });
+      expect(result.data[0].firstName).toBe("Ana");
+      const filtered = await resolveMockDelay(
+        ownersApi.getPage({ search: "  CARLOS  " }),
+      );
+      expect(filtered.total).toBe(1);
+      expect(filtered.data[0].id).toBe("owner1");
+    });
     it("getAll returns the MOCK_OWNERS array with 2 entries", async () => {
       const { ownersApi, apiClient } = await loadOwnersApi(true);
       const result = await resolveMockDelay(ownersApi.getAll());
@@ -312,6 +325,38 @@ describe("ownersApi", () => {
       expect(result[1].email).toBeNull();
       expect(result[1].taxId).toBe("20-99999999-9");
       expect(result[1].bankAlias).toBe("direct.name");
+    });
+
+    it("preserves real server pagination and maps owner identities", async () => {
+      const { ownersApi, apiClient, auth } = await loadOwnersApi(false);
+      auth.getToken.mockReturnValue(null);
+      apiClient.get.mockResolvedValue({
+        data: [{ id: "later", user: { firstName: "Ana", lastName: "Perez" } }],
+        total: 23,
+        page: 2,
+        limit: 20,
+      });
+      const result = await ownersApi.getPage({
+        page: 2,
+        limit: 20,
+        search: "  Pérez & Ana  ",
+        sortOrder: "DESC",
+      });
+      expect(apiClient.get).toHaveBeenCalledWith(
+        "/owners/page?page=2&limit=20&search=P%C3%A9rez+%26+Ana&sortOrder=DESC",
+        undefined,
+      );
+      expect(result).toMatchObject({
+        data: [{ id: "later", firstName: "Ana" }],
+        total: 23,
+        page: 2,
+        limit: 20,
+      });
+      await ownersApi.getPage();
+      expect(apiClient.get).toHaveBeenLastCalledWith(
+        "/owners/page?page=1&limit=20",
+        undefined,
+      );
     });
 
     it("getById calls apiClient.get('/owners/id', token) and maps result", async () => {

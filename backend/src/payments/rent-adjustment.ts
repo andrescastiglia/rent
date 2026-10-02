@@ -127,12 +127,88 @@ export async function calculateRentAdjustment(
     asOf < day(lease.nextAdjustmentDate)
   )
     return unchanged;
+  const {
+    frequency,
+    base: initialBase,
+    anchor,
+    dates,
+    nextDate,
+  } = adjustmentSchedule(lease, asOf, lastDate);
+  let base = initialBase;
+  const { indexed, index, lag } = inflationPolicy(lease);
+  const reference = (date: string) =>
+    index === 'icl' ? date : month(date, lag!);
+  const observations: RentObservation[] = indexed
+    ? await manager.query(
+        `SELECT DISTINCT ON (observation_date) id,observation_date::text AS date,value::text,revision,value_kind,
+      source,source_series,source_url,retrieved_at::text
+     FROM inflation_observations WHERE index_type=$1 AND observation_date BETWEEN $2::date AND $3::date
+     ORDER BY observation_date,revision DESC`,
+        [index, reference(base), reference(dates.at(-1)!)],
+      )
+    : [];
+  const byDate = new Map(observations.map((row) => [row.date, row]));
+  const observation = (date: string) => {
+    const row = byDate.get(date);
+    if (row?.value_kind !== (index === 'igp_m' ? 'monthly_percent' : 'level'))
+      throw new BadRequestException(
+        `Inflation observation unavailable: ${index} ${date}`,
+      );
+    return row;
+  };
+  for (const effective of dates) {
+    const previous = cents;
+    const { numerator, denominator, used } = adjustmentFactor(
+      lease,
+      indexed,
+      index,
+      base,
+      effective,
+      reference,
+      observation,
+    );
+    cents =
+      lease.adjustmentType === AdjustmentType.FIXED
+        ? previous + numerator
+        : rounded(previous * numerator, denominator);
+    snapshot.adjustments.push({
+      baseDate: base,
+      effectiveDate: effective,
+      previousRent: money(previous),
+      newRent: money(cents),
+      type: lease.adjustmentType,
+      index: index ?? null,
+      lagMonths: lag ?? null,
+      frequencyMonths: frequency,
+      scheduleAnchor: anchor,
+      numerator: numerator.toString(),
+      denominator: denominator.toString(),
+      observations: used,
+    });
+    base = effective;
+    lastDate = effective;
+  }
+  snapshot.finalRent = money(cents);
+  return {
+    rent: Number(snapshot.finalRent),
+    snapshot,
+    lastDate,
+    nextDate,
+    anchor,
+  };
+}
+
+function adjustmentSchedule(
+  lease: Lease,
+  asOf: string,
+  lastDate: string | null,
+) {
   const frequency = lease.adjustmentFrequencyMonths ?? 12;
   if (!Number.isInteger(frequency) || frequency < 1 || frequency > 120)
     throw new BadRequestException(
       'Adjustment frequency must be between 1 and 120 whole months',
     );
-  let base = lastDate ?? day(lease.startDate);
+  const base = lastDate ?? day(lease.startDate);
   const first = day(lease.nextAdjustmentDate);
   if (first <= base)
     throw new BadRequestException(
@@ -165,6 +241,10 @@ export async function calculateRentAdjustment(
       addCalendarMonths(anchorDate, offset + dates.length * frequency),
     );
   }
+  return { frequency, base, anchor, dates, nextDate };
+}
+
+function inflationPolicy(lease: Lease) {
   const indexed = lease.adjustmentType === AdjustmentType.INFLATION_INDEX;
   const index = indexed ? lease.inflationIndexType : null;
   if (indexed && !['icl', 'ipc', 'igp_m'].includes(index ?? ''))
@@ -178,103 +258,75 @@ export async function calculateRentAdjustment(
     throw new BadRequestException(
       'Monthly index lag must be explicitly set between 0 and 12 months',
     );
-  const reference = (date: string) =>
-    index === 'icl' ? date : month(date, lag!);
-  const observations: RentObservation[] = indexed
-    ? await manager.query(
-        `SELECT DISTINCT ON (observation_date) id,observation_date::text AS date,value::text,revision,value_kind,
-      source,source_series,source_url,retrieved_at::text
-     FROM inflation_observations WHERE index_type=$1 AND observation_date BETWEEN $2::date AND $3::date
-     ORDER BY observation_date,revision DESC`,
-        [index, reference(base), reference(dates[dates.length - 1])],
-      )
-    : [];
-  const byDate = new Map(observations.map((row) => [row.date, row]));
-  const observation = (date: string) => {
-    const row = byDate.get(date);
-    if (
-      !row ||
-      row.value_kind !== (index === 'igp_m' ? 'monthly_percent' : 'level')
-    )
-      throw new BadRequestException(
-        `Inflation observation unavailable: ${index} ${date}`,
-      );
-    return row;
-  };
-  for (const effective of dates) {
-    const previous = cents;
-    let numerator = 1n,
-      denominator = 1n;
-    const used: RentObservation[] = [];
-    if (indexed) {
-      const from = reference(base),
-        to = reference(effective);
-      if (to <= from)
-        throw new BadRequestException('Index reference periods must advance');
-      if (index === 'igp_m') {
-        for (
-          let current = day(
-            addCalendarMonths(new Date(`${from}T12:00:00Z`), 1),
-          );
-          current <= to;
-          current = day(addCalendarMonths(new Date(`${current}T12:00:00Z`), 1))
-        ) {
-          const row = observation(current),
-            factor = 100n * SCALE + decimal(row.value, 10);
-          if (factor <= 0n)
-            throw new BadRequestException(
-              'Invalid monthly inflation percentage',
-            );
-          used.push(row);
-          numerator *= factor;
-          denominator *= 100n * SCALE;
-          const divisor = gcd(numerator, denominator);
-          numerator /= divisor;
-          denominator /= divisor;
-        }
-      } else {
-        const initial = observation(from),
-          final = observation(to);
-        numerator = decimal(final.value, 10);
-        denominator = decimal(initial.value, 10);
-        if (numerator <= 0n || denominator <= 0n)
-          throw new BadRequestException('Invalid inflation index level');
-        used.push(initial, final);
-      }
-      cents = rounded(previous * numerator, denominator);
-    } else if (lease.adjustmentType === AdjustmentType.PERCENTAGE) {
-      numerator = 1000000n + decimal(lease.adjustmentValue ?? 0, 4);
-      denominator = 1000000n;
-      cents = rounded(previous * numerator, denominator);
-    } else if (lease.adjustmentType === AdjustmentType.FIXED) {
-      cents += decimal(lease.adjustmentValue ?? 0, 2);
-      // Fixed adjustment evidence represents the exact additive amount, not a ratio.
-      numerator = decimal(lease.adjustmentValue ?? 0, 2);
-      denominator = 100n;
-    } else throw new BadRequestException('Unsupported rent adjustment type');
-    snapshot.adjustments.push({
-      baseDate: base,
-      effectiveDate: effective,
-      previousRent: money(previous),
-      newRent: money(cents),
-      type: lease.adjustmentType,
-      index: index ?? null,
-      lagMonths: lag ?? null,
-      frequencyMonths: frequency,
-      scheduleAnchor: anchor,
-      numerator: numerator.toString(),
-      denominator: denominator.toString(),
-      observations: used,
-    });
-    base = effective;
-    lastDate = effective;
+  return { indexed, index, lag };
+}
+
+function adjustmentFactor(
+  lease: Lease,
+  indexed: boolean,
+  index: string | null,
+  base: string,
+  effective: string,
+  reference: (date: string) => string,
+  observation: (date: string) => RentObservation,
+) {
+  let numerator: bigint, denominator: bigint;
+  const used: RentObservation[] = [];
+  if (indexed)
+    return indexedFactor(
+      index,
+      reference(base),
+      reference(effective),
+      observation,
+    );
+  if (lease.adjustmentType === AdjustmentType.PERCENTAGE) {
+    numerator = 1000000n + decimal(lease.adjustmentValue ?? 0, 4);
+    denominator = 1000000n;
+  } else if (lease.adjustmentType === AdjustmentType.FIXED) {
+    // Fixed adjustment evidence represents the exact additive amount, not a ratio.
+    numerator = decimal(lease.adjustmentValue ?? 0, 2);
+    denominator = 100n;
+  } else throw new BadRequestException('Unsupported rent adjustment type');
+  return { numerator, denominator, used };
+}
+function indexedFactor(
+  index: string | null,
+  from: string,
+  to: string,
+  observation: (date: string) => RentObservation,
+) {
+  let numerator = 1n,
+    denominator = 1n;
+  const used: RentObservation[] = [];
+
+  if (to <= from)
+    throw new BadRequestException('Index reference periods must advance');
+  if (index === 'igp_m') {
+    for (
+      let current = day(addCalendarMonths(new Date(`${from}T12:00:00Z`), 1));
+      current <= to;
+      current = day(addCalendarMonths(new Date(`${current}T12:00:00Z`), 1))
+    ) {
+      const row = observation(current),
+        factor = 100n * SCALE + decimal(row.value, 10);
+      if (factor <= 0n)
+        throw new BadRequestException('Invalid monthly inflation percentage');
+      used.push(row);
+      numerator *= factor;
+      denominator *= 100n * SCALE;
+      const divisor = gcd(numerator, denominator);
+      numerator /= divisor;
+      denominator /= divisor;
+    }
+  } else {
+    const initial = observation(from),
+      final = observation(to);
+    numerator = decimal(final.value, 10);
+    denominator = decimal(initial.value, 10);
+    if (numerator <= 0n || denominator <= 0n)
+      throw new BadRequestException('Invalid inflation index level');
+    used.push(initial, final);
   }
-  snapshot.finalRent = money(cents);
-  return {
-    rent: Number(snapshot.finalRent),
-    snapshot,
-    lastDate,
-    nextDate,
-    anchor,
-  };
+
+  return { numerator, denominator, used };
 }

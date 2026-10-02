@@ -8,11 +8,16 @@ import {
   Request,
   Res,
   UseGuards,
+  Headers,
+  Patch,
+  DefaultValuePipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
+import { CancelSaleReceiptDto } from './dto/cancel-sale-receipt.dto';
 import { SalesService } from './sales.service';
 import { CreateSaleFolderDto } from './dto/create-sale-folder.dto';
 import { CreateSaleAgreementDto } from './dto/create-sale-agreement.dto';
@@ -23,6 +28,9 @@ import { DocumentsService } from '../documents/documents.service';
 interface AuthenticatedRequest {
   user: {
     companyId?: string;
+    id?: string;
+    role?: UserRole;
+    roles?: UserRole[];
   };
 }
 
@@ -39,8 +47,9 @@ export class SalesController {
   createFolder(
     @Body() dto: CreateSaleFolderDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.salesService.createFolder(dto, req.user);
+    return this.salesService.createFolder(dto, req.user, executionKey);
   }
 
   @Get('folders')
@@ -54,12 +63,13 @@ export class SalesController {
   createAgreement(
     @Body() dto: CreateSaleAgreementDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.salesService.createAgreement(dto, req.user);
+    return this.salesService.createAgreement(dto, req.user, executionKey);
   }
 
   @Get('agreements')
-  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.BUYER)
   listAgreements(
     @Query() query: SaleAgreementsQueryDto,
     @Request() req: AuthenticatedRequest,
@@ -67,14 +77,23 @@ export class SalesController {
     return this.salesService.listAgreements(req.user, query.folderId);
   }
 
+  @Get('agreements/page')
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.BUYER)
+  pageAgreements(
+    @Query() query: SaleAgreementsQueryDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.salesService.pageAgreements(req.user, query);
+  }
+
   @Get('agreements/:id')
-  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.BUYER)
   getAgreement(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.salesService.getAgreement(id, req.user);
   }
 
   @Get('agreements/:id/receipts')
-  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.BUYER)
   listReceipts(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.salesService.listReceipts(id, req.user);
   }
@@ -85,12 +104,41 @@ export class SalesController {
     @Param('id') id: string,
     @Body() dto: CreateSaleReceiptDto,
     @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
   ) {
-    return this.salesService.createReceipt(id, dto, req.user);
+    return this.salesService.createReceipt(id, dto, req.user, executionKey);
+  }
+
+  @Patch('receipts/:receiptId/cancel')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  cancelReceipt(
+    @Param('receiptId') receiptId: string,
+    @Body() dto: CancelSaleReceiptDto,
+    @Request() req: AuthenticatedRequest,
+    @Headers('idempotency-key') executionKey?: string,
+  ) {
+    return this.salesService.cancelReceipt(
+      receiptId,
+      dto,
+      req.user,
+      executionKey,
+    );
+  }
+
+  @Get('agreements/:id/schedule')
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.BUYER)
+  getSchedule(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('asOf') asOf?: string,
+  ) {
+    return this.salesService.getSchedule(id, req.user, page, limit, asOf);
   }
 
   @Get('receipts/:receiptId/pdf')
-  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.BUYER)
   async downloadReceipt(
     @Param('receiptId') receiptId: string,
     @Request() req: AuthenticatedRequest,

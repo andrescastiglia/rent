@@ -51,7 +51,7 @@ function resolveTraceExporterUrl(): string | undefined {
     return undefined;
   }
 
-  return `${endpoint.replaceAll(/\/$/, "")}/v1/traces`;
+  return `${endpoint.replaceAll(/\/$/g, "")}/v1/traces`;
 }
 
 function resolvePropagationTargets(): Array<string | RegExp> {

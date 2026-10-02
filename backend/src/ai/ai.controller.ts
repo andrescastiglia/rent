@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Authenticated } from '../common/decorators/authenticated.decorator';
+import { SelfServiceAction } from '../common/decorators/self-service-action.decorator';
 import { UserModulePermissions, UserRole } from '../users/entities/user.entity';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { ExecuteAiToolDto } from './dto/execute-ai-tool.dto';
@@ -112,6 +113,7 @@ export class AiController {
   }
 
   @Post('respond')
+  @SelfServiceAction('ai.read')
   async respond(
     @Body() dto: AiChatRequestDto,
     @Request() req: AuthenticatedRequest,

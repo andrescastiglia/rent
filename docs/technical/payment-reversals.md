@@ -26,7 +26,8 @@ a las 03:00 UTC; estados terminales y fechas inválidas tienen cobertura unitari
 
 La revocación de bonificaciones emitidas por otro cobro se agrega mediante la
 migración 130 y el [contrato de notas condicionales](conditional-late-fee-credits.md).
-Los saldos de liquidaciones ya transferidas continúan pendientes. No se modifica
+Las liquidaciones ya transferidas conservan el historial y reciben
+[correcciones auditadas por fuente](financial-corrections.md). No se modifica
 automáticamente el historial de reversiones anteriores ni se presume que los
 estados históricos incorrectos estén reparados.
 

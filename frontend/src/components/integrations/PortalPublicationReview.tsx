@@ -73,20 +73,26 @@ function ReviewCard({
     (job?.status === "failed" && job.errorCode === "provider_rejected");
   const enabled = !!overview?.enabled;
   const canWrite = enabled && !busy && !error;
+  const validResolution =
+    !!job &&
+    !!action &&
+    confirmed &&
+    reason.trim().length >= 10 &&
+    reason.trim().length <= 1000 &&
+    (action !== "link" || candidate?.id === externalId.trim());
+  const resolutionPayload = (): ResolvePortalPublicationDto => ({
+    action: action as ResolvePortalPublicationDto["action"],
+    reason: reason.trim(),
+    ...(action === "link" ? { externalId: externalId.trim() } : {}),
+    ...(action === "confirm_not_created"
+      ? { confirmedNoPublication: true }
+      : {}),
+  });
   const execute = async (
     operation: "read" | "candidate" | "resolve" | "refresh",
   ) => {
     if (inFlight.current || busy || (operation !== "read" && !canWrite)) return;
-    if (
-      operation === "resolve" &&
-      (!job ||
-        !action ||
-        !confirmed ||
-        reason.trim().length < 10 ||
-        reason.trim().length > 1000 ||
-        (action === "link" && candidate?.id !== externalId.trim()))
-    )
-      return;
+    if (operation === "resolve" && !validResolution) return;
     inFlight.current = true;
     setBusy(true);
     setError(false);
@@ -97,14 +103,7 @@ function ReviewCard({
         );
       } else {
         if (operation === "resolve")
-          await portalsApi.resolve(listing.id, job!.id, {
-            action: action as ResolvePortalPublicationDto["action"],
-            reason: reason.trim(),
-            ...(action === "link" ? { externalId: externalId.trim() } : {}),
-            ...(action === "confirm_not_created"
-              ? { confirmedNoPublication: true }
-              : {}),
-          });
+          await portalsApi.resolve(listing.id, job!.id, resolutionPayload());
         if (operation === "refresh") await portalsApi.refresh(listing.id);
         const result = await load();
         setOverview(result.operation);
@@ -125,6 +124,14 @@ function ReviewCard({
     }
   };
   const candidateUrl = safePortalLink(candidate?.permalink ?? null);
+  const confirmationLabels = {
+    confirm_not_created: "absenceConfirmation",
+    link: "linkConfirmation",
+    retry: "confirmation",
+    accept_remote: "confirmation",
+    "": "confirmation",
+  };
+
   return (
     <article aria-busy={busy} className="space-y-4 rounded-lg border p-5">
       <h2 className="text-lg font-semibold">
@@ -133,8 +140,8 @@ function ReviewCard({
       {listing.externalId && (
         <p>{t("externalId", { id: listing.externalId })}</p>
       )}
-      {overview && !enabled && <p role="status">{t("disabled")}</p>}
-      <p role="status">{job ? t(`status.${job.status}`) : t("noOperation")}</p>
+      {overview && !enabled && <output>{t("disabled")}</output>}
+      <output>{job ? t(`status.${job.status}`) : t("noOperation")}</output>
       {error && <p role="alert">{t("error")}</p>}
       <div className="flex flex-wrap gap-3">
         <button
@@ -280,15 +287,7 @@ function ReviewCard({
                   disabled={!canWrite}
                   onChange={(event) => setConfirmed(event.target.checked)}
                 />
-                <span>
-                  {t(
-                    action === "confirm_not_created"
-                      ? "absenceConfirmation"
-                      : action === "link"
-                        ? "linkConfirmation"
-                        : "confirmation",
-                  )}
-                </span>
+                <span>{t(confirmationLabels[action])}</span>
               </label>
               <button
                 type="submit"
@@ -371,9 +370,8 @@ export function PortalPublicationReview({
       <Link href={`/${locale}/settings/mercadolibre`} className="underline">
         {t("connection")}
       </Link>
-      {busy ? (
-        <p role="status">{t("loading")}</p>
-      ) : error ? (
+      {busy && <output>{t("loading")}</output>}
+      {!busy && error && (
         <>
           <p role="alert">{t("error")}</p>
           <button
@@ -387,7 +385,8 @@ export function PortalPublicationReview({
             {t("read")}
           </button>
         </>
-      ) : (
+      )}
+      {!busy && !error && (
         <>
           {!enabled && !listings.length && <p>{t("disabled")}</p>}
           {!listings.length && <p>{t("empty")}</p>}

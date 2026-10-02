@@ -1,6 +1,6 @@
+import { DomainMutationScope } from '../common/helpers/domain-mutation-scope';
 import { OwnerSummaryDto } from './dto/owner-summary.dto';
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -8,10 +8,9 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, IsNull, Repository } from 'typeorm';
+import { Brackets, DataSource, IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'node:crypto';
-import PDFDocument from 'pdfkit';
 import { Owner } from './entities/owner.entity';
 import {
   OwnerActivity,
@@ -19,11 +18,7 @@ import {
 } from './entities/owner-activity.entity';
 import { Property } from '../properties/entities/property.entity';
 import { User, UserRole } from '../users/entities/user.entity';
-import {
-  Document,
-  DocumentStatus,
-  DocumentType,
-} from '../documents/entities/document.entity';
+import { Document } from '../documents/entities/document.entity';
 import { DocumentsService } from '../documents/documents.service';
 import { CreateOwnerActivityDto } from './dto/create-owner-activity.dto';
 import { UpdateOwnerActivityDto } from './dto/update-owner-activity.dto';
@@ -31,11 +26,8 @@ import { CreateOwnerDto } from './dto/create-owner.dto';
 import { UpdateOwnerDto } from './dto/update-owner.dto';
 import { RegisterOwnerSettlementPaymentDto } from './dto/register-owner-settlement-payment.dto';
 import { CommunicationsService } from '../communications/communications.service';
-import {
-  CommunicationChannel,
-  CommunicationEvent,
-  CommunicationRecipientRole,
-} from '../communications/entities/communication-template.entity';
+import { OwnerListQueryDto } from './dto/owner-list-query.dto';
+import { isAdminOrStaff } from '../common/helpers/role-scope.helper';
 
 interface UserContext {
   id: string;
@@ -93,21 +85,40 @@ export type OwnerSettlementSummary = {
 
 @Injectable()
 export class OwnersService {
+  private readonly scope = new DomainMutationScope((execute) =>
+    this.dataSource.transaction(execute),
+  );
+  private get ownersRepository(): Repository<Owner> {
+    return this.scope.repository(Owner, this._ownersRepository);
+  }
+  private get ownerActivitiesRepository(): Repository<OwnerActivity> {
+    return this.scope.repository(
+      OwnerActivity,
+      this._ownerActivitiesRepository,
+    );
+  }
+  private get propertiesRepository(): Repository<Property> {
+    return this.scope.repository(Property, this._propertiesRepository);
+  }
+  private get usersRepository(): Repository<User> {
+    return this.scope.repository(User, this._usersRepository);
+  }
+
   constructor(
     @InjectRepository(Owner)
-    private readonly ownersRepository: Repository<Owner>,
+    private readonly _ownersRepository: Repository<Owner>,
     @InjectRepository(OwnerActivity)
-    private readonly ownerActivitiesRepository: Repository<OwnerActivity>,
+    private readonly _ownerActivitiesRepository: Repository<OwnerActivity>,
     @InjectRepository(Property)
-    private readonly propertiesRepository: Repository<Property>,
+    private readonly _propertiesRepository: Repository<Property>,
     @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
+    private readonly _usersRepository: Repository<User>,
     @InjectRepository(Document)
-    private readonly documentsRepository: Repository<Document>,
+    _documentsRepository: Repository<Document>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly documentsService: DocumentsService,
-    private readonly communicationsService: CommunicationsService,
+    _communicationsService: CommunicationsService,
   ) {}
 
   /**
@@ -129,6 +140,51 @@ export class OwnersService {
       return owner ? [owner] : [];
     }
     return this.findAll(user.companyId);
+  }
+
+  async getPage(user: UserContext, filters: OwnerListQueryDto) {
+    if (!user.companyId || !isAdminOrStaff(user))
+      throw new ForbiddenException(
+        'Owner directory requires company staff access',
+      );
+    const { page = 1, limit = 20, sortOrder = 'ASC' } = filters;
+    const query = this.ownersRepository
+      .createQueryBuilder('owner')
+      .leftJoinAndSelect(
+        'owner.user',
+        'person',
+        'person.company_id=:companyId AND person.deleted_at IS NULL',
+        { companyId: user.companyId },
+      )
+      .where('owner.company_id=:companyId', { companyId: user.companyId })
+      .andWhere('owner.deleted_at IS NULL');
+    if (filters.search?.trim()) {
+      // Escape LIKE metacharacters: this is a literal contact search, not a pattern API.
+      const escapedSearch = filters.search
+        .trim()
+        .replace(/[\\%_]/g, String.raw`\$&`);
+      const search = `%${escapedSearch}%`;
+      query.andWhere(
+        new Brackets((condition) => {
+          condition
+            .where(
+              "concat_ws(' ',person.first_name,person.last_name) ILIKE :search",
+              { search },
+            )
+            .orWhere('person.email ILIKE :search', { search })
+            .orWhere('person.phone ILIKE :search', { search })
+            .orWhere('owner.tax_id ILIKE :search', { search });
+        }),
+      );
+    }
+    const [data, total] = await query
+      .orderBy('person.lastName', sortOrder)
+      .addOrderBy('person.firstName', sortOrder)
+      .addOrderBy('owner.id', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+    return { data, total, page, limit };
   }
 
   /**
@@ -167,7 +223,20 @@ export class OwnersService {
     });
   }
 
-  async create(dto: CreateOwnerDto, companyId: string): Promise<Owner> {
+  async create(
+    dto: CreateOwnerDto,
+    companyId: string,
+    executionKey?: string,
+  ): Promise<Owner> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        companyId,
+        executionKey,
+        'OwnersService.create',
+        { ...dto },
+        () => this.create(dto, companyId),
+      );
+
     const normalizedEmail = dto.email?.trim().toLowerCase() || null;
     let existingUser: User | null = null;
     if (normalizedEmail) {
@@ -191,7 +260,7 @@ export class OwnersService {
     const salt = await bcrypt.genSalt();
     const passwordHash = await bcrypt.hash(password, salt);
 
-    const ownerId = await this.dataSource.transaction(async (manager) => {
+    const ownerId = await this.scope.inTransaction(async (manager) => {
       const userRepository = manager.getRepository(User);
       const savedUser = existingUser
         ? await userRepository.save({
@@ -264,7 +333,17 @@ export class OwnersService {
     id: string,
     dto: UpdateOwnerDto,
     companyId: string,
+    executionKey?: string,
   ): Promise<Owner> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        companyId,
+        executionKey,
+        'OwnersService.update',
+        { id, ...dto },
+        () => this.update(id, dto, companyId),
+      );
+
     const owner = await this.findOne(id, companyId);
     await this.applyOwnerUserUpdates(owner, dto);
     await this.usersRepository.save(owner.user);
@@ -278,7 +357,17 @@ export class OwnersService {
     id: string,
     dto: UpdateOwnerDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<Owner> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        user.companyId,
+        executionKey,
+        'OwnersService.updateScoped',
+        { id, ...dto, actorId: user.id },
+        () => this.updateScoped(id, dto, user),
+      );
+
     await this.assertOwnerAccess(id, user.companyId, user);
     return this.update(id, dto, user.companyId);
   }
@@ -481,235 +570,14 @@ export class OwnersService {
   }
 
   async registerSettlementPayment(
-    ownerId: string,
-    settlementId: string,
-    dto: RegisterOwnerSettlementPaymentDto,
-    user: UserContext,
+    _ownerId: string,
+    _settlementId: string,
+    _dto: RegisterOwnerSettlementPaymentDto,
+    _user: UserContext,
   ): Promise<OwnerSettlementSummary> {
-    if (process.env.NODE_ENV !== 'test') {
-      throw new ServiceUnavailableException(
-        'Settlement transfers are disabled until a verified provider is configured',
-      );
-    }
-    const owner = await this.assertOwnerAccess(ownerId, user.companyId, user);
-
-    const rows = await this.dataSource.query(
-      `SELECT
-          s.id,
-          s.owner_id,
-          COALESCE(NULLIF(TRIM(owner_user.first_name || ' ' || owner_user.last_name), ''), owner_user.email) AS owner_name,
-          s.period,
-          s.currency,
-          s.gross_amount,
-          s.commission_amount,
-          s.withholdings_amount,
-          s.net_amount,
-          s.status,
-          s.scheduled_date,
-          s.processed_at,
-          s.transfer_reference,
-          s.notes,
-          s.created_at,
-          s.updated_at,
-          rd.file_url AS receipt_pdf_url,
-          rd.name AS receipt_name
-       FROM settlements s
-       INNER JOIN owners owner_entity
-         ON owner_entity.id = s.owner_id
-        AND owner_entity.company_id = $1
-        AND owner_entity.deleted_at IS NULL
-       INNER JOIN users owner_user
-         ON owner_user.id = owner_entity.user_id
-       LEFT JOIN LATERAL (
-         SELECT d.file_url, d.name
-           FROM documents d
-           LEFT JOIN settlement_payout_movements pm ON pm.document_id=d.id AND pm.company_id=d.company_id
-          WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
-            AND d.entity_id = s.id
-            AND d.deleted_at IS NULL AND d.status='approved'
-          ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC,d.id DESC
-          LIMIT 1
-       ) rd ON TRUE
-       WHERE s.id = $2
-         AND s.owner_id = $3
-       LIMIT 1`,
-      [user.companyId, settlementId, ownerId],
+    throw new ServiceUnavailableException(
+      'Legacy settlement payments are disabled; use the verified settlement payout workflow',
     );
-
-    const settlement = rows[0] as OwnerSettlementRow | undefined;
-    if (!settlement) {
-      throw new NotFoundException('Settlement not found for owner');
-    }
-
-    if (settlement.status === 'completed' && settlement.receipt_pdf_url) {
-      return this.mapSettlement(settlement);
-    }
-
-    if (dto.amount !== undefined) {
-      const expected = Number(settlement.net_amount);
-      if (Math.abs(Number(dto.amount) - expected) > 0.01) {
-        throw new BadRequestException(
-          'Settlement payment amount must match net settlement amount',
-        );
-      }
-    }
-
-    const processedAt = dto.paymentDate
-      ? new Date(dto.paymentDate)
-      : new Date();
-    if (Number.isNaN(processedAt.getTime())) {
-      throw new BadRequestException('Invalid paymentDate');
-    }
-
-    await this.dataSource.query(
-      `UPDATE settlements
-          SET status = 'completed',
-              processed_at = $2,
-              transfer_reference = COALESCE(NULLIF($3, ''), transfer_reference),
-              notes = CASE
-                WHEN NULLIF($4, '') IS NULL THEN notes
-                ELSE NULLIF($4, '')
-              END,
-              updated_at = NOW()
-        WHERE id = $1`,
-      [
-        settlementId,
-        processedAt.toISOString(),
-        dto.reference ?? null,
-        dto.notes ?? null,
-      ],
-    );
-
-    const receiptBuffer = await this.generateSettlementReceiptBuffer({
-      settlementId: settlement.id,
-      ownerName: settlement.owner_name,
-      period: settlement.period,
-      netAmount: Number(settlement.net_amount),
-      grossAmount: Number(settlement.gross_amount),
-      commissionAmount: Number(settlement.commission_amount),
-      withholdingsAmount: Number(settlement.withholdings_amount),
-      processedAt,
-      reference: dto.reference ?? settlement.transfer_reference ?? '',
-      notes: dto.notes ?? settlement.notes ?? '',
-    });
-
-    const receiptName = `recibo-liquidacion-${settlement.period}-${settlement.id.slice(0, 8)}.pdf`;
-    const savedDocument = await this.documentsRepository.save(
-      this.documentsRepository.create({
-        companyId: owner.companyId,
-        entityType: 'owner_settlement',
-        entityId: settlement.id,
-        documentType: DocumentType.OTHER,
-        status: DocumentStatus.APPROVED,
-        name: receiptName,
-        description: `Recibo de liquidación ${settlement.period} - ${settlement.owner_name}`,
-        fileUrl: 'db://document/pending',
-        fileMimeType: 'application/pdf',
-        fileSize: receiptBuffer.length,
-        fileData: receiptBuffer,
-        metadata: {
-          source: 'owners.settlement.payment',
-          ownerId,
-          period: settlement.period,
-        },
-      }),
-    );
-
-    savedDocument.fileUrl = `db://document/${savedDocument.id}`;
-    await this.documentsRepository.save(savedDocument);
-
-    const updatedRows = await this.dataSource.query(
-      `SELECT
-          s.id,
-          s.owner_id,
-          COALESCE(NULLIF(TRIM(owner_user.first_name || ' ' || owner_user.last_name), ''), owner_user.email) AS owner_name,
-          s.period,
-          s.currency,
-          s.gross_amount,
-          s.commission_amount,
-          s.withholdings_amount,
-          s.net_amount,
-          s.status,
-          s.scheduled_date,
-          s.processed_at,
-          s.transfer_reference,
-          s.notes,
-          s.created_at,
-          s.updated_at,
-          rd.file_url AS receipt_pdf_url,
-          rd.name AS receipt_name
-       FROM settlements s
-       INNER JOIN owners owner_entity
-         ON owner_entity.id = s.owner_id
-        AND owner_entity.company_id = $1
-        AND owner_entity.deleted_at IS NULL
-       INNER JOIN users owner_user
-         ON owner_user.id = owner_entity.user_id
-       LEFT JOIN LATERAL (
-         SELECT d.file_url, d.name
-           FROM documents d
-           LEFT JOIN settlement_payout_movements pm ON pm.document_id=d.id AND pm.company_id=d.company_id
-          WHERE d.company_id = $1 AND d.entity_type = 'owner_settlement'
-            AND d.entity_id = s.id
-            AND d.deleted_at IS NULL AND d.status='approved'
-          ORDER BY COALESCE(pm.provider_updated_at,d.created_at) DESC,d.id DESC
-          LIMIT 1
-       ) rd ON TRUE
-       WHERE s.id = $2
-       LIMIT 1`,
-      [owner.companyId, settlement.id],
-    );
-
-    const updated = updatedRows[0] as OwnerSettlementRow | undefined;
-    if (!updated) {
-      throw new NotFoundException('Updated settlement not found');
-    }
-
-    await this.dispatchSettlementPaid(owner, updated);
-
-    return this.mapSettlement(updated);
-  }
-
-  private async dispatchSettlementPaid(
-    owner: Owner,
-    settlement: OwnerSettlementRow,
-  ): Promise<void> {
-    const channel =
-      owner.preferredContactChannel ?? CommunicationChannel.WHATSAPP;
-    const recipient =
-      channel === CommunicationChannel.EMAIL
-        ? owner.user.email
-        : owner.user.phone;
-    if (!recipient) return;
-
-    await this.communicationsService.dispatchEvent({
-      companyId: owner.companyId,
-      event: CommunicationEvent.SETTLEMENT_PAID,
-      recipientRole: CommunicationRecipientRole.OWNER,
-      recipientId: owner.id,
-      channel,
-      recipient,
-      locale: owner.user.language ?? 'es',
-      variables: {
-        nombre: settlement.owner_name,
-        periodo_liquidacion: settlement.period,
-        monto_neto: Number(settlement.net_amount).toFixed(2),
-        monto_bruto: Number(settlement.gross_amount).toFixed(2),
-        comisiones: Number(settlement.commission_amount).toFixed(2),
-        retenciones: Number(settlement.withholdings_amount).toFixed(2),
-        link_liquidacion: settlement.receipt_pdf_url,
-      },
-      fallbackSubject: `Liquidación pagada - ${settlement.period}`,
-      fallbackBody:
-        'Hola {{nombre}}, se pagó la liquidación de {{periodo_liquidacion}}. Neto: ARS {{monto_neto}}. Recibo: {{link_liquidacion}}',
-      consented: owner.contactConsent,
-      relatedEntityType: 'owner',
-      relatedEntityId: settlement.id,
-      metadata: {
-        settlementId: settlement.id,
-        attachmentUrl: settlement.receipt_pdf_url,
-      },
-    });
   }
 
   async getSettlementReceipt(
@@ -805,7 +673,17 @@ export class OwnersService {
     ownerId: string,
     dto: CreateOwnerActivityDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<OwnerActivity> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        user.companyId,
+        executionKey,
+        'OwnersService.createActivity',
+        { id: ownerId, ...dto, actorId: user.id },
+        () => this.createActivity(ownerId, dto, user),
+      );
+
     await this.assertOwnerAccess(ownerId, user.companyId, user);
 
     if (dto.propertyId) {
@@ -851,7 +729,17 @@ export class OwnersService {
     activityId: string,
     dto: UpdateOwnerActivityDto,
     companyId: string,
+    executionKey?: string,
   ): Promise<OwnerActivity> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        companyId,
+        executionKey,
+        'OwnersService.updateActivity',
+        { id: ownerId, activityId, ...dto },
+        () => this.updateActivity(ownerId, activityId, dto, companyId),
+      );
+
     await this.findOne(ownerId, companyId);
 
     const activity = await this.ownerActivitiesRepository.findOne({
@@ -899,7 +787,17 @@ export class OwnersService {
     activityId: string,
     dto: UpdateOwnerActivityDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<OwnerActivity> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        user.companyId,
+        executionKey,
+        'OwnersService.updateActivityScoped',
+        { id: ownerId, activityId, ...dto, actorId: user.id },
+        () => this.updateActivityScoped(ownerId, activityId, dto, user),
+      );
+
     await this.assertOwnerAccess(ownerId, user.companyId, user);
     return this.updateActivity(ownerId, activityId, dto, user.companyId);
   }
@@ -944,7 +842,7 @@ export class OwnersService {
        ), bounds AS (
          SELECT date_trunc('month', $3::timestamptz AT TIME ZONE 'America/Argentina/Buenos_Aires')::date AS start_date
        ), collections AS (
-         SELECT p.currency, SUM(a.amount)::text AS amount
+         SELECT p.currency, SUM(a.amount-a.refunded_amount)::text AS amount
          FROM subject o
          JOIN invoices i ON i.owner_id=o.id AND i.company_id=$2 AND i.deleted_at IS NULL
            AND i.status IN ('pending','sent','partial','paid','overdue')
@@ -958,7 +856,7 @@ export class OwnersService {
          CROSS JOIN bounds b
          WHERE COALESCE(p.tenant_account_id, pi.tenant_account_id)=ta.id
            AND p.payment_date>=b.start_date AND p.payment_date<b.start_date+INTERVAL '1 month'
-           AND (SELECT SUM(pa.amount) FROM payment_allocations pa WHERE pa.payment_id=p.id AND pa.reversed_at IS NULL)<=p.amount
+           AND (SELECT SUM(pa.amount-pa.refunded_amount) FROM payment_allocations pa WHERE pa.payment_id=p.id AND pa.reversed_at IS NULL)<=p.amount-p.refunded_amount
          GROUP BY p.currency
        )
        SELECT
@@ -1007,74 +905,12 @@ export class OwnersService {
   }
 
   private isOwnerSelfService(user: UserContext): boolean {
-    const roles = user.roles?.length
-      ? user.roles
-      : user.role
-        ? [user.role]
-        : [];
+    let roles = user.roles ?? [];
+    if (!roles.length && user.role) roles = [user.role];
     return (
       roles.includes(UserRole.OWNER) &&
       !roles.includes(UserRole.ADMIN) &&
       !roles.includes(UserRole.STAFF)
     );
-  }
-
-  private async generateSettlementReceiptBuffer(input: {
-    settlementId: string;
-    ownerName: string;
-    period: string;
-    grossAmount: number;
-    commissionAmount: number;
-    withholdingsAmount: number;
-    netAmount: number;
-    processedAt: Date;
-    reference: string;
-    notes: string;
-  }): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      const PDFCtor = (PDFDocument as any).default ?? (PDFDocument as any);
-      const doc = new PDFCtor({ size: 'A4', margin: 40 });
-      const chunks: Buffer[] = [];
-
-      doc.on('data', (chunk: Buffer | Uint8Array) =>
-        chunks.push(Buffer.from(chunk)),
-      );
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-      doc.on('error', reject);
-
-      doc
-        .fontSize(18)
-        .font('Helvetica-Bold')
-        .text('Recibo de liquidacion al propietario', { align: 'center' });
-      doc.moveDown();
-      doc.fontSize(10).font('Helvetica');
-      doc.text(`Propietario: ${input.ownerName}`);
-      doc.text(`Periodo: ${input.period}`);
-      doc.text(
-        `Fecha de pago: ${input.processedAt.toISOString().slice(0, 10)}`,
-      );
-      doc.text(`Referencia: ${input.reference || '-'}`);
-      doc.moveDown();
-      doc.text(`Bruto: ARS ${input.grossAmount.toLocaleString('es-AR')}`);
-      doc.text(
-        `Comision: ARS ${input.commissionAmount.toLocaleString('es-AR')}`,
-      );
-      doc.text(
-        `Retenciones: ARS ${input.withholdingsAmount.toLocaleString('es-AR')}`,
-      );
-      doc
-        .font('Helvetica-Bold')
-        .text(`Neto pagado: ARS ${input.netAmount.toLocaleString('es-AR')}`);
-      doc.font('Helvetica');
-      if (input.notes) {
-        doc.moveDown();
-        doc.text(`Notas: ${input.notes}`);
-      }
-      doc.moveDown(2);
-      doc.fontSize(8).text(`Liquidacion ID: ${input.settlementId}`, {
-        align: 'center',
-      });
-      doc.end();
-    });
   }
 }

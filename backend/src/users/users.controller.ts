@@ -21,6 +21,7 @@ import { ResetUserPasswordDto } from './dto/reset-user-password.dto';
 import { UserListQueryDto } from './dto/user-list-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Authenticated } from '../common/decorators/authenticated.decorator';
+import { SelfServiceAction } from '../common/decorators/self-service-action.decorator';
 import { UserRole } from './entities/user.entity';
 import { I18n, I18nContext } from 'nestjs-i18n';
 
@@ -49,6 +50,7 @@ export class UsersController {
       query.page,
       query.limit,
       req.user.companyId,
+      query.search,
     );
     return {
       ...result,
@@ -67,6 +69,7 @@ export class UsersController {
   }
 
   @Patch('profile/me')
+  @SelfServiceAction('profile.update')
   @Authenticated('self-service')
   async updateProfile(
     @Request() req: any,
@@ -82,6 +85,7 @@ export class UsersController {
   }
 
   @Post('profile/change-password')
+  @SelfServiceAction('profile.change-password')
   @Authenticated('self-service')
   async changePassword(
     @Request() req: any,

@@ -236,3 +236,17 @@ env | grep DATABASE
 # Instalar dependencias de Chrome
 sudo apt-get install -y chromium-browser
 ```
+
+## Garantías de reportes y recuperación (2026-10-01)
+
+`reports --owner-id` acepta exclusivamente `owners.id`, no un ID de usuario. El wrapper `scripts/generate-all-reports.sh` enumera propietarios vigentes de todas las compañías, incluidos los que no tienen acceso al portal. Calcula el mes anterior desde el día 1 en horario de Argentina, continúa con otros reportes cuando uno falla y termina con código 1 si hubo cualquier error.
+
+El resumen mensual lee facturas, imputaciones activas y notas de crédito de la compañía del propietario en una transacción de lectura con snapshot consistente. Los cobros parciales reducen el saldo; las monedas se presentan y totalizan por separado. Una factura cuyo `paid_amount` no coincide con sus imputaciones válidas falla y requiere conciliación.
+
+El informe de liquidación usa **liquidaciones ya registradas**, su comisión, retenciones, neto y snapshot de origen. No calcula una comisión fija ni genera una transferencia. Cuando falta detalle de origen histórico, lo indica expresamente; una inconsistencia entre bruto, deducciones y neto bloquea el reporte. `--dry-run` renderiza en memoria sin guardar un documento.
+
+Los fallos parciales quedan como `partial_failure` en `billing_jobs`, producen código de salida 1 y métricas de fallo; no actualizan el timestamp del último éxito. Corregir el registro afectado y reintentar únicamente el propietario/período o caso fallido. Los PDF se guardan junto con su URL final en una única sentencia.
+
+Para conciliación manual: `node dist/index.js reconcile-bank --company-id <uuid> --limit 25 --min-age-minutes 10`; antes de ejecutar cambios puede usarse `--dry-run`. Revisar el resultado persistido y las alertas del backend. Para supervisar colas, consultar métricas de pendientes/fallos/edad y los registros fallidos antes de reintentar; los estados inciertos de proveedores exigen conciliación.
+
+Se conserva la suspensión de los cronjobs `billing`, `sync-indices` y `process-settlements`. BFA, Mercado Libre y Mercado Pago Payouts permanecen deshabilitados. Un reporte no habilita ninguno de esos proveedores.

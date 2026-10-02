@@ -67,7 +67,7 @@ let closeDatabase: () => Promise<void> = async () => {
   // no-op until loaded
 };
 
-const program = new Command();
+export const program = new Command();
 const tracer = trace.getTracer("rent-batch-cli");
 
 function positiveInteger(value: string): number {
@@ -111,7 +111,9 @@ function withTracedAction<TOptions>(
       async (span) => {
         try {
           await action(options);
-          span.setStatus({ code: SpanStatusCode.OK });
+          span.setStatus({
+            code: process.exitCode ? SpanStatusCode.ERROR : SpanStatusCode.OK,
+          });
         } catch (error) {
           span.recordException(error as Error);
           span.setStatus({
@@ -585,6 +587,7 @@ program
         if (result.errors.length > 0) {
           logger.warn("Some invoices failed", {
             errorCount: result.errors.length,
+            errors: result.errors,
           });
         }
 
@@ -609,7 +612,7 @@ program
           startedAtNs,
           summary: metricsSummary,
         });
-        process.exit(1);
+        process.exitCode = 1;
       } finally {
         await closeDatabase();
       }
@@ -702,7 +705,7 @@ program
           startedAtNs,
           summary: metricsSummary,
         });
-        process.exit(1);
+        process.exitCode = 1;
       } finally {
         await closeDatabase();
       }
@@ -756,6 +759,7 @@ program
           options.dryRun,
         );
 
+        if (reminderResult.failed) process.exitCode = 1;
         logger.info("Reminders process completed", {
           total: reminderResult.total,
           sent: reminderResult.sent,
@@ -776,7 +780,7 @@ program
 
         await batchMetrics.recordJobRun({
           job: "reminders",
-          status: "success",
+          status: reminderResult.failed ? "failed" : "success",
           startedAtNs,
           summary: metricsSummary,
         });
@@ -794,7 +798,7 @@ program
           startedAtNs,
           summary: metricsSummary,
         });
-        process.exit(1);
+        process.exitCode = 1;
       } finally {
         await closeDatabase();
       }
@@ -871,7 +875,7 @@ program
           startedAtNs,
           summary: metricsSummary,
         });
-        process.exit(1);
+        process.exitCode = 1;
       } finally {
         await closeDatabase();
       }
@@ -964,7 +968,7 @@ program
           startedAtNs,
           summary: metricsSummary,
         });
-        process.exit(1);
+        process.exitCode = 1;
       } finally {
         await closeDatabase();
       }
@@ -1033,7 +1037,7 @@ program
           startedAtNs,
           summary: metricsSummary,
         });
-        process.exit(1);
+        process.exitCode = 1;
       } finally {
         await closeDatabase();
       }
@@ -1066,6 +1070,63 @@ async function finalizeExchangeRatesJob(
   });
 }
 
+async function generateOwnerReport(options: {
+  ownerId?: string;
+  type: string;
+  month?: string;
+  dryRun: boolean;
+}) {
+  if (!options.ownerId)
+    throw new Error("Owner ID required. Use --owner-id <id>");
+  if (!["monthly", "settlement"].includes(options.type))
+    throw new Error("Report type must be monthly or settlement");
+  const { ReportService } = await import("./services/report.service");
+  const service = new ReportService();
+  const month =
+    options.month ||
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Argentina/Buenos_Aires",
+      year: "numeric",
+      month: "2-digit",
+    }).format(new Date());
+  if (options.type === "settlement")
+    return service.generateSettlement(options.ownerId, month, options.dryRun);
+  const [year, mon] = month.split("-").map(Number);
+  return service.generateMonthlySummary(
+    options.ownerId,
+    year,
+    mon,
+    options.dryRun,
+  );
+}
+
+async function completeOwnerReportJob(
+  jobId: string,
+  result: { success: boolean; pdfUrl?: string; error?: string },
+  dryRun: boolean,
+) {
+  if (!result.success) {
+    logger.error("Report generation failed", { error: result.error });
+    const summary = { recordsTotal: 1, recordsProcessed: 0, recordsFailed: 1 };
+    await billingJobService.completeJob(jobId, {
+      ...summary,
+      errorLog: [{ error: result.error }],
+    });
+    return summary;
+  }
+  logger.info("Report generated", { pdfUrl: result.pdfUrl });
+  const summary = {
+    recordsTotal: 1,
+    recordsProcessed: dryRun ? 0 : 1,
+    recordsFailed: 0,
+  };
+  await billingJobService.completeJob(jobId, {
+    ...summary,
+    recordsSkipped: dryRun ? 1 : 0,
+  });
+  return summary;
+}
+
 /**
  * Reports command - Generate monthly reports.
  */
@@ -1079,8 +1140,6 @@ program
   .option("-d, --dry-run", "Generate without sending", false)
   .action(
     withTracedAction("reports", async (options) => {
-      const { ReportService } = await import("./services/report.service");
-
       logger.info("Starting reports process", { options });
       const startedAtNs = process.hrtime.bigint();
       let jobId: string | undefined;
@@ -1106,58 +1165,19 @@ program
           options.dryRun,
         );
 
-        if (!options.ownerId) {
-          logger.error("Owner ID required. Use --owner-id <id>");
-          throw new Error("Owner ID required. Use --owner-id <id>");
-        }
+        const result = await generateOwnerReport(options);
 
-        const reportService = new ReportService();
-        const now = new Date();
-        const month =
-          options.month ||
-          `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-        const [year, mon] = month.split("-").map(Number);
+        metricsSummary = await completeOwnerReportJob(
+          jobId,
+          result,
+          options.dryRun,
+        );
 
-        const result =
-          options.type === "settlement"
-            ? await reportService.generateSettlement(options.ownerId, month)
-            : await reportService.generateMonthlySummary(
-                options.ownerId,
-                year,
-                mon,
-              );
-
-        if (result.success) {
-          logger.info("Report generated", { pdfUrl: result.pdfUrl });
-          await billingJobService.completeJob(jobId, {
-            recordsTotal: 1,
-            recordsProcessed: 1,
-            recordsFailed: 0,
-          });
-          metricsSummary = {
-            recordsTotal: 1,
-            recordsProcessed: 1,
-            recordsFailed: 0,
-          };
-        } else {
-          logger.error("Report generation failed", { error: result.error });
-          await billingJobService.completeJob(jobId, {
-            recordsTotal: 1,
-            recordsProcessed: 0,
-            recordsFailed: 1,
-            errorLog: [{ error: result.error }],
-          });
-          metricsSummary = {
-            recordsTotal: 1,
-            recordsProcessed: 0,
-            recordsFailed: 1,
-          };
-        }
-
+        if (!result.success) process.exitCode = 1;
         logger.info("Reports process completed");
         await batchMetrics.recordJobRun({
           job: "reports",
-          status: "success",
+          status: result.success ? "success" : "failed",
           startedAtNs,
           summary: metricsSummary,
         });
@@ -1175,7 +1195,7 @@ program
           startedAtNs,
           summary: metricsSummary,
         });
-        process.exit(1);
+        process.exitCode = 1;
       } finally {
         await closeDatabase();
       }
@@ -1241,10 +1261,11 @@ program
         });
         metricsSummary = summary;
         await billingJobService.completeJob(jobId, summary);
+        if (summary.recordsFailed) process.exitCode = 1;
         logger.info("Reconcile-bank completed", summary);
         await batchMetrics.recordJobRun({
           job: "reconcile_bank",
-          status: "success",
+          status: summary.recordsFailed ? "failed" : "success",
           startedAtNs,
           summary: metricsSummary,
         });
@@ -1346,7 +1367,7 @@ program
           startedAtNs,
           summary: metricsSummary,
         });
-        process.exit(1);
+        process.exitCode = 1;
       } finally {
         await closeDatabase();
       }
@@ -1379,7 +1400,7 @@ async function resolveSettlementsSummary(
   return processAllOwnersSettlements(settlementService, period, options.dryRun);
 }
 
-async function main() {
+export async function main(argv: string[] = process.argv) {
   try {
     await startProfiling();
     await startTracing();
@@ -1398,10 +1419,10 @@ async function main() {
     rag.registerRagCommands(program);
 
     // Parse command line arguments
-    await program.parseAsync(process.argv);
+    await program.parseAsync(argv);
 
     // Show help if no command provided
-    if (!process.argv.slice(2).length) {
+    if (!argv.slice(2).length) {
       program.outputHelp();
     }
   } catch (err) {
@@ -1411,16 +1432,18 @@ async function main() {
     } else {
       console.error("Fatal error starting batch", err);
     }
-    process.exit(1);
+    process.exitCode = 1;
   } finally {
     await shutdownTracing();
     await stopProfiling();
   }
 }
 
-process.nextTick(() => {
-  void main().catch((error) => {
-    console.error("Fatal error starting batch", error);
-    process.exit(1);
+if (require.main === module) {
+  process.nextTick(() => {
+    void main().catch((error) => {
+      console.error("Fatal error starting batch", error);
+      process.exitCode = 1;
+    });
   });
-});
+}

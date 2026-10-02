@@ -98,4 +98,23 @@ describe("profiling", () => {
 
     expect(initMock).not.toHaveBeenCalled();
   });
+  it("uses local defaults without tags and permits restarting after profiler shutdown failure", async () => {
+    process.env.PYROSCOPE_URL = "http://pyroscope:4040";
+    delete process.env.npm_package_version;
+    delete process.env.PYROSCOPE_ENV;
+    const profiling = await import("./profiling");
+    await profiling.startProfiling();
+    expect(initMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appName: "rent-batch",
+        flushIntervalMs: 10000,
+        tags: { env: "development", service: "rent-batch", version: "1.0.0" },
+      }),
+    );
+    stopMock.mockRejectedValueOnce(new Error("Profiler shutdown failed"));
+    await expect(profiling.stopProfiling()).resolves.toBeUndefined();
+    await profiling.startProfiling();
+    expect(startMock).toHaveBeenCalledTimes(2);
+    await profiling.stopProfiling();
+  });
 });

@@ -1,14 +1,14 @@
-import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
-} from 'react-native';
+} from '@/components/themed-native';
+import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { leasesApi } from '@/api/leases';
@@ -31,7 +31,7 @@ function formatMoney(amount?: number, currencyCode = 'ARS') {
     return new Intl.NumberFormat(i18n.language || 'es', {
       style: 'currency',
       currency: currencyCode,
-      maximumFractionDigits: 0,
+      maximumFractionDigits: 2,
     }).format(amount);
   } catch {
     return `${currencyCode} ${amount}`;
@@ -184,7 +184,10 @@ export default function LeasesScreen() {
   });
 
   return (
-    <Screen>
+    <Screen
+      guidanceReady={!leasesQuery.isFetching}
+      guidanceBlocked={leasesQuery.isError}
+    >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('leases.title')}</Text>
         <Text style={styles.headerSubtitle}>

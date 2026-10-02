@@ -129,28 +129,16 @@ describe("currenciesApi", () => {
     });
 
     describe("getDefaultForLocale", () => {
-      it("returns ARS for locale 'es'", async () => {
+      it.each([
+        ["es", "ARS"],
+        ["pt", "BRL"],
+        ["en", "USD"],
+      ])("returns %s default %s", async (locale, code) => {
         const { currenciesApi } = await loadCurrenciesApi(true);
         const result = await resolveMockDelay(
-          currenciesApi.getDefaultForLocale("es"),
+          currenciesApi.getDefaultForLocale(locale),
         );
-        expect(result.code).toBe("ARS");
-      });
-
-      it("returns BRL for locale 'pt'", async () => {
-        const { currenciesApi } = await loadCurrenciesApi(true);
-        const result = await resolveMockDelay(
-          currenciesApi.getDefaultForLocale("pt"),
-        );
-        expect(result.code).toBe("BRL");
-      });
-
-      it("returns USD for locale 'en'", async () => {
-        const { currenciesApi } = await loadCurrenciesApi(true);
-        const result = await resolveMockDelay(
-          currenciesApi.getDefaultForLocale("en"),
-        );
-        expect(result.code).toBe("USD");
+        expect(result.code).toBe(code);
       });
 
       it("returns USD for an unknown locale", async () => {

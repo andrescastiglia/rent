@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
@@ -29,10 +29,22 @@ import {
 import { useLocale, useTranslations } from "next-intl";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { useAuth } from "@/contexts/auth-context";
-import { canManageLeasesForUser, hasUserRole } from "@/lib/permissions";
+import { canUserAccessModule, hasUserRole } from "@/lib/permissions";
+import { Button, StatePanel } from "@/components/ui";
+import type { User } from "@/types/auth";
+
+function canManageModule(user: User | null, module: "properties" | "leases") {
+  return Boolean(user && canUserAccessModule(user, ["admin", "staff"], module));
+}
+
+function salePriceLabel(property: Property, locale: string) {
+  if (property.salePrice === undefined) return "-";
+  const currency = property.saleCurrency ? ` ${property.saleCurrency}` : "";
+  return `${property.salePrice.toLocaleString(locale)}${currency}`;
+}
 
 const STATUS_COLORS: Record<string, string> = {
-  ACTIVE: "bg-green-500",
+  ACTIVE: "bg-green-700",
   MAINTENANCE: "bg-yellow-500",
 };
 
@@ -179,7 +191,11 @@ export default function PropertyDetailPage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [leasesForProperty, setLeasesForProperty] = useState<Lease[]>([]);
   const [loading, setLoading] = useState(true);
+  const [readError, setReadError] = useState(false);
+  const readRevision = useRef(0);
   const [renewingLeaseId, setRenewingLeaseId] = useState<string | null>(null);
+  const canManageProperty = canManageModule(user, "properties");
+  const canManageLease = canManageModule(user, "leases");
 
   useEffect(() => {
     setCurrentImageIndex(0);
@@ -228,6 +244,9 @@ export default function PropertyDetailPage() {
 
   const loadProperty = useCallback(
     async (id: string) => {
+      const revision = ++readRevision.current;
+      setLoading(true);
+      setReadError(false);
       try {
         const [data, visitData, maintenanceData, leaseData] = await Promise.all(
           [
@@ -237,30 +256,39 @@ export default function PropertyDetailPage() {
             loadLeasesForProperty(id),
           ],
         );
+        if (revision !== readRevision.current) return;
         setProperty(data);
         setVisits(visitData);
         setMaintenanceTasks(maintenanceData);
         setLeasesForProperty(leaseData);
       } catch (error) {
+        if (revision !== readRevision.current) return;
         console.error("Failed to load property", error);
+        setReadError(true);
       } finally {
-        setLoading(false);
+        if (revision === readRevision.current) setLoading(false);
       }
     },
     [loadLeasesForProperty],
   );
 
   useEffect(() => {
+    setProperty(null);
     if (authLoading) return;
-    if (propertyId) {
+    if (propertyId && user) {
       loadProperty(propertyId).catch((error) => {
         console.error("Failed to load property", error);
       });
+    } else {
+      setLoading(false);
     }
-  }, [propertyId, authLoading, loadProperty]);
+    return () => {
+      readRevision.current += 1;
+    };
+  }, [propertyId, authLoading, user, loadProperty]);
 
   const handleDelete = async () => {
-    if (!property || !confirm(t("confirmDelete"))) return;
+    if (!canManageProperty || !property || !confirm(t("confirmDelete"))) return;
 
     try {
       await propertiesApi.delete(property.id);
@@ -310,7 +338,7 @@ export default function PropertyDetailPage() {
   };
 
   const handleRenewLease = async (lease: Lease) => {
-    if (!propertyId) return;
+    if (!canManageLease || !propertyId) return;
     try {
       setRenewingLeaseId(lease.id);
       const renewed = await leasesApi.renew(lease.id);
@@ -342,11 +370,25 @@ export default function PropertyDetailPage() {
     return t(`operationState.${stateKey}`);
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
       </div>
+    );
+  }
+
+  if (readError) {
+    return (
+      <StatePanel
+        error
+        title={tCommon("loadError")}
+        action={
+          <Button onClick={() => propertyId && void loadProperty(propertyId)}>
+            {tCommon("retry")}
+          </Button>
+        }
+      />
     );
   }
 
@@ -369,13 +411,6 @@ export default function PropertyDetailPage() {
   const propertyOperations = property.operations ?? [];
   const supportsRent = propertyOperations.includes("rent");
   const supportsSale = propertyOperations.includes("sale");
-  const saleCurrencySuffix = property.saleCurrency
-    ? ` ${property.saleCurrency}`
-    : "";
-  const salePriceLabel =
-    property.salePrice === undefined
-      ? "-"
-      : `${property.salePrice.toLocaleString(locale)}${saleCurrencySuffix}`;
   const canCreateLease = supportsRent || supportsSale;
   const leaseAction = resolveLeaseAction(leasesForProperty);
   const createLeaseQuery = new URLSearchParams({
@@ -414,21 +449,24 @@ export default function PropertyDetailPage() {
             currentIndex={currentImageIndex}
             onChangeIndex={setCurrentImageIndex}
           />
-          <div className="absolute top-4 right-4 flex space-x-2">
-            <Link
-              href={`/${locale}/properties/${property.id}/edit`}
-              className="p-2 bg-white/90 backdrop-blur-xs rounded-full text-gray-700 hover:text-blue-600 shadow-xs transition-colors"
-              aria-label={tCommon("edit")}
-            >
-              <Edit size={20} />
-            </Link>
-            <button
-              onClick={handleDelete}
-              className="p-2 bg-white/90 backdrop-blur-xs rounded-full text-gray-700 hover:text-red-600 shadow-xs transition-colors"
-            >
-              <Trash2 size={20} />
-            </button>
-          </div>
+          {canManageProperty ? (
+            <div className="absolute top-4 right-4 flex space-x-2">
+              <Link
+                href={`/${locale}/properties/${property.id}/edit`}
+                className="p-2 bg-white/90 backdrop-blur-xs rounded-full text-gray-700 hover:text-blue-600 shadow-xs transition-colors"
+                aria-label={tCommon("edit")}
+              >
+                <Edit size={20} />
+              </Link>
+              <button
+                onClick={handleDelete}
+                aria-label={tCommon("delete")}
+                className="p-2 bg-white/90 backdrop-blur-xs rounded-full text-gray-700 hover:text-red-600 shadow-xs transition-colors"
+              >
+                <Trash2 size={20} />
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div className="p-6 md:p-8">
@@ -460,7 +498,7 @@ export default function PropertyDetailPage() {
             </div>
             <div className="text-right">
               <LeaseActionButton
-                canManage={canManageLeasesForUser(user)}
+                canManage={canManageLease}
                 leaseAction={leaseAction}
                 canCreateLease={canCreateLease}
                 createLeaseHref={createLeaseHref}
@@ -525,13 +563,15 @@ export default function PropertyDetailPage() {
                       <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                         Visitas comerciales
                       </h2>
-                      <Link
-                        href={`/${locale}/properties/${property.id}/visits/new`}
-                        className="inline-flex items-center gap-2 rounded-md border border-emerald-300 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-700 dark:text-emerald-300"
-                      >
-                        <CalendarDays size={16} />
-                        Registrar visita
-                      </Link>
+                      {canManageProperty ? (
+                        <Link
+                          href={`/${locale}/properties/${property.id}/visits/new`}
+                          className="inline-flex items-center gap-2 rounded-md border border-emerald-300 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-700 dark:text-emerald-300"
+                        >
+                          <CalendarDays size={16} />
+                          Registrar visita
+                        </Link>
+                      ) : null}
                     </div>
 
                     <div className="space-y-4">
@@ -571,12 +611,14 @@ export default function PropertyDetailPage() {
                               <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                 Resultado: {visit.result ?? "pending"}
                               </span>
-                              <Link
-                                href={`/${locale}/properties/${property.id}/visits/${visit.id}/result`}
-                                className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
-                              >
-                                Enviar resultado
-                              </Link>
+                              {canManageProperty ? (
+                                <Link
+                                  href={`/${locale}/properties/${property.id}/visits/${visit.id}/result`}
+                                  className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+                                >
+                                  Enviar resultado
+                                </Link>
+                              ) : null}
                             </div>
                           </div>
                         ))
@@ -593,12 +635,14 @@ export default function PropertyDetailPage() {
                       <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                         {t("maintenanceTasks")}
                       </h2>
-                      <Link
-                        href={`/${locale}/properties/${property.id}/maintenance/new`}
-                        className="inline-flex items-center px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
-                      >
-                        {t("saveMaintenanceTask")}
-                      </Link>
+                      {canManageProperty ? (
+                        <Link
+                          href={`/${locale}/properties/${property.id}/maintenance/new`}
+                          className="inline-flex items-center px-3 py-2 rounded-md border border-blue-300 dark:border-blue-700 text-sm text-blue-700 dark:text-blue-300"
+                        >
+                          {t("saveMaintenanceTask")}
+                        </Link>
+                      ) : null}
                     </div>
 
                     <div className="space-y-4">
@@ -660,7 +704,7 @@ export default function PropertyDetailPage() {
                         {t("fields.salePrice")}
                       </dt>
                       <dd className="font-medium text-gray-900 dark:text-white">
-                        {salePriceLabel}
+                        {salePriceLabel(property, locale)}
                       </dd>
                     </div>
                   ) : null}

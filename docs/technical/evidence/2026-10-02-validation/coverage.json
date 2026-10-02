@@ -1,0 +1,130 @@
+{
+  "backend": {
+    "lines": {
+      "total": 16659,
+      "covered": 15156,
+      "skipped": 0,
+      "pct": 90.97
+    },
+    "statements": {
+      "total": 17629,
+      "covered": 15935,
+      "skipped": 0,
+      "pct": 90.39
+    },
+    "functions": {
+      "total": 2680,
+      "covered": 2232,
+      "skipped": 0,
+      "pct": 83.28
+    },
+    "branches": {
+      "total": 9034,
+      "covered": 7034,
+      "skipped": 0,
+      "pct": 77.86
+    },
+    "branchesTrue": {
+      "total": 0,
+      "covered": 0,
+      "skipped": 0,
+      "pct": "Unknown"
+    }
+  },
+  "frontend": {
+    "lines": {
+      "total": 11353,
+      "covered": 9821,
+      "skipped": 0,
+      "pct": 86.5
+    },
+    "statements": {
+      "total": 12451,
+      "covered": 10660,
+      "skipped": 0,
+      "pct": 85.61
+    },
+    "functions": {
+      "total": 2953,
+      "covered": 2536,
+      "skipped": 0,
+      "pct": 85.87
+    },
+    "branches": {
+      "total": 9172,
+      "covered": 7420,
+      "skipped": 0,
+      "pct": 80.89
+    },
+    "branchesTrue": {
+      "total": 0,
+      "covered": 0,
+      "skipped": 0,
+      "pct": "Unknown"
+    }
+  },
+  "batch": {
+    "lines": {
+      "total": 2185,
+      "covered": 1976,
+      "skipped": 0,
+      "pct": 90.43
+    },
+    "statements": {
+      "total": 2262,
+      "covered": 2041,
+      "skipped": 0,
+      "pct": 90.22
+    },
+    "functions": {
+      "total": 414,
+      "covered": 370,
+      "skipped": 0,
+      "pct": 89.37
+    },
+    "branches": {
+      "total": 1465,
+      "covered": 1179,
+      "skipped": 0,
+      "pct": 80.47
+    },
+    "branchesTrue": {
+      "total": 0,
+      "covered": 0,
+      "skipped": 0,
+      "pct": 100
+    }
+  },
+  "mobile": {
+    "lines": {
+      "total": 4797,
+      "covered": 4495,
+      "skipped": 0,
+      "pct": 93.7
+    },
+    "statements": {
+      "total": 5107,
+      "covered": 4722,
+      "skipped": 0,
+      "pct": 92.46
+    },
+    "functions": {
+      "total": 1379,
+      "covered": 1246,
+      "skipped": 0,
+      "pct": 90.35
+    },
+    "branches": {
+      "total": 3805,
+      "covered": 3090,
+      "skipped": 0,
+      "pct": 81.2
+    },
+    "branchesTrue": {
+      "total": 0,
+      "covered": 0,
+      "skipped": 0,
+      "pct": "Unknown"
+    }
+  }
+}

@@ -19,3 +19,18 @@ export function isTokenExpired(token: string): boolean {
     return true;
   }
 }
+
+/** Stable intent scope across access-token refreshes; this does not authorize API access. */
+export function tokenSubject(token: string | null): string {
+  if (!token) throw new Error('SESSION_EXPIRED');
+  try {
+    const payload = JSON.parse(decodeBase64Url(token.split('.')[1] ?? '')) as {
+      sub?: string;
+      companyId?: string;
+    };
+    if (!payload.sub) throw new Error('Missing subject');
+    return `${payload.companyId ?? ''}:${payload.sub}`;
+  } catch {
+    throw new Error('SESSION_EXPIRED');
+  }
+}

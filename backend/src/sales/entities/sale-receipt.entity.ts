@@ -48,6 +48,18 @@ export class SaleReceipt {
   @Column({ name: 'pdf_url', type: 'varchar', nullable: true })
   pdfUrl: string;
 
+  @Column({ name: 'financial_snapshot', type: 'jsonb', nullable: true })
+  financialSnapshot: Record<string, unknown> | null;
+
+  @Column({ name: 'cancelled_at', type: 'timestamptz', nullable: true })
+  cancelledAt: Date | null;
+
+  @Column({ name: 'cancelled_by', type: 'uuid', nullable: true })
+  cancelledBy: string | null;
+
+  @Column({ name: 'cancellation_reason', type: 'text', nullable: true })
+  cancellationReason: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

@@ -394,9 +394,11 @@ export default function NewInterestedPage() {
                     }
                     className="mt-1 w-full rounded-md border border-gray-300 bg-white p-2 dark:border-gray-600 dark:bg-gray-700"
                   >
-                    <option value="whatsapp">WhatsApp</option>
-                    <option value="email">Email</option>
-                    <option value="sms">SMS</option>
+                    <option value="whatsapp">
+                      {t("contactChannels.whatsapp")}
+                    </option>
+                    <option value="email">{t("contactChannels.email")}</option>
+                    <option value="sms">{t("contactChannels.sms")}</option>
                   </select>
                 </label>
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">

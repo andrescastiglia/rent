@@ -51,7 +51,7 @@ export class SettlementSummaryFiltersDto {
   currency?: string;
 
   @ApiPropertyOptional({
-    pattern: '^\\d{4}-(0[1-9]|1[0-2])$',
+    pattern: String.raw`^\d{4}-(0[1-9]|1[0-2])$`,
     example: '2026-09',
   })
   @Matches(/^\d{4}-(0[1-9]|1[0-2])$/)
@@ -59,7 +59,7 @@ export class SettlementSummaryFiltersDto {
   periodStart?: string;
 
   @ApiPropertyOptional({
-    pattern: '^\\d{4}-(0[1-9]|1[0-2])$',
+    pattern: String.raw`^\d{4}-(0[1-9]|1[0-2])$`,
     example: '2026-09',
   })
   @Matches(/^\d{4}-(0[1-9]|1[0-2])$/)

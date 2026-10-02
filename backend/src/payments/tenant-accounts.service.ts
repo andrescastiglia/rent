@@ -15,8 +15,8 @@ import {
   TenantAccountMovement,
   MovementType,
 } from './entities/tenant-account-movement.entity';
-import { Lease, LateFeeType } from '../leases/entities/lease.entity';
-import { InvoiceStatus } from './entities/invoice.entity';
+import { Lease } from '../leases/entities/lease.entity';
+import { calculateLateFeeEvidence } from './late-fee-calculation';
 import { UserRole } from '../users/entities/user.entity';
 import {
   getUserRoles,
@@ -286,66 +286,28 @@ export class TenantAccountsService {
     companyId: string = '',
     manager?: EntityManager,
   ): Promise<number> {
+    return (
+      await this.calculateLateFeeWithEvidence(accountId, companyId, manager)
+    ).amount;
+  }
+
+  async calculateLateFeeWithEvidence(
+    accountId: string,
+    companyId: string = '',
+    manager?: EntityManager,
+  ) {
+    if (manager)
+      await manager.getRepository(TenantAccount).findOne({
+        where: { id: accountId, companyId },
+        lock: { mode: 'pessimistic_write' },
+      });
     const account = await (
       manager?.getRepository(TenantAccount) ?? this.accountsRepository
     ).findOne({
       where: { id: accountId, companyId },
       relations: ['lease', 'invoices'],
     });
-
-    if (!account?.lease) {
-      return 0;
-    }
-
-    const lease = account.lease;
-
-    // Si no tiene configuración de mora, retornar 0
-    if (!lease.lateFeeType || !lease.lateFeeValue) {
-      return 0;
-    }
-
-    // Buscar facturas vencidas no pagadas
-    const overdueInvoices = account.invoices?.filter(
-      (inv) =>
-        inv.status !== InvoiceStatus.PAID &&
-        inv.status !== InvoiceStatus.CANCELLED &&
-        inv.status !== InvoiceStatus.REFUNDED &&
-        new Date(inv.dueDate) < new Date(),
-    );
-
-    if (!overdueInvoices || overdueInvoices.length === 0) {
-      return 0;
-    }
-
-    let totalLateFee = 0;
-
-    for (const invoice of overdueInvoices) {
-      const daysOverdue = Math.floor(
-        (Date.now() - new Date(invoice.dueDate).getTime()) /
-          (1000 * 60 * 60 * 24),
-      );
-
-      if (daysOverdue <= 0) continue;
-
-      const pendingAmount = Number(invoice.total) - Number(invoice.amountPaid);
-
-      if (lease.lateFeeType === LateFeeType.DAILY_PERCENTAGE) {
-        // Tasa diaria (porcentaje)
-        const dailyRate = Number(lease.lateFeeValue) / 100;
-        totalLateFee += pendingAmount * dailyRate * daysOverdue;
-      } else if (lease.lateFeeType === LateFeeType.DAILY_FIXED) {
-        // Monto fijo por día
-        totalLateFee += Number(lease.lateFeeValue) * daysOverdue;
-      } else if (lease.lateFeeType === LateFeeType.PERCENTAGE) {
-        // Porcentaje único
-        totalLateFee += pendingAmount * (Number(lease.lateFeeValue) / 100);
-      } else if (lease.lateFeeType === LateFeeType.FIXED) {
-        // Monto fijo único
-        totalLateFee += Number(lease.lateFeeValue);
-      }
-    }
-
-    return Math.round(totalLateFee * 100) / 100;
+    return calculateLateFeeEvidence(account);
   }
 
   /**

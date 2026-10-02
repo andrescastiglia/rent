@@ -6,6 +6,8 @@ import { leasesApi } from "@/lib/api/leases";
 import { tenantsApi } from "@/lib/api/tenants";
 import { useAuth } from "@/contexts/auth-context";
 import { ContractDocument } from "@/components/leases/ContractDocument";
+import { Button, StatePanel } from "@/components/ui";
+import { formatCalendarDate } from "@/lib/calendar-date";
 import { Lease } from "@/types/lease";
 import { TenantSummary } from "@/types/tenant";
 import { Loader2, MapPin, Calendar, DollarSign, RefreshCw } from "lucide-react";
@@ -23,9 +25,13 @@ export default function TenantContractPage() {
   const [lease, setLease] = useState<Lease | null>(null);
   const [summary, setSummary] = useState<TenantSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
+      setError(false);
       try {
         const [leasesData, summaryData] = await Promise.all([
           leasesApi.getAll({ status: "ACTIVE" }),
@@ -38,17 +44,17 @@ export default function TenantContractPage() {
         setLease(activeLease);
         setSummary(summaryData);
       } catch {
-        // fail silently
+        setError(true);
       } finally {
         setLoading(false);
       }
     };
-    load();
-  }, []);
+    void load();
+  }, [revision]);
 
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString(getLocaleCode(locale));
+    return formatCalendarDate(dateStr, getLocaleCode(locale));
   };
 
   const formatCurrency = (amount?: number | null, currency = "ARS") => {
@@ -78,6 +84,21 @@ export default function TenantContractPage() {
     );
   }
 
+  if (error)
+    return (
+      <StatePanel
+        error
+        title={t("readError")}
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => setRevision((value) => value + 1)}
+          >
+            {t("retry")}
+          </Button>
+        }
+      />
+    );
   if (!lease) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">

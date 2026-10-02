@@ -319,7 +319,9 @@ export function PropertyForm({
     setSubmitErrorMessage(tValidation("required"));
   };
 
-  const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleFormSubmit = async (
+    event: React.SyntheticEvent<HTMLFormElement>,
+  ) => {
     await handleSubmit(onSubmit, onInvalid)(event);
   };
 

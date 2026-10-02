@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Building2, ChevronRight, Loader2 } from "lucide-react";
 import { hasUserRole } from "@/lib/permissions";
+import { Button, StatePanel } from "@/components/ui";
 
 export default function OwnerPropertiesPage() {
   const { user, loading: authLoading } = useAuth();
@@ -19,6 +20,7 @@ export default function OwnerPropertiesPage() {
 
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user && !hasUserRole(user, "owner")) {
@@ -29,9 +31,11 @@ export default function OwnerPropertiesPage() {
   const fetchProperties = useCallback(async () => {
     try {
       setLoading(true);
+      setError(false);
       const data = await propertiesApi.getAll();
       setProperties(data);
     } catch (error) {
+      setError(true);
       console.error("Error fetching owner properties:", error);
     } finally {
       setLoading(false);
@@ -53,6 +57,18 @@ export default function OwnerPropertiesPage() {
   }
 
   if (!hasUserRole(user, "owner")) return null;
+  if (error)
+    return (
+      <StatePanel
+        error
+        title={t("readError")}
+        action={
+          <Button variant="secondary" onClick={() => void fetchProperties()}>
+            {t("retry")}
+          </Button>
+        }
+      />
+    );
 
   return (
     <div className="space-y-4">

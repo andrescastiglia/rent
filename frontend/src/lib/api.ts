@@ -2,6 +2,7 @@ import { isTokenExpired } from "@/lib/auth";
 import { forceLogout } from "@/lib/forceLogout";
 import { emitToast } from "@/lib/toastBus";
 import { getCurrentPath, reportApiError } from "@/lib/frontend-metrics";
+import { needsDomainRecovery, recoverDomainRequest } from "./domain-request";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -15,6 +16,7 @@ export const IS_MOCK_MODE =
 const MOCK_USERS = [
   {
     id: "1",
+    companyId: "10000000-0000-0000-0000-000000000001",
     email: "admin@example.com",
     password: "admin123",
     firstName: "Admin",
@@ -28,6 +30,7 @@ const MOCK_USERS = [
   },
   {
     id: "2",
+    companyId: "10000000-0000-0000-0000-000000000001",
     email: "user@example.com",
     password: "user123",
     firstName: "Test",
@@ -88,12 +91,13 @@ async function handleMockAuth(endpoint: string, data: any): Promise<any> {
   }
 
   if (endpoint === "/auth/register") {
-    const existingUser = MOCK_USERS.find((u) => u.email === data.email);
+    const existingUser = MOCK_USERS.some((u) => u.email === data.email);
     if (existingUser) {
       throw new Error("El email ya está registrado");
     }
     const newUser = {
       id: String(MOCK_USERS.length + 1),
+      companyId: "10000000-0000-0000-0000-000000000001",
       email: data.email,
       password: data.password,
       firstName: data.firstName,
@@ -153,6 +157,31 @@ class ApiClient {
     if (!IS_MOCK_MODE && token && isTokenExpired(token)) {
       forceLogout();
       throw new Error("SESSION_EXPIRED");
+    }
+
+    const explicitKey = Object.entries(
+      (fetchOptions.headers ?? {}) as Record<string, string>,
+    ).some(([key]) => key.toLowerCase() === "idempotency-key");
+    if (
+      !IS_MOCK_MODE &&
+      !isFormDataBody &&
+      token &&
+      !explicitKey &&
+      needsDomainRecovery(endpoint, method)
+    ) {
+      return recoverDomainRequest(
+        endpoint,
+        method,
+        fetchOptions.body ?? null,
+        (key) =>
+          this.request<T>(endpoint, {
+            ...options,
+            headers: {
+              ...(options.headers as Record<string, string>),
+              "Idempotency-Key": key,
+            },
+          }),
+      );
     }
 
     const headers: Record<string, string> = {
@@ -223,7 +252,12 @@ class ApiClient {
     return this.request<T>(endpoint, { method: "GET", token });
   }
 
-  async post<T>(endpoint: string, data: any, token?: string): Promise<T> {
+  async post<T>(
+    endpoint: string,
+    data: any,
+    token?: string,
+    headers?: Record<string, string>,
+  ): Promise<T> {
     // Use mock for auth endpoints only in development
     if (IS_MOCK_MODE && endpoint.startsWith("/auth/")) {
       return handleMockAuth(endpoint, data) as Promise<T>;
@@ -235,14 +269,21 @@ class ApiClient {
           ? data
           : JSON.stringify(data),
       token,
+      headers,
     });
   }
 
-  async patch<T>(endpoint: string, data: any, token?: string): Promise<T> {
+  async patch<T>(
+    endpoint: string,
+    data: any,
+    token?: string,
+    headers?: Record<string, string>,
+  ): Promise<T> {
     return this.request<T>(endpoint, {
       method: "PATCH",
       body: JSON.stringify(data),
       token,
+      headers,
     });
   }
 

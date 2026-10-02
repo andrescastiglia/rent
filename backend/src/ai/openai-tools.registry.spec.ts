@@ -777,7 +777,7 @@ describe('openai-tools.registry', () => {
         remove: jest.fn().mockResolvedValue(undefined),
         uploadPropertyImage: jest.fn().mockResolvedValue({ id: 'img-1' }),
         discardUploadedImages: jest.fn().mockResolvedValue({ discarded: 1 }),
-        getPropertyImage: jest.fn().mockResolvedValue({
+        getPropertyImageScoped: jest.fn().mockResolvedValue({
           id: 'img-1',
           mimeType: 'image/png',
           originalName: 'a.png',
@@ -975,6 +975,7 @@ describe('openai-tools.registry', () => {
     expect(maintenanceService.create).toHaveBeenCalledWith(
       actor,
       expect.objectContaining({ propertyId: id, title: 'Repair' }),
+      undefined,
     );
   });
 

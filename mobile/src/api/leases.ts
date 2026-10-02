@@ -1,4 +1,5 @@
-import { apiClient } from '@/api/client';
+import { fetchAllPages } from '@/api/pagination';
+import { ApiError, apiClient } from '@/api/client';
 import { IS_MOCK_MODE } from '@/api/env';
 import { createAndShareMockPdf, downloadAndSharePdf } from '@/api/pdf';
 import type { Buyer } from '@/types/buyer';
@@ -9,13 +10,6 @@ import type {
   LeaseTemplate,
   UpdateLeaseInput,
 } from '@/types/lease';
-
-type PaginatedResponse<T> = {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-};
 
 type LeaseListFilters = {
   includeFinalized?: boolean;
@@ -32,10 +26,27 @@ type BackendLease = {
   contractType?: 'rental' | 'sale' | null;
   startDate?: string | Date | null;
   endDate?: string | Date | null;
-  monthlyRent?: number | null;
+  monthlyRent?: number | string | null;
   securityDeposit?: number | null;
-  fiscalValue?: number | null;
+  fiscalValue?: number | string | null;
   currency?: string | null;
+  paymentFrequency?: NonNullable<Lease['paymentFrequency']> | null;
+  paymentDueDay?: number | null;
+  billingFrequency?: NonNullable<Lease['billingFrequency']> | null;
+  billingDay?: number | null;
+  autoGenerateInvoices?: boolean | null;
+  lateFeeType?: NonNullable<Lease['lateFeeType']> | null;
+  lateFeeValue?: number | string | null;
+  lateFeeGraceDays?: number | null;
+  lateFeeMax?: number | string | null;
+  adjustmentType?: NonNullable<Lease['adjustmentType']> | null;
+  adjustmentValue?: number | string | null;
+  adjustmentFrequencyMonths?: number | null;
+  inflationIndexType?: NonNullable<Lease['inflationIndexType']> | null;
+  nextAdjustmentDate?: string | Date | null;
+  lastAdjustmentDate?: string | Date | null;
+  previousLeaseId?: string | null;
+  versionNumber?: number | null;
   status?: string | null;
   signatureStatus?: string | null;
   termsAndConditions?: string | null;
@@ -173,10 +184,32 @@ const mapLease = (raw: BackendLease): Lease => ({
   contractType: raw.contractType ?? 'rental',
   startDate: raw.startDate ? toIso(raw.startDate) : undefined,
   endDate: raw.endDate ? toIso(raw.endDate) : undefined,
-  rentAmount: raw.monthlyRent ?? undefined,
+  rentAmount: raw.monthlyRent == null ? undefined : Number(raw.monthlyRent),
   depositAmount: Number(raw.securityDeposit ?? 0),
-  fiscalValue: raw.fiscalValue ?? undefined,
+  fiscalValue: raw.fiscalValue == null ? undefined : Number(raw.fiscalValue),
   currency: raw.currency ?? 'ARS',
+  paymentFrequency: raw.paymentFrequency ?? undefined,
+  paymentDueDay: raw.paymentDueDay ?? undefined,
+  billingFrequency: raw.billingFrequency ?? undefined,
+  billingDay: raw.billingDay ?? undefined,
+  autoGenerateInvoices: raw.autoGenerateInvoices ?? undefined,
+  lateFeeType: raw.lateFeeType ?? undefined,
+  lateFeeValue: raw.lateFeeValue == null ? undefined : Number(raw.lateFeeValue),
+  lateFeeGraceDays: raw.lateFeeGraceDays ?? undefined,
+  lateFeeMax: raw.lateFeeMax == null ? undefined : Number(raw.lateFeeMax),
+  adjustmentType: raw.adjustmentType ?? undefined,
+  adjustmentValue:
+    raw.adjustmentValue == null ? undefined : Number(raw.adjustmentValue),
+  adjustmentFrequencyMonths: raw.adjustmentFrequencyMonths ?? undefined,
+  inflationIndexType: raw.inflationIndexType ?? undefined,
+  nextAdjustmentDate: raw.nextAdjustmentDate
+    ? toIso(raw.nextAdjustmentDate).slice(0, 10)
+    : undefined,
+  lastAdjustmentDate: raw.lastAdjustmentDate
+    ? toIso(raw.lastAdjustmentDate).slice(0, 10)
+    : undefined,
+  previousLeaseId: raw.previousLeaseId ?? undefined,
+  versionNumber: raw.versionNumber ?? undefined,
   status: mapStatus(raw.status),
   signatureStatus: (
     raw.signatureStatus ?? 'not_started'
@@ -214,7 +247,8 @@ const mapTemplate = (raw: BackendTemplate): LeaseTemplate => ({
   updatedAt: toIso(raw.updatedAt),
 });
 
-const toCreatePayload = (value: CreateLeaseInput) => ({
+const toCreatePayload = (value: CreateLeaseInput | UpdateLeaseInput) => ({
+  companyId: value.companyId,
   propertyId: value.propertyId,
   tenantId: value.tenantId,
   buyerId: value.buyerId,
@@ -227,7 +261,6 @@ const toCreatePayload = (value: CreateLeaseInput) => ({
   securityDeposit: value.depositAmount,
   fiscalValue: value.fiscalValue,
   currency: value.currency,
-  status: value.status.toLowerCase(),
   termsAndConditions: value.terms,
   paymentFrequency: value.paymentFrequency,
   paymentDueDay: value.paymentDueDay,
@@ -246,27 +279,9 @@ const toCreatePayload = (value: CreateLeaseInput) => ({
   adjustmentFrequencyMonths: value.adjustmentFrequencyMonths,
   inflationIndexType: value.inflationIndexType,
   nextAdjustmentDate: value.nextAdjustmentDate,
-  documents: value.documents,
 });
 
-const toUpdatePayload = (value: UpdateLeaseInput) => ({
-  ...toCreatePayload({
-    propertyId: value.propertyId ?? '',
-    tenantId: value.tenantId,
-    buyerId: value.buyerId,
-    ownerId: value.ownerId,
-    templateId: value.templateId,
-    contractType: value.contractType ?? 'rental',
-    startDate: value.startDate,
-    endDate: value.endDate,
-    rentAmount: value.rentAmount,
-    depositAmount: value.depositAmount ?? 0,
-    fiscalValue: value.fiscalValue,
-    currency: value.currency ?? 'ARS',
-    status: value.status ?? 'DRAFT',
-    terms: value.terms,
-  }),
-});
+const toUpdatePayload = toCreatePayload;
 
 const fetchLeases = async (filters?: LeaseListFilters): Promise<Lease[]> => {
   if (IS_MOCK_MODE) {
@@ -304,12 +319,7 @@ const fetchLeases = async (filters?: LeaseListFilters): Promise<Lease[]> => {
     queryParams.toString().length > 0
       ? `/contracts?${queryParams.toString()}`
       : '/contracts';
-  const result = await apiClient.get<
-    BackendLease[] | PaginatedResponse<BackendLease>
-  >(endpoint);
-  return Array.isArray(result)
-    ? result.map(mapLease)
-    : result.data.map(mapLease);
+  return fetchAllPages<BackendLease, Lease>(endpoint, {}, mapLease);
 };
 
 export const leasesApi = {
@@ -329,8 +339,9 @@ export const leasesApi = {
     try {
       const result = await apiClient.get<BackendLease>(`/contracts/${id}`);
       return mapLease(result);
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
     }
   },
 

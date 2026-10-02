@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -17,6 +17,9 @@ import { useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { CurrencySelect } from "@/components/common/CurrencySelect";
+import { Button, StatePanel } from "@/components/ui";
+import { canUserAccessModule } from "@/lib/permissions";
+import { useWorkflowMutation } from "@/hooks/useWorkflowMutation";
 
 type PaymentItemRowProps = {
   index: number;
@@ -27,6 +30,12 @@ type PaymentItemRowProps = {
   onQuantityChange: (index: number, quantity: number) => void;
   onTypeChange: (index: number, type: PaymentItemType) => void;
   onRemove: (index: number) => void;
+};
+type PaymentDraftItem = NonNullable<CreatePaymentInput["items"]>[number] & {
+  rowId: string;
+};
+type PaymentFormData = Omit<Partial<CreatePaymentInput>, "items"> & {
+  items: PaymentDraftItem[];
 };
 
 function PaymentItemRow({
@@ -349,6 +358,15 @@ function PaymentDetailsCard({
 }
 
 export default function NewPaymentPage() {
+  const { user, loading } = useAuth();
+  const tw = useTranslations("paymentWorkflow");
+  if (loading) return <StatePanel busy title={tw("review")} />;
+  if (!user || !canUserAccessModule(user, ["admin", "staff"], "payments"))
+    return <StatePanel title={tw("unavailable")} />;
+  return <NewPaymentContent key={`${user.companyId}:${user.id}`} />;
+}
+
+function NewPaymentContent() {
   const { loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -367,11 +385,20 @@ export default function NewPaymentPage() {
     total: number;
   } | null>(null);
   const [applyLateFee, setApplyLateFee] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const tw = useTranslations("paymentWorkflow");
+  const [readError, setReadError] = useState(false);
+  const [accountError, setAccountError] = useState(false);
+  const [accountRevision, setAccountRevision] = useState(0);
+  const mutation = useWorkflowMutation<CreatePaymentInput>(async (request) => {
+    const payment = await paymentsApi.create(request);
+    router.push(`/${locale}/payments/${payment.id}`);
+  });
+  const loading = mutation.busy;
   const [loadingLeases, setLoadingLeases] = useState(true);
   const [showItemEditor, setShowItemEditor] = useState(false);
 
-  const [formData, setFormData] = useState<Partial<CreatePaymentInput>>({
+  const nextItemId = useRef(0);
+  const [formData, setFormData] = useState<PaymentFormData>({
     amount: 0,
     currencyCode: "ARS",
     paymentDate: new Date().toISOString().split("T")[0],
@@ -393,36 +420,62 @@ export default function NewPaymentPage() {
         }
       : null;
 
+  const principalItems = items.length
+    ? items
+    : [
+        {
+          description: t("amount"),
+          amount: formData.amount || 0,
+          quantity: 1,
+          type: "charge" as PaymentItemType,
+        },
+      ];
   const effectiveItems =
-    applyLateFee && lateFeeItem ? [...items, lateFeeItem] : items;
+    applyLateFee && lateFeeItem ? [...principalItems, lateFeeItem] : items;
 
   const totalFromItems =
     effectiveItems.length > 0
       ? effectiveItems.reduce((acc, item) => {
           const sign = item.type === "discount" ? -1 : 1;
           const quantity = item.quantity ?? 1;
-          return acc + sign * Number(item.amount || 0) * quantity;
-        }, 0)
+          return (
+            acc + sign * Math.round(Number(item.amount || 0) * 100) * quantity
+          );
+        }, 0) / 100
       : formData.amount || 0;
 
   useEffect(() => {
-    if (!preselectedLeaseId) return;
-    setSelectedLeaseId(preselectedLeaseId);
-  }, [preselectedLeaseId]);
-
-  useEffect(() => {
-    if (selectedLeaseId) {
-      loadAccount(selectedLeaseId);
-    }
-  }, [selectedLeaseId]);
-
-  useEffect(() => {
-    if (!account) return;
-    tenantAccountsApi
-      .getBalance(account.id)
-      .then(setBalanceInfo)
-      .catch(() => setBalanceInfo(null));
-  }, [account]);
+    let cancelled = false;
+    setAccount(null);
+    setBalanceInfo(null);
+    setAccountError(false);
+    setApplyLateFee(false);
+    if (!selectedLeaseId || authLoading) return;
+    const load = async () => {
+      try {
+        const acc = await tenantAccountsApi.getByLease(selectedLeaseId);
+        const balance = acc ? await tenantAccountsApi.getBalance(acc.id) : null;
+        if (cancelled) return;
+        setAccount(acc);
+        setBalanceInfo(balance);
+        setFormData((prev) => ({
+          ...prev,
+          tenantAccountId: acc?.id,
+          amount: 0,
+          items: [],
+          currencyCode:
+            leases.find((lease) => lease.id === selectedLeaseId)?.currency ??
+            "ARS",
+        }));
+      } catch {
+        if (!cancelled) setAccountError(true);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedLeaseId, authLoading, accountRevision, leases]);
 
   useEffect(() => {
     if (!balanceInfo) return;
@@ -431,18 +484,17 @@ export default function NewPaymentPage() {
         return prev;
       }
 
-      const suggestedAmount =
-        balanceInfo.total > 0 ? balanceInfo.total : balanceInfo.balance;
-
       return {
         ...prev,
-        amount: Math.max(suggestedAmount, 0),
+        amount: Math.max(balanceInfo.balance, 0),
       };
     });
   }, [balanceInfo]);
 
   const loadLeases = useCallback(async () => {
     try {
+      setReadError(false);
+      setLoadingLeases(true);
       const data = await leasesApi.getAll();
       const activeLeases = data.filter((lease) => lease.status === "ACTIVE");
       setLeases(activeLeases);
@@ -454,8 +506,8 @@ export default function NewPaymentPage() {
           setSelectedLeaseId(matchedLease.id);
         }
       }
-    } catch (error) {
-      console.error("Failed to load leases", error);
+    } catch {
+      setReadError(true);
     } finally {
       setLoadingLeases(false);
     }
@@ -466,49 +518,44 @@ export default function NewPaymentPage() {
     loadLeases();
   }, [authLoading, loadLeases]);
 
-  const loadAccount = async (leaseId: string) => {
-    try {
-      const acc = await tenantAccountsApi.getByLease(leaseId);
-      setAccount(acc);
-      if (acc) {
-        setFormData((prev) => ({ ...prev, tenantAccountId: acc.id }));
-      }
-    } catch (error) {
-      console.error("Failed to load account", error);
-    }
-  };
-
   const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
-    if (!account) return;
-
-    try {
-      setLoading(true);
-      const payment = await paymentsApi.create({
-        tenantAccountId: account.id,
-        amount: totalFromItems,
-        currencyCode: formData.currencyCode,
-        paymentDate: formData.paymentDate!,
-        method: formData.method as PaymentMethod,
-        activityType: formData.activityType as PaymentActivityType,
-        reference: formData.reference,
-        notes: formData.notes,
-        items: effectiveItems.length > 0 ? effectiveItems : undefined,
-      });
-      router.push(`/${locale}/payments/${payment.id}`);
-    } catch (error) {
-      console.error("Failed to create payment", error);
-    } finally {
-      setLoading(false);
-    }
+    if (
+      !account ||
+      accountError ||
+      !Number.isFinite(totalFromItems) ||
+      totalFromItems <= 0
+    )
+      return;
+    await mutation.submit({
+      tenantAccountId: account.id,
+      amount: totalFromItems,
+      currencyCode: formData.currencyCode,
+      paymentDate: formData.paymentDate!,
+      method: formData.method as PaymentMethod,
+      activityType: formData.activityType as PaymentActivityType,
+      reference: formData.reference,
+      notes: formData.notes,
+      items:
+        effectiveItems.length > 0
+          ? effectiveItems.map(({ description, amount, quantity, type }) => ({
+              description,
+              amount,
+              quantity,
+              type,
+            }))
+          : undefined,
+    });
   };
 
   const addItem = () => {
+    const rowId = `payment-item-${nextItemId.current++}`;
     setFormData((prev) => ({
       ...prev,
       items: [
         ...(prev.items || []),
         {
+          rowId,
           description: "",
           amount: 0,
           quantity: 1,
@@ -520,9 +567,7 @@ export default function NewPaymentPage() {
 
   const updateItem = (
     index: number,
-    updater: (
-      item: NonNullable<CreatePaymentInput["items"]>[number],
-    ) => NonNullable<CreatePaymentInput["items"]>[number],
+    updater: (item: PaymentDraftItem) => PaymentDraftItem,
   ) => {
     setFormData((prev) => ({
       ...prev,
@@ -629,132 +674,173 @@ export default function NewPaymentPage() {
         {t("newPayment")}
       </h1>
 
+      {readError && (
+        <StatePanel
+          error
+          title={tw("readError")}
+          action={
+            <Button onClick={() => void loadLeases()}>{tw("retry")}</Button>
+          }
+        />
+      )}
+      {accountError && (
+        <StatePanel
+          error
+          title={tw("readError")}
+          action={
+            <Button onClick={() => setAccountRevision((value) => value + 1)}>
+              {tw("retry")}
+            </Button>
+          }
+        />
+      )}
+      {mutation.error && (
+        <StatePanel
+          error
+          title={tw(mutation.error)}
+          action={
+            mutation.pending ? (
+              <Button
+                disabled={mutation.busy}
+                onClick={() => void mutation.submit(mutation.pending!)}
+              >
+                {tw("recover")}
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
       <form onSubmit={handleSubmit} className="space-y-6">
-        <LeaseSelectionCard
-          t={t}
-          loadingLeases={loadingLeases}
-          leases={leases}
-          selectedLeaseId={selectedLeaseId}
-          onSelectLease={setSelectedLeaseId}
-          account={account}
-          balanceInfo={balanceInfo}
-        />
+        <fieldset
+          className="space-y-6"
+          disabled={mutation.busy || Boolean(mutation.pending)}
+        >
+          <LeaseSelectionCard
+            t={t}
+            loadingLeases={loadingLeases}
+            leases={leases}
+            selectedLeaseId={selectedLeaseId}
+            onSelectLease={setSelectedLeaseId}
+            account={account}
+            balanceInfo={balanceInfo}
+          />
 
-        <PaymentDetailsCard
-          t={t}
-          tCurrencies={tCurrencies}
-          paymentMethods={paymentMethods}
-          activityType={formData.activityType}
-          totalFromItems={totalFromItems}
-          itemsLength={items.length}
-          paymentDate={formData.paymentDate}
-          method={formData.method}
-          currencyCode={formData.currencyCode}
-          reference={formData.reference}
-          notes={formData.notes}
-          onAmountChange={handleAmountChange}
-          onPaymentDateChange={handlePaymentDateChange}
-          onMethodChange={handleMethodChange}
-          onActivityTypeChange={handleActivityTypeChange}
-          onCurrencyChange={handleCurrencyChange}
-          onReferenceChange={handleReferenceChange}
-          onNotesChange={handleNotesChange}
-        />
+          <PaymentDetailsCard
+            t={t}
+            tCurrencies={tCurrencies}
+            paymentMethods={paymentMethods}
+            activityType={formData.activityType}
+            totalFromItems={totalFromItems}
+            itemsLength={effectiveItems.length}
+            paymentDate={formData.paymentDate}
+            method={formData.method}
+            currencyCode={formData.currencyCode}
+            reference={formData.reference}
+            notes={formData.notes}
+            onAmountChange={handleAmountChange}
+            onPaymentDateChange={handlePaymentDateChange}
+            onMethodChange={handleMethodChange}
+            onActivityTypeChange={handleActivityTypeChange}
+            onCurrencyChange={handleCurrencyChange}
+            onReferenceChange={handleReferenceChange}
+            onNotesChange={handleNotesChange}
+          />
 
-        {/* Variable Items */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {t("items.title")}
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Opcional. Si no necesitas desglose, con monto, fecha y medio de
-                pago alcanza.
-              </p>
+          {/* Variable Items */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {t("items.title")}
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Opcional. Si no necesitas desglose, con monto, fecha y medio
+                  de pago alcanza.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowItemEditor((prev) => !prev)}
+                className="px-3 py-1 text-sm rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+              >
+                {showItemEditor ? "Ocultar detalle" : "Agregar detalle"}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowItemEditor((prev) => !prev)}
-              className="px-3 py-1 text-sm rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
-            >
-              {showItemEditor ? "Ocultar detalle" : "Agregar detalle"}
-            </button>
+
+            {showItemEditor ? (
+              <>
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={addItem}
+                    className="px-3 py-1 text-sm rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-900 dark:text-slate-200"
+                  >
+                    {t("items.add")}
+                  </button>
+                </div>
+
+                {items.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {t("items.empty")}
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {items.map((item, index) => (
+                      <PaymentItemRow
+                        key={item.rowId}
+                        index={index}
+                        item={item}
+                        t={t}
+                        onDescriptionChange={handleItemDescriptionChange}
+                        onAmountChange={handleItemAmountChange}
+                        onQuantityChange={handleItemQuantityChange}
+                        onTypeChange={handleItemTypeChange}
+                        onRemove={removeItem}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                El pago se puede registrar sin desglosar items adicionales.
+              </p>
+            )}
+
+            {lateFeeItem && (
+              <label className="mt-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={applyLateFee}
+                  onChange={(e) => setApplyLateFee(e.target.checked)}
+                />
+                {t("items.applyLateFee")}
+              </label>
+            )}
           </div>
 
-          {showItemEditor ? (
-            <>
-              <div className="mb-4">
-                <button
-                  type="button"
-                  onClick={addItem}
-                  className="px-3 py-1 text-sm rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-900 dark:text-slate-200"
-                >
-                  {t("items.add")}
-                </button>
-              </div>
-
-              {items.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {t("items.empty")}
-                </p>
+          {/* Actions */}
+          <div className="flex justify-end space-x-4">
+            <Link
+              href={`/${locale}/payments`}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              {tCommon("cancel")}
+            </Link>
+            <button
+              type="submit"
+              disabled={loading || !account}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+            >
+              {loading ? (
+                <Loader2 className="animate-spin h-5 w-5 mr-2" />
               ) : (
-                <div className="space-y-3">
-                  {items.map((item, index) => (
-                    <PaymentItemRow
-                      key={`${item.description}-${item.amount}-${item.quantity}-${item.type}`}
-                      index={index}
-                      item={item}
-                      t={t}
-                      onDescriptionChange={handleItemDescriptionChange}
-                      onAmountChange={handleItemAmountChange}
-                      onQuantityChange={handleItemQuantityChange}
-                      onTypeChange={handleItemTypeChange}
-                      onRemove={removeItem}
-                    />
-                  ))}
-                </div>
+                <Save size={18} className="mr-2" />
               )}
-            </>
-          ) : (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              El pago se puede registrar sin desglosar items adicionales.
-            </p>
-          )}
-
-          {lateFeeItem && (
-            <label className="mt-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-              <input
-                type="checkbox"
-                checked={applyLateFee}
-                onChange={(e) => setApplyLateFee(e.target.checked)}
-              />
-              {t("items.applyLateFee")}
-            </label>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex justify-end space-x-4">
-          <Link
-            href={`/${locale}/payments`}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-          >
-            {tCommon("cancel")}
-          </Link>
-          <button
-            type="submit"
-            disabled={loading || !account}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? (
-              <Loader2 className="animate-spin h-5 w-5 mr-2" />
-            ) : (
-              <Save size={18} className="mr-2" />
-            )}
-            {t("savePayment")}
-          </button>
-        </div>
+              {t("savePayment")}
+            </button>
+          </div>
+        </fieldset>
       </form>
     </div>
   );

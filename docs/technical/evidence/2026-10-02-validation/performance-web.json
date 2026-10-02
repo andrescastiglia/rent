@@ -1,0 +1,282 @@
+{
+  "generatedAt": "2026-10-02T15:02:28.320Z",
+  "environment": "local production web build, real isolated API/PostgreSQL, cold browser contexts, laboratory measurement",
+  "sourceBase": "801286fd1f2ec458ce5247c6b4a7ce91b964aa95",
+  "network": {
+    "latencyMs": 75,
+    "downloadBitsPerSecond": 1600000,
+    "uploadBitsPerSecond": 750000
+  },
+  "results": [
+    {
+      "device": "desktop",
+      "viewport": 1440,
+      "cpuSlowdown": 1,
+      "route": "/es/dashboard",
+      "sample": 1,
+      "metrics": {
+        "FCP": 412,
+        "LCP": 2328,
+        "CLS": 0.050154270833333334,
+        "TTFB": 18.5,
+        "INP": 8
+      },
+      "errors": []
+    },
+    {
+      "device": "desktop",
+      "viewport": 1440,
+      "cpuSlowdown": 1,
+      "route": "/es/dashboard",
+      "sample": 2,
+      "metrics": {
+        "FCP": 416,
+        "LCP": 2296,
+        "CLS": 0.050154270833333334,
+        "TTFB": 10.5,
+        "INP": 16
+      },
+      "errors": []
+    },
+    {
+      "device": "desktop",
+      "viewport": 1440,
+      "cpuSlowdown": 1,
+      "route": "/es/dashboard",
+      "sample": 3,
+      "metrics": {
+        "FCP": 388,
+        "LCP": 2300,
+        "CLS": 0.050154270833333334,
+        "TTFB": 14.099999999627471,
+        "INP": 8
+      },
+      "errors": []
+    },
+    {
+      "device": "desktop",
+      "viewport": 1440,
+      "cpuSlowdown": 1,
+      "route": "/es/properties",
+      "sample": 1,
+      "metrics": {
+        "FCP": 388,
+        "LCP": 1956,
+        "CLS": 0,
+        "TTFB": 15.599999999627471,
+        "INP": 8
+      },
+      "errors": []
+    },
+    {
+      "device": "desktop",
+      "viewport": 1440,
+      "cpuSlowdown": 1,
+      "route": "/es/properties",
+      "sample": 2,
+      "metrics": {
+        "FCP": 380,
+        "LCP": 1940,
+        "CLS": 0,
+        "TTFB": 12.800000000745058,
+        "INP": 8
+      },
+      "errors": []
+    },
+    {
+      "device": "desktop",
+      "viewport": 1440,
+      "cpuSlowdown": 1,
+      "route": "/es/properties",
+      "sample": 3,
+      "metrics": {
+        "FCP": 380,
+        "LCP": 1948,
+        "CLS": 0,
+        "TTFB": 10.699999999254942,
+        "INP": 16
+      },
+      "errors": []
+    },
+    {
+      "device": "desktop",
+      "viewport": 1440,
+      "cpuSlowdown": 1,
+      "route": "/es/leases?status=draft",
+      "sample": 1,
+      "metrics": {
+        "FCP": 392,
+        "LCP": 1976,
+        "CLS": 0.000998677662037037,
+        "TTFB": 10.199999999254942,
+        "INP": 8
+      },
+      "errors": []
+    },
+    {
+      "device": "desktop",
+      "viewport": 1440,
+      "cpuSlowdown": 1,
+      "route": "/es/leases?status=draft",
+      "sample": 2,
+      "metrics": {
+        "FCP": 404,
+        "LCP": 1980,
+        "CLS": 0.000998677662037037,
+        "TTFB": 12,
+        "INP": 16
+      },
+      "errors": []
+    },
+    {
+      "device": "desktop",
+      "viewport": 1440,
+      "cpuSlowdown": 1,
+      "route": "/es/leases?status=draft",
+      "sample": 3,
+      "metrics": {
+        "FCP": 396,
+        "LCP": 1984,
+        "CLS": 0.000998677662037037,
+        "TTFB": 10.100000001490116,
+        "INP": 8
+      },
+      "errors": []
+    },
+    {
+      "device": "mobile",
+      "viewport": 390,
+      "cpuSlowdown": 4,
+      "route": "/es/dashboard",
+      "sample": 1,
+      "metrics": {
+        "FCP": 408,
+        "LCP": 2616,
+        "CLS": 0.12032521817707462,
+        "TTFB": 11.699999999254942,
+        "INP": 16
+      },
+      "errors": []
+    },
+    {
+      "device": "mobile",
+      "viewport": 390,
+      "cpuSlowdown": 4,
+      "route": "/es/dashboard",
+      "sample": 2,
+      "metrics": {
+        "FCP": 456,
+        "LCP": 2628,
+        "CLS": 0.12032521817707462,
+        "TTFB": 12,
+        "INP": 16
+      },
+      "errors": []
+    },
+    {
+      "device": "mobile",
+      "viewport": 390,
+      "cpuSlowdown": 4,
+      "route": "/es/dashboard",
+      "sample": 3,
+      "metrics": {
+        "FCP": 420,
+        "LCP": 2824,
+        "CLS": 0.12032521817707462,
+        "TTFB": 11.299999998882413,
+        "INP": 48
+      },
+      "errors": []
+    },
+    {
+      "device": "mobile",
+      "viewport": 390,
+      "cpuSlowdown": 4,
+      "route": "/es/properties",
+      "sample": 1,
+      "metrics": {
+        "FCP": 1224,
+        "LCP": 9076,
+        "CLS": 0,
+        "TTFB": 124.70000000111759,
+        "INP": 112
+      },
+      "errors": []
+    },
+    {
+      "device": "mobile",
+      "viewport": 390,
+      "cpuSlowdown": 4,
+      "route": "/es/properties",
+      "sample": 2,
+      "metrics": {
+        "FCP": 400,
+        "LCP": 2208,
+        "CLS": 0,
+        "TTFB": 12,
+        "INP": 16
+      },
+      "errors": []
+    },
+    {
+      "device": "mobile",
+      "viewport": 390,
+      "cpuSlowdown": 4,
+      "route": "/es/properties",
+      "sample": 3,
+      "metrics": {
+        "FCP": 400,
+        "LCP": 2212,
+        "CLS": 0,
+        "TTFB": 9,
+        "INP": 16
+      },
+      "errors": []
+    },
+    {
+      "device": "mobile",
+      "viewport": 390,
+      "cpuSlowdown": 4,
+      "route": "/es/leases?status=draft",
+      "sample": 1,
+      "metrics": {
+        "FCP": 416,
+        "LCP": 2244,
+        "CLS": 0.025331509503725983,
+        "TTFB": 13,
+        "INP": 112
+      },
+      "errors": []
+    },
+    {
+      "device": "mobile",
+      "viewport": 390,
+      "cpuSlowdown": 4,
+      "route": "/es/leases?status=draft",
+      "sample": 2,
+      "metrics": {
+        "FCP": 956,
+        "LCP": 956,
+        "CLS": 0,
+        "TTFB": 77.69999999925494,
+        "INP": 16
+      },
+      "errors": []
+    },
+    {
+      "device": "mobile",
+      "viewport": 390,
+      "cpuSlowdown": 4,
+      "route": "/es/leases?status=draft",
+      "sample": 3,
+      "metrics": {
+        "FCP": 412,
+        "LCP": 2480,
+        "CLS": 0.025331509503725983,
+        "TTFB": 10.200000001117587,
+        "INP": 16
+      },
+      "errors": []
+    }
+  ]
+}

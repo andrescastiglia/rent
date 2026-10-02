@@ -260,7 +260,7 @@ function TemplateEditorContent({
                   : "border border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-200"
               }`}
             >
-              Texto plano
+              {t("richEditor.plainText")}
             </button>
             <button
               type="button"
@@ -276,7 +276,7 @@ function TemplateEditorContent({
                   : "border border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-200"
               }`}
             >
-              Formato enriquecido
+              {t("richEditor.richText")}
             </button>
           </div>
 
@@ -293,7 +293,7 @@ function TemplateEditorContent({
                 event.currentTarget.value = "";
               }}
             />
-            {importingDocx ? "Importando DOCX..." : "Cargar DOCX"}
+            {importingDocx ? t("richEditor.importing") : t("richEditor.import")}
           </label>
         </div>
       ) : null}
@@ -306,33 +306,35 @@ function TemplateEditorContent({
               onClick={() => onRichCommand("bold")}
               className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
             >
-              Negrita
+              {t("richEditor.bold")}
             </button>
             <button
               type="button"
               onClick={() => onRichCommand("italic")}
               className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
             >
-              Cursiva
+              {t("richEditor.italic")}
             </button>
             <button
               type="button"
               onClick={() => onRichCommand("insertUnorderedList")}
               className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
             >
-              Lista
+              {t("richEditor.list")}
             </button>
             <button
               type="button"
               onClick={() => onRichCommand("formatBlock:p")}
               className="rounded border border-slate-300 px-2 py-1 text-sm dark:border-slate-700"
             >
-              Parrafo
+              {t("richEditor.paragraph")}
             </button>
           </div>
 
           <div
             aria-label={t("bodyPlaceholder")}
+            role="textbox"
+            aria-multiline="true"
             tabIndex={0}
             ref={editorRef}
             contentEditable
@@ -348,7 +350,7 @@ function TemplateEditorContent({
 
           <div className="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-              Vista previa HTML
+              {t("richEditor.preview")}
             </p>
             <div
               className="prose prose-sm max-w-none dark:prose-invert"
@@ -456,6 +458,7 @@ function TemplateEditorContent({
         <button
           type="button"
           className="btn btn-primary"
+          data-guide="template-save"
           onClick={onSave}
           disabled={saving}
         >
@@ -569,8 +572,9 @@ export default function TemplateEditorPage() {
       return;
     }
 
-    if (editorRef.current.innerHTML !== form.templateBody) {
-      editorRef.current.innerHTML = form.templateBody || "<p></p>";
+    const safeHtml = DOMPurify.sanitize(form.templateBody || "<p></p>");
+    if (editorRef.current.innerHTML !== safeHtml) {
+      editorRef.current.innerHTML = safeHtml;
     }
   }, [form.templateBody, form.templateFormat]);
 

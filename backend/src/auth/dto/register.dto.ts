@@ -15,7 +15,7 @@ import { z } from 'zod';
 
 const registerZodSchema = z
   .object({
-    email: z.string().email().max(USER_EMAIL_MAX_LENGTH),
+    email: z.email().max(USER_EMAIL_MAX_LENGTH),
     password: z.string().min(8),
     firstName: z.string().min(1),
     lastName: z.string().min(1),

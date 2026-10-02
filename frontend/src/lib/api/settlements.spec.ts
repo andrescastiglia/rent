@@ -1,5 +1,5 @@
 export {};
-async function loadApi(mockMode = false) {
+async function loadApi(mockMode = false, token: string | null = "test-token") {
   jest.resetModules();
   const before = {
     NODE_ENV: process.env.NODE_ENV,
@@ -13,7 +13,7 @@ async function loadApi(mockMode = false) {
   });
   const apiClient = { get: jest.fn() };
   jest.doMock("../api", () => ({ apiClient }));
-  jest.doMock("../auth", () => ({ getToken: () => "test-token" }));
+  jest.doMock("../auth", () => ({ getToken: () => token }));
   try {
     const { settlementsApi } = await import("./settlements");
     return { settlementsApi, apiClient };
@@ -26,6 +26,172 @@ async function loadApi(mockMode = false) {
 }
 
 describe("Settlement API contract", () => {
+  afterEach(() => jest.restoreAllMocks());
+  it("preserves historical decimal values and distinguishes missing metadata from zero amounts", async () => {
+    const { settlementsApi, apiClient } = await loadApi();
+    const historical = {
+      id: "historical",
+      ownerId: "owner",
+      period: "2026-09",
+      grossAmount: "1250.75",
+      commissionAmount: "87.55",
+      netAmount: "1163.20",
+      status: "completed",
+    };
+    const current = {
+      ...historical,
+      id: "current",
+      ownerName: "Ana",
+      totalIncome: "0.00",
+      currencyCode: "USD",
+      scheduledDate: "2026-10-05",
+      processedAt: "2026-10-02T15:00:00Z",
+      transferReference: "BANK-1",
+      notes: "Transferido",
+      receiptPdfUrl: "db://receipt",
+      receiptName: "receipt.pdf",
+      createdAt: "2026-10-01",
+      updatedAt: "2026-10-02",
+    };
+    apiClient.get
+      .mockResolvedValueOnce([
+        historical,
+        current,
+        {
+          id: "pending",
+          ownerId: "owner",
+          period: "2026-10",
+          status: "pending",
+        },
+      ])
+      .mockResolvedValueOnce(current);
+    const rows = await settlementsApi.getAll();
+    expect(rows[0]).toMatchObject({
+      totalIncome: 1250.75,
+      commissionAmount: 87.55,
+      netAmount: 1163.2,
+      currencyCode: "ARS",
+      ownerName: "",
+      receiptPdfUrl: null,
+    });
+    expect(rows[1]).toMatchObject({
+      totalIncome: 0,
+      currencyCode: "USD",
+      transferReference: "BANK-1",
+      receiptName: "receipt.pdf",
+      processedAt: current.processedAt,
+      createdAt: current.createdAt,
+    });
+    expect(rows[2]).toMatchObject({
+      totalIncome: 0,
+      commissionAmount: 0,
+      netAmount: 0,
+    });
+    expect(await settlementsApi.getOne("current")).toEqual(rows[1]);
+  });
+
+  it("allows a period range without restricting the list to a default month or status", async () => {
+    const { settlementsApi, apiClient } = await loadApi(false, null);
+    apiClient.get
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce({ totals: [] });
+    await settlementsApi.getAll({
+      periodStart: "2026-01",
+      periodEnd: "2026-10",
+      status: "all",
+    });
+    await settlementsApi.getSummary();
+    expect(apiClient.get.mock.calls).toEqual([
+      ["/settlements?periodStart=2026-01&periodEnd=2026-10", undefined],
+      ["/settlements/summary", undefined],
+    ]);
+  });
+
+  it("keeps default mock summaries and status/owner/currency/date filters consistent", async () => {
+    jest.useFakeTimers();
+    try {
+      const { settlementsApi } = await loadApi(true);
+      const finish = async <T>(request: Promise<T>) => {
+        await jest.runAllTimersAsync();
+        return request;
+      };
+      expect(await finish(settlementsApi.getSummary())).toMatchObject({
+        totals: [
+          { status: "completed", netAmount: "162000.00" },
+          { status: "pending", netAmount: "162000.00" },
+        ],
+      });
+      expect(
+        await finish(settlementsApi.getAll({ ownerId: "foreign" })),
+      ).toEqual([]);
+      expect(await finish(settlementsApi.getAll({ currency: "USD" }))).toEqual(
+        [],
+      );
+      expect(
+        await finish(
+          settlementsApi.getAll({
+            status: "completed",
+            periodStart: "2025-05",
+            periodEnd: "2025-05",
+          }),
+        ),
+      ).toHaveLength(1);
+      expect(
+        await finish(
+          settlementsApi.getAll({ status: "all", periodStart: "2025-07" }),
+        ),
+      ).toEqual([]);
+      expect(
+        await finish(settlementsApi.getAll({ periodEnd: "2025-04" })),
+      ).toEqual([]);
+      expect((await finish(settlementsApi.getOne("settlement-1"))).id).toBe(
+        "settlement-1",
+      );
+      const rejected = expect(settlementsApi.getOne("foreign")).rejects.toThrow(
+        "Settlement not found",
+      );
+      await jest.runAllTimersAsync();
+      await rejected;
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("downloads the original PDF with safe temporary-resource cleanup even if browser delivery fails", async () => {
+    const originalFetch = global.fetch;
+    const { settlementsApi } = await loadApi();
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue({ ok: true, blob: async () => new Blob(["pdf"]) });
+    URL.createObjectURL = jest.fn(() => "blob:settlement");
+    URL.revokeObjectURL = jest.fn();
+    const click = jest
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => undefined);
+    try {
+      await settlementsApi.downloadReceipt("settlement", "original.pdf");
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/owners/settlements/settlement/receipt"),
+        { method: "GET", headers: { Authorization: "Bearer test-token" } },
+      );
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:settlement");
+      expect(document.querySelector("a[download]")).toBeNull();
+      click.mockImplementationOnce(() => {
+        throw new Error("browser blocked");
+      });
+      await expect(
+        settlementsApi.downloadReceipt("settlement"),
+      ).rejects.toThrow("browser blocked");
+      expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2);
+      expect(document.querySelector("a[download]")).toBeNull();
+      jest.mocked(global.fetch).mockResolvedValueOnce({ ok: false } as never);
+      await expect(
+        settlementsApi.downloadReceipt("settlement"),
+      ).rejects.toThrow("download");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
   it("uses the same supported month/currency filters for list and summary", async () => {
     const { settlementsApi, apiClient } = await loadApi();
     apiClient.get

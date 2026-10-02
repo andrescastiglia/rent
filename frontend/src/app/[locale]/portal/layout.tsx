@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
 import { Loader2 } from "lucide-react";
+import ContextualGuidance from "@/components/common/ContextualGuidance";
 
 export default function PortalLayout({
   children,
@@ -31,5 +32,12 @@ export default function PortalLayout({
     return null;
   }
 
-  return <>{children}</>;
+  return (
+    <React.Fragment key={`${user.companyId ?? ""}:${user.id}`}>
+      <div id="portal-content" className="min-w-0">
+        {children}
+      </div>
+      <ContextualGuidance rootId="portal-content" />
+    </React.Fragment>
+  );
 }

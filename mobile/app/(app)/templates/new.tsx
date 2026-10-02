@@ -28,7 +28,10 @@ export default function NewTemplateScreen() {
   });
 
   return (
-    <Screen scrollViewTestID="templateCreate.scroll">
+    <Screen
+      scrollViewTestID="templateCreate.scroll"
+      guidanceBlocked={mutation.isPending || mutation.isError}
+    >
       <H1>{t('templatesHub.newTemplate')}</H1>
       <TemplateForm
         mode="create"

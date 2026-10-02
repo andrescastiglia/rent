@@ -22,7 +22,10 @@ import { AppModule } from './app.module';
 import { ZodValidationPipe } from './common/pipes/zod-validation.pipe';
 import { startProfiling, stopProfiling } from './profiling';
 import { startTracing, shutdownTracing } from './tracing';
-import { getRuntimeHttpSecurityConfig } from './config/runtime-security.config';
+import {
+  getRuntimeCorsOptions,
+  getRuntimeHttpSecurityConfig,
+} from './config/runtime-security.config';
 
 async function bootstrap() {
   startProfiling();
@@ -35,33 +38,7 @@ async function bootstrap() {
   const httpSecurity = getRuntimeHttpSecurityConfig(process.env);
   app.set('trust proxy', httpSecurity.trustProxyHops);
 
-  const localDevOriginPattern =
-    /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/;
-
-  const isAllowedOrigin = (origin?: string) =>
-    !origin ||
-    httpSecurity.allowedOrigins.includes(origin) ||
-    (httpSecurity.allowLocalDevelopmentOrigins &&
-      localDevOriginPattern.test(origin));
-
-  app.enableCors({
-    origin: (origin, callback) => {
-      if (isAllowedOrigin(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error(`CORS origin denied: ${origin}`));
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'traceparent',
-      'tracestate',
-      'baggage',
-    ],
-  });
+  app.enableCors(getRuntimeCorsOptions(httpSecurity));
 
   // Enable global validation pipe
   app.useGlobalPipes(

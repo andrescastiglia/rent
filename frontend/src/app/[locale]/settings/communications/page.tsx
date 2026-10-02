@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, RefreshCw, Send, Save } from "lucide-react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   CommunicationDelivery,
   CommunicationEvent,
@@ -57,15 +57,26 @@ const SAMPLE_VARIABLES = {
 
 export default function CommunicationsSettingsPage() {
   const locale = useLocale();
+  const t = useTranslations("communicationsSettings");
   const [templates, setTemplates] = useState<CommunicationTemplate[]>([]);
   const [deliveries, setDeliveries] = useState<CommunicationDelivery[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [form, setForm] = useState<CommunicationTemplateInput>(EMPTY_TEMPLATE);
+  const [form, setForm] = useState<CommunicationTemplateInput>({
+    ...EMPTY_TEMPLATE,
+    locale,
+    body: t("defaultBody", { name: "{{nombre}}", event: "{{evento}}" }),
+  });
   const [preview, setPreview] = useState<string>("");
   const [testRecipient, setTestRecipient] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [messageError, setMessageError] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const notice = (text: string, error = false) => {
+    setMessage(text);
+    setMessageError(error);
+  };
 
   const load = useCallback(async () => {
     const [templateData, deliveryData] = await Promise.all([
@@ -80,10 +91,11 @@ export default function CommunicationsSettingsPage() {
     load()
       .catch((error) => {
         console.error("Failed to load communication settings", error);
-        setMessage("No se pudo cargar la configuración.");
+        setMessage(t("loadError"));
+        setMessageError(true);
       })
       .finally(() => setLoading(false));
-  }, [load]);
+  }, [load, t]);
 
   const selected = useMemo(
     () => templates.find((item) => item.id === selectedId),
@@ -92,7 +104,15 @@ export default function CommunicationsSettingsPage() {
 
   const selectTemplate = (template: CommunicationTemplate | null) => {
     setSelectedId(template?.id ?? null);
-    setForm(template ? { ...template } : EMPTY_TEMPLATE);
+    setForm(
+      template
+        ? { ...template }
+        : {
+            ...EMPTY_TEMPLATE,
+            locale,
+            body: t("defaultBody", { name: "{{nombre}}", event: "{{evento}}" }),
+          },
+    );
     setPreview("");
     setMessage(null);
   };
@@ -111,57 +131,92 @@ export default function CommunicationsSettingsPage() {
         : await communicationsApi.createTemplate(payload);
       await load();
       selectTemplate(saved);
-      setMessage("Plantilla guardada.");
+      notice(t("saved"));
     } catch (error) {
       console.error("Failed to save communication template", error);
-      setMessage("No se pudo guardar la plantilla.");
+      notice(t("saveError"), true);
     } finally {
       setSaving(false);
     }
   };
 
   const showPreview = async () => {
-    const result = await communicationsApi.preview({
-      subject: form.subject ?? undefined,
-      body: form.body,
-      variables: SAMPLE_VARIABLES,
-    });
-    setPreview(
-      [
-        result.subject,
-        result.body,
-        result.missingVariables.length
-          ? `Faltan: ${result.missingVariables.join(", ")}`
-          : null,
-      ]
-        .filter(Boolean)
-        .join("\n\n"),
-    );
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await communicationsApi.preview({
+        subject: form.subject ?? undefined,
+        body: form.body,
+        variables: SAMPLE_VARIABLES,
+      });
+      setPreview(
+        [
+          result.subject,
+          result.body,
+          result.missingVariables.length
+            ? t("missingVariables", {
+                variables: result.missingVariables.join(", "),
+              })
+            : null,
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
+      );
+    } catch {
+      notice(t("previewError"), true);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const sendTest = async () => {
     if (!testRecipient.trim()) {
-      setMessage("Ingresá un destinatario para la prueba.");
+      notice(t("recipientRequired"), true);
       return;
     }
-    const delivery = await communicationsApi.sendTest({
-      subject: form.subject ?? undefined,
-      body: form.body,
-      variables: SAMPLE_VARIABLES,
-      channel: form.channel,
-      recipient: testRecipient.trim(),
-    });
-    setMessage(`Prueba registrada con estado: ${delivery.status}.`);
-    await load();
+    if (busy) return;
+    setBusy(true);
+    try {
+      const delivery = await communicationsApi.sendTest({
+        subject: form.subject ?? undefined,
+        body: form.body,
+        variables: SAMPLE_VARIABLES,
+        channel: form.channel,
+        recipient: testRecipient.trim(),
+      });
+      notice(t("testRegistered", { status: t(`statuses.${delivery.status}`) }));
+      await load();
+    } catch {
+      notice(t("sendError"), true);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const deliveryAction = async (delivery: CommunicationDelivery) => {
-    if (delivery.status === "failed")
-      await communicationsApi.retry(delivery.id);
-    if (delivery.status === "pending_approval") {
-      await communicationsApi.approve(delivery.id);
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (delivery.status === "failed")
+        await communicationsApi.retry(delivery.id);
+      if (delivery.status === "pending_approval") {
+        await communicationsApi.approve(delivery.id);
+      }
+      await load();
+    } catch {
+      notice(t("actionError"), true);
+    } finally {
+      setBusy(false);
     }
-    await load();
+  };
+
+  const reload = async () => {
+    try {
+      await load();
+      setMessage(null);
+    } catch {
+      notice(t("loadError"), true);
+    }
   };
 
   if (loading) {
@@ -176,23 +231,33 @@ export default function CommunicationsSettingsPage() {
     <div className="container mx-auto space-y-6 px-4 py-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Plantillas y comunicaciones</h1>
-          <p className="text-sm text-gray-500">
-            Automatización, consentimiento e historial por canal.
-          </p>
+          <h1 className="text-3xl font-bold">{t("title")}</h1>
+          <p className="text-sm text-gray-500">{t("subtitle")}</p>
         </div>
         <Link
           href={`/${locale}/settings`}
           className="inline-flex items-center gap-1 text-gray-500"
         >
-          <ArrowLeft size={16} /> Volver
+          <ArrowLeft size={16} /> {t("back")}
         </Link>
       </div>
 
       {message ? (
-        <p className="rounded-md bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-950/30 dark:text-blue-200">
+        <output
+          role={messageError ? "alert" : undefined}
+          className="rounded-md bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-950/30 dark:text-blue-200"
+        >
           {message}
-        </p>
+          {messageError && (
+            <button
+              type="button"
+              className="ml-3 underline"
+              onClick={() => void reload()}
+            >
+              {t("retry")}
+            </button>
+          )}
+        </output>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
@@ -202,7 +267,7 @@ export default function CommunicationsSettingsPage() {
             onClick={() => selectTemplate(null)}
             className="w-full rounded-md bg-blue-600 px-3 py-2 text-white"
           >
-            Nueva plantilla
+            {t("new")}
           </button>
           {templates.map((template) => (
             <button
@@ -213,7 +278,8 @@ export default function CommunicationsSettingsPage() {
             >
               <span className="block font-medium">{template.name}</span>
               <span className="text-xs text-gray-500">
-                {template.event} · {template.recipientRole} · {template.channel}
+                {t(`events.${template.event}`)} ·{" "}
+                {t(`roles.${template.recipientRole}`)} · {template.channel}
               </span>
             </button>
           ))}
@@ -224,18 +290,18 @@ export default function CommunicationsSettingsPage() {
           className="space-y-4 rounded-lg border p-5 dark:border-gray-700"
         >
           <input
-            aria-label="Nombre"
+            aria-label={t("name")}
             required
             value={form.name}
             onChange={(event) =>
               setForm((previous) => ({ ...previous, name: event.target.value }))
             }
             className="w-full rounded-md border p-2 dark:bg-gray-800"
-            placeholder="Nombre de la plantilla"
+            placeholder={t("namePlaceholder")}
           />
           <div className="grid gap-3 md:grid-cols-4">
             <select
-              aria-label="Evento"
+              aria-label={t("event")}
               value={form.event}
               onChange={(event) =>
                 setForm((previous) => ({
@@ -246,11 +312,13 @@ export default function CommunicationsSettingsPage() {
               className="rounded-md border p-2 dark:bg-gray-800"
             >
               {EVENTS.map((event) => (
-                <option key={event}>{event}</option>
+                <option key={event} value={event}>
+                  {t(`events.${event}`)}
+                </option>
               ))}
             </select>
             <select
-              aria-label="Rol"
+              aria-label={t("role")}
               value={form.recipientRole}
               onChange={(event) =>
                 setForm((previous) => ({
@@ -261,15 +329,15 @@ export default function CommunicationsSettingsPage() {
               }
               className="rounded-md border p-2 dark:bg-gray-800"
             >
-              <option value="tenant">Inquilino</option>
-              <option value="owner">Propietario</option>
-              <option value="interested">Interesado</option>
+              <option value="tenant">{t("roles.tenant")}</option>
+              <option value="owner">{t("roles.owner")}</option>
+              <option value="interested">{t("roles.interested")}</option>
             </select>
             <div className="rounded-md border p-2 dark:bg-gray-800">
-              WhatsApp (único canal habilitado)
+              {t("channelHelp")}
             </div>
             <input
-              aria-label="Idioma"
+              aria-label={t("language")}
               value={form.locale}
               onChange={(event) =>
                 setForm((previous) => ({
@@ -281,7 +349,7 @@ export default function CommunicationsSettingsPage() {
             />
           </div>
           <input
-            aria-label="Asunto"
+            aria-label={t("subject")}
             value={form.subject ?? ""}
             onChange={(event) =>
               setForm((previous) => ({
@@ -290,10 +358,10 @@ export default function CommunicationsSettingsPage() {
               }))
             }
             className="w-full rounded-md border p-2 dark:bg-gray-800"
-            placeholder="Etiqueta interna opcional"
+            placeholder={t("subjectPlaceholder")}
           />
           <textarea
-            aria-label="Mensaje"
+            aria-label={t("body")}
             required
             rows={7}
             value={form.body}
@@ -314,7 +382,7 @@ export default function CommunicationsSettingsPage() {
                   }))
                 }
               />{" "}
-              Activa
+              {t("active")}
             </label>
             <label>
               <input
@@ -327,7 +395,7 @@ export default function CommunicationsSettingsPage() {
                   }))
                 }
               />{" "}
-              Envío automático
+              {t("autoSend")}
             </label>
             <label>
               <input
@@ -340,37 +408,39 @@ export default function CommunicationsSettingsPage() {
                   }))
                 }
               />{" "}
-              Requiere aprobación
+              {t("requiresApproval")}
             </label>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || busy}
               className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-white"
             >
-              <Save size={16} /> {saving ? "Guardando…" : "Guardar"}
+              <Save size={16} /> {saving ? t("saving") : t("save")}
             </button>
             <button
               type="button"
+              disabled={busy || saving}
               onClick={() => void showPreview()}
               className="rounded-md border px-4 py-2"
             >
-              Vista previa
+              {t("preview")}
             </button>
             <input
-              aria-label="Destinatario de prueba"
+              aria-label={t("testRecipient")}
               value={testRecipient}
               onChange={(event) => setTestRecipient(event.target.value)}
               className="min-w-60 rounded-md border p-2 dark:bg-gray-800"
-              placeholder="Teléfono de WhatsApp de prueba"
+              placeholder={t("testPhone")}
             />
             <button
               type="button"
+              disabled={busy || saving}
               onClick={() => void sendTest()}
               className="inline-flex items-center gap-2 rounded-md border px-4 py-2"
             >
-              <Send size={16} /> Enviar prueba
+              <Send size={16} /> {t("sendTest")}
             </button>
           </div>
           {preview ? (
@@ -383,30 +453,38 @@ export default function CommunicationsSettingsPage() {
 
       <section className="rounded-lg border p-5 dark:border-gray-700">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Historial de envíos</h2>
-          <button type="button" onClick={() => void load()}>
+          <h2 className="text-xl font-semibold">{t("history")}</h2>
+          <button
+            type="button"
+            aria-label={t("refresh")}
+            onClick={() => void reload()}
+          >
             <RefreshCw size={18} />
           </button>
         </div>
-        <div className="overflow-x-auto">
+        <section
+          className="overflow-x-auto"
+          aria-label={t("history")}
+          tabIndex={0}
+        >
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b">
-                <th className="p-2">Evento</th>
-                <th className="p-2">Destinatario</th>
-                <th className="p-2">Canal</th>
-                <th className="p-2">Estado</th>
-                <th className="p-2">Intentos</th>
-                <th className="p-2">Acción</th>
+                <th className="p-2">{t("event")}</th>
+                <th className="p-2">{t("recipient")}</th>
+                <th className="p-2">{t("channel")}</th>
+                <th className="p-2">{t("status")}</th>
+                <th className="p-2">{t("attempts")}</th>
+                <th className="p-2">{t("action")}</th>
               </tr>
             </thead>
             <tbody>
               {deliveries.map((delivery) => (
                 <tr key={delivery.id} className="border-b dark:border-gray-700">
-                  <td className="p-2">{delivery.event}</td>
+                  <td className="p-2">{t(`events.${delivery.event}`)}</td>
                   <td className="p-2">{delivery.recipient}</td>
                   <td className="p-2">{delivery.channel}</td>
-                  <td className="p-2">{delivery.status}</td>
+                  <td className="p-2">{t(`statuses.${delivery.status}`)}</td>
                   <td className="p-2">
                     {delivery.attempts}/{delivery.maxAttempts}
                   </td>
@@ -415,12 +493,13 @@ export default function CommunicationsSettingsPage() {
                     delivery.status === "pending_approval" ? (
                       <button
                         type="button"
+                        disabled={busy || saving}
                         onClick={() => void deliveryAction(delivery)}
                         className="text-blue-600 hover:underline"
                       >
                         {delivery.status === "failed"
-                          ? "Reintentar"
-                          : "Aprobar"}
+                          ? t("retry")
+                          : t("approve")}
                       </button>
                     ) : (
                       "—"
@@ -430,7 +509,7 @@ export default function CommunicationsSettingsPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </section>
       </section>
     </div>
   );

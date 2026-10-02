@@ -44,6 +44,7 @@ describe('AiAnswerGeneratorService', () => {
     delete process.env.OPENAI_MODEL;
     delete process.env.AI_RAG_MODEL;
     delete process.env.OPENAI_BASE_URL;
+    delete process.env.AI_RAG_REASONING_EFFORT;
   });
 
   afterAll(() => {
@@ -143,6 +144,33 @@ describe('AiAnswerGeneratorService', () => {
       model: 'fallback-model',
       usage: undefined,
     });
+  });
+
+  it.each([undefined, 'none', 'low'])(
+    'preserves provider compatibility and explicitly controls reasoning when configured: %s',
+    async (effort) => {
+      process.env.OPENAI_API_KEY = 'test-key';
+      process.env.AI_RAG_MODEL = 'configured-model';
+      if (effort) process.env.AI_RAG_REASONING_EFFORT = effort;
+      parseMock.mockResolvedValue({
+        output_parsed: abstention,
+        model: 'configured-model',
+      });
+      await service.generate({ prompt: 'consulta', sources: [evidence] });
+      const request = parseMock.mock.calls[0][0];
+      if (effort) expect(request.reasoning).toEqual({ effort });
+      else expect(request).not.toHaveProperty('reasoning');
+    },
+  );
+
+  it('rejects invalid reasoning configuration before making a provider request', async () => {
+    process.env.OPENAI_API_KEY = 'test-key';
+    process.env.AI_RAG_MODEL = 'configured-model';
+    process.env.AI_RAG_REASONING_EFFORT = 'unsupported';
+    await expect(
+      service.generate({ prompt: 'consulta', sources: [evidence] }),
+    ).rejects.toThrow();
+    expect(parseMock).not.toHaveBeenCalled();
   });
 
   it('keeps stored prompt injection inside the untrusted evidence envelope', async () => {

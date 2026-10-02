@@ -1,3 +1,8 @@
+import { paymentCents, paymentNumber } from './payment-amount';
+import {
+  assertNoUncertainSettlementPayout,
+  compensateTransferredAllocation,
+} from './settlement-compensation';
 import { assertNoPendingBillingAmendment } from '../leases/amendment-application';
 import { withDomainOperationReceipt } from '../common/helpers/domain-operation-receipt';
 import { calculateRentAdjustment } from './rent-adjustment';
@@ -112,10 +117,14 @@ export class InvoicesService {
           }
 
           // Calcular total
-          const total =
-            Number(dto.subtotal) +
-            Number(dto.lateFee || 0) +
-            Number(dto.adjustments || 0);
+          const totalCents =
+            paymentCents(dto.subtotal) +
+            paymentCents(dto.lateFee || 0) +
+            paymentCents(Math.abs(dto.adjustments || 0)) *
+              ((dto.adjustments || 0) < 0 ? -1n : 1n);
+          if (totalCents < 0n)
+            throw new BadRequestException('Invoice total cannot be negative');
+          const total = paymentNumber(totalCents);
 
           // Generar número de factura si no se proporciona
           const invoiceNumber =
@@ -179,93 +188,34 @@ export class InvoicesService {
           [`invoice-generation:${companyId}:${key}`],
         );
       if (key && recoverOriginalResult) {
-        const [receipt] = await manager.query(
-          `SELECT result_snapshot, request=$3::jsonb AS matches FROM invoice_generations WHERE company_id=$1 AND idempotency_key=$2`,
-          [companyId, key, generationRequest],
+        const original = await this.recoverGeneratedInvoice(
+          manager,
+          { companyId, key, generationRequest, leaseId },
+          true,
         );
-        if (receipt) {
-          if (!receipt.matches)
-            throw new ConflictException(
-              'Generation key was already used with a different request',
-            );
-          if (!receipt.result_snapshot)
-            throw new ConflictException(
-              'Original execution result unavailable; manual review is required',
-            );
-          return receipt.result_snapshot as Invoice;
-        }
+        if (original) return original;
       }
       const lease = await this.lockBillingLease(manager, leaseId, companyId);
 
       if (key) {
-        const [previous] = await manager.query(
-          `SELECT invoice_id, result_snapshot, request=$3::jsonb AS matches FROM invoice_generations
-           WHERE company_id=$1 AND idempotency_key=$2`,
-          [companyId, key, generationRequest],
+        const existing = await this.recoverGeneratedInvoice(
+          manager,
+          { companyId, key, generationRequest, leaseId },
+          recoverOriginalResult,
         );
-        if (previous) {
-          if (!previous.matches)
-            throw new ConflictException(
-              'Generation key was already used with a different request',
-            );
-          if (recoverOriginalResult) {
-            if (!previous.result_snapshot)
-              throw new ConflictException(
-                'Original execution result unavailable; manual review is required',
-              );
-            return previous.result_snapshot as Invoice;
-          }
-          const recovered = await invoicesRepository.findOne({
-            where: { id: previous.invoice_id, companyId, leaseId },
-            lock: { mode: 'pessimistic_write' },
-          });
-          if (
-            !recovered ||
-            [InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED].includes(
-              recovered.status,
-            )
-          )
-            throw new ConflictException(
-              'Original invoice is no longer available; generation key cannot be reused',
-            );
-          return recovered;
-        }
+        if (existing) return existing;
       }
 
-      if (scheduled) {
-        if (lease.billingFrequency === 'custom' && !lease.billingDay)
-          throw new BadRequestException(
-            'Custom billing requires a billing day',
-          );
-        const [eligible] = await manager.query(
-          `SELECT l.id FROM leases l WHERE ${SCHEDULED_BILLING_ELIGIBILITY} AND l.id=$2 AND l.company_id=$3`,
-          [scheduled.billingDate, leaseId, companyId],
+      if (scheduled)
+        await this.assertScheduledBilling(
+          manager,
+          lease,
+          dto,
+          scheduled.billingDate,
+          companyId,
         );
-        const expected = computeBillingPeriod(lease, {}, scheduled.billingDate);
-        if (
-          !eligible ||
-          dto.periodStart !== expected.periodStart.toISOString().slice(0, 10) ||
-          dto.periodEnd !== expected.periodEnd.toISOString().slice(0, 10) ||
-          dto.dueDate !== expected.dueDate.toISOString().slice(0, 10)
-        )
-          throw new ConflictException(
-            'Scheduled billing source changed; retry selection',
-          );
-      }
 
-      const account = await this.tenantAccountsService.findByLease(
-        leaseId,
-        lease.companyId,
-        manager,
-      );
-      if (account.currencyCode !== lease.currency)
-        throw new BadRequestException(
-          'Tenant account and lease currencies must match',
-        );
-      if (scheduled && !account.isActive)
-        throw new BadRequestException(
-          'Scheduled billing requires an active tenant account',
-        );
+      const account = await this.billingAccount(manager, lease, !!scheduled);
 
       const { periodStart, periodEnd, dueDate } = computeBillingPeriod(
         lease,
@@ -296,17 +246,23 @@ export class InvoicesService {
         manager,
       );
 
-      const subtotal = calculation.rent + Number(lease.additionalExpenses || 0);
-      const lateFee =
+      const subtotal = paymentNumber(
+        paymentCents(calculation.rent) +
+          paymentCents(lease.additionalExpenses || 0),
+      );
+      const lateFeeCalculation =
         dto.applyLateFee === true
-          ? await this.tenantAccountsService.calculateLateFee(
+          ? await this.tenantAccountsService.calculateLateFeeWithEvidence(
               account.id,
               lease.companyId,
               manager,
             )
-          : 0;
+          : null;
+      const lateFee = lateFeeCalculation?.amount ?? 0;
 
-      const total = subtotal + Number(lateFee || 0);
+      const total = paymentNumber(
+        paymentCents(subtotal) + paymentCents(lateFee || 0),
+      );
       if (!Number.isFinite(total) || total < 0)
         throw new BadRequestException(
           'Generated invoice total must be finite and nonnegative',
@@ -334,6 +290,7 @@ export class InvoicesService {
         status: InvoiceStatus.DRAFT,
         notes: '',
         rentCalculation: calculation.snapshot,
+        lateFeeCalculation,
       });
 
       const saved = await invoicesRepository.save(invoice);
@@ -359,6 +316,98 @@ export class InvoicesService {
         );
       return result;
     });
+  }
+
+  private async assertScheduledBilling(
+    manager: EntityManager,
+    lease: Lease,
+    dto: GenerateInvoiceDto,
+    billingDate: string,
+    companyId: string,
+  ) {
+    const leaseId = lease.id;
+
+    if (lease.billingFrequency === 'custom' && !lease.billingDay)
+      throw new BadRequestException('Custom billing requires a billing day');
+    const [eligible] = await manager.query(
+      `SELECT l.id FROM leases l WHERE ${SCHEDULED_BILLING_ELIGIBILITY} AND l.id=$2 AND l.company_id=$3`,
+      [billingDate, leaseId, companyId],
+    );
+    const expected = computeBillingPeriod(lease, {}, billingDate);
+    if (
+      !eligible ||
+      dto.periodStart !== expected.periodStart.toISOString().slice(0, 10) ||
+      dto.periodEnd !== expected.periodEnd.toISOString().slice(0, 10) ||
+      dto.dueDate !== expected.dueDate.toISOString().slice(0, 10)
+    )
+      throw new ConflictException(
+        'Scheduled billing source changed; retry selection',
+      );
+  }
+
+  private async billingAccount(
+    manager: EntityManager,
+    lease: Lease,
+    scheduled: boolean,
+  ) {
+    const account = await this.tenantAccountsService.findByLease(
+      lease.id,
+      lease.companyId,
+      manager,
+    );
+    if (account.currencyCode !== lease.currency)
+      throw new BadRequestException(
+        'Tenant account and lease currencies must match',
+      );
+    if (scheduled && !account.isActive)
+      throw new BadRequestException(
+        'Scheduled billing requires an active tenant account',
+      );
+    return account;
+  }
+
+  private async recoverGeneratedInvoice(
+    manager: EntityManager,
+    input: {
+      companyId: string;
+      key: string;
+      generationRequest: string;
+      leaseId: string;
+    },
+    snapshotOnly: boolean,
+  ): Promise<Invoice | null> {
+    const { companyId, key, generationRequest, leaseId } = input;
+    const [previous] = await manager.query(
+      `SELECT invoice_id,result_snapshot,request=$3::jsonb AS matches
+      FROM invoice_generations WHERE company_id=$1 AND idempotency_key=$2`,
+      [companyId, key, generationRequest],
+    );
+    if (!previous) return null;
+    if (!previous.matches)
+      throw new ConflictException(
+        'Generation key was already used with a different request',
+      );
+    if (snapshotOnly) {
+      if (!previous.result_snapshot)
+        throw new ConflictException(
+          'Original execution result unavailable; manual review is required',
+        );
+      return previous.result_snapshot as Invoice;
+    }
+    const recovered = await manager.getRepository(Invoice).findOne({
+      where: { id: previous.invoice_id, companyId, leaseId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (
+      !recovered ||
+      [InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED].includes(
+        recovered.status,
+      )
+    )
+      throw new ConflictException(
+        'Original invoice is no longer available; generation key cannot be reused',
+      );
+    return recovered;
   }
 
   /**
@@ -472,13 +521,13 @@ export class InvoicesService {
        WHERE i.id=$1 AND i.company_id=$2 AND i.deleted_at IS NULL`,
       [id, user.companyId],
     );
+    let status = 'unavailable';
+    if (row?.available) status = 'completed';
+    else if (['queued', 'dead_letter'].includes(row?.status))
+      status = row.status;
     return {
       available: Boolean(row?.available),
-      status: row?.available
-        ? 'completed'
-        : ['queued', 'dead_letter'].includes(row?.status)
-          ? row.status
-          : 'unavailable',
+      status: status as InvoiceDocumentStatusDto['status'],
     };
   }
 
@@ -544,11 +593,12 @@ export class InvoicesService {
       status?: InvoiceStatus;
       page?: number;
       limit?: number;
+      search?: string;
     },
     user: RequestUser,
   ): Promise<{ data: Invoice[]; total: number; page: number; limit: number }> {
     this.requireCompanyScope(user);
-    const { leaseId, ownerId, status, page = 1, limit = 10 } = filters;
+    const { leaseId, ownerId, status, search, page = 1, limit = 10 } = filters;
 
     const query = this.invoicesRepository
       .createQueryBuilder('invoice')
@@ -575,6 +625,19 @@ export class InvoicesService {
       query.andWhere('invoice.status = :status', { status });
     }
 
+    if (
+      !Number.isInteger(page) ||
+      page < 1 ||
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 100
+    )
+      throw new BadRequestException('Invalid pagination');
+    if (search?.trim())
+      query.andWhere(
+        "(concat_ws(' ', tenantUser.first_name, tenantUser.last_name) ILIKE :search OR concat_ws(' ', property.name, property.address_street, property.address_city, property.address_state) ILIKE :search OR invoice.invoice_number ILIKE :search)",
+        { search: `%${search.trim()}%` },
+      );
     this.applyVisibilityScope(query, user);
 
     query
@@ -713,10 +776,27 @@ export class InvoicesService {
     const companyId = lease.property.companyId;
     const commissionRate = Number(lease.owner.commissionRate);
     const baseAmount = Number(invoice.subtotal);
-    const commissionAmount = (baseAmount * commissionRate) / 100;
-    const taxRate = 21; // IVA estándar Argentina
-    const taxAmount = (commissionAmount * taxRate) / 100;
-    const totalAmount = commissionAmount + taxAmount;
+    const taxRate =
+      lease.property.company?.settings?.financial?.commissionTaxRate;
+    if (taxRate === undefined)
+      throw new BadRequestException(
+        'Configure the company commission tax rate before issuing commission invoices',
+      );
+    const rateCents = paymentCents(commissionRate),
+      taxRateCents = paymentCents(taxRate);
+    if (rateCents > 10000n || taxRateCents > 10000n)
+      throw new BadRequestException(
+        'Commission and tax rates must be between 0 and 100',
+      );
+    const commissionAmount = paymentNumber(
+      (paymentCents(baseAmount) * rateCents + 5000n) / 10000n,
+    );
+    const taxAmount = paymentNumber(
+      (paymentCents(commissionAmount) * taxRateCents + 5000n) / 10000n,
+    );
+    const totalAmount = paymentNumber(
+      paymentCents(commissionAmount) + paymentCents(taxAmount),
+    );
 
     const invoiceNumber = await this.generateNumber(
       manager,
@@ -739,6 +819,7 @@ export class InvoicesService {
       baseAmount,
       commissionAmount,
       taxAmount,
+      taxRate: Number(taxRate),
       totalAmount,
       currency: invoice.currencyCode || 'ARS',
       status: CommissionInvoiceStatus.DRAFT,
@@ -773,15 +854,27 @@ export class InvoicesService {
         { id },
         async () => {
           const invoicesRepository = manager.getRepository(Invoice);
+          const [account] = await manager.query(
+            'SELECT tenant_account_id FROM invoices WHERE id=$1 AND company_id=$2',
+            [id, companyId],
+          );
+          if (account?.tenant_account_id)
+            await manager.query(
+              'SELECT id FROM tenant_accounts WHERE id=$1 AND company_id=$2 FOR UPDATE',
+              [account.tenant_account_id, companyId],
+            );
           const invoice = await this.findOneForUpdate(
             invoicesRepository,
             id,
             companyId,
           );
 
-          if (invoice.status === InvoiceStatus.PAID) {
-            throw new BadRequestException('Cannot cancel a paid invoice');
-          }
+          if (invoice.status === InvoiceStatus.CANCELLED) return invoice;
+          await assertNoUncertainSettlementPayout(manager, companyId, id);
+          if (invoice.status === InvoiceStatus.REFUNDED)
+            throw new BadRequestException(
+              'Refunded invoice requires accounting review',
+            );
 
           // Si ya estaba emitida, revertir el movimiento en cuenta
           if (
@@ -790,6 +883,7 @@ export class InvoicesService {
               InvoiceStatus.SENT,
               InvoiceStatus.PARTIAL,
               InvoiceStatus.OVERDUE,
+              InvoiceStatus.PAID,
             ].includes(invoice.status)
           ) {
             await this.tenantAccountsService.addMovementWithManager(manager, {
@@ -803,6 +897,87 @@ export class InvoicesService {
             });
           }
 
+          const credits = await manager.query(
+            `SELECT id,amount::text,note_number,tenant_account_id
+            FROM credit_notes WHERE company_id=$1 AND invoice_id=$2 AND status='issued' AND deleted_at IS NULL
+            ORDER BY id FOR UPDATE`,
+            [companyId, id],
+          );
+          for (const note of credits) {
+            if (note.tenant_account_id)
+              await this.tenantAccountsService.addMovementWithManager(manager, {
+                accountId: note.tenant_account_id,
+                companyId,
+                type: MovementType.ADJUSTMENT,
+                amount: paymentNumber(paymentCents(note.amount)),
+                referenceType: 'credit_note_cancellation',
+                referenceId: note.id,
+                description: `Anulación nota de crédito ${note.note_number} por factura anulada`,
+              });
+            await manager.query(
+              "UPDATE credit_notes SET status='cancelled',cancelled_at=now() WHERE id=$1 AND company_id=$2",
+              [note.id, companyId],
+            );
+          }
+          const commissions = await manager.query(
+            `SELECT id,total_amount::text,paid_amount::text,currency,status
+            FROM commission_invoices WHERE company_id=$1 AND related_invoices @> $2::jsonb
+            AND status <> 'cancelled' AND deleted_at IS NULL ORDER BY id FOR UPDATE`,
+            [companyId, JSON.stringify([{ invoiceId: id }])],
+          );
+          for (const commission of commissions) {
+            await manager.query(
+              `INSERT INTO commission_invoice_corrections(company_id,commission_invoice_id,invoice_id,amount,currency,paid_amount)
+              VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(commission_invoice_id,invoice_id) DO NOTHING`,
+              [
+                companyId,
+                commission.id,
+                id,
+                commission.total_amount,
+                commission.currency,
+                commission.paid_amount,
+              ],
+            );
+            await manager.query(
+              "UPDATE commission_invoices SET status='cancelled',updated_at=now() WHERE id=$1 AND company_id=$2",
+              [commission.id, companyId],
+            );
+          }
+          const originalStatus = invoice.status;
+          await manager.query(
+            "UPDATE invoices SET status='cancelled',updated_at=now() WHERE id=$1 AND company_id=$2",
+            [id, companyId],
+          );
+          if (paymentCents(invoice.amountPaid ?? 0) > 0n) {
+            const [original] = await manager.query(
+              `SELECT pa.payment_id FROM payment_allocations pa
+              WHERE pa.company_id=$1 AND pa.invoice_id=$2 AND pa.reversed_at IS NULL ORDER BY pa.id LIMIT 1`,
+              [companyId, id],
+            );
+            if (!original)
+              throw new ConflictException(
+                'Paid invoice without allocation history requires manual cancellation',
+              );
+            await compensateTransferredAllocation(manager, {
+              companyId,
+              invoiceId: id,
+              paymentId: original.payment_id,
+              referenceId: id,
+              amount: paymentCents(invoice.amountPaid),
+            });
+          }
+          await manager.query(
+            `INSERT INTO invoice_cancellations(company_id,invoice_id,original_status,total_amount,paid_amount,currency)
+            VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(invoice_id) DO NOTHING`,
+            [
+              companyId,
+              id,
+              originalStatus,
+              invoice.total,
+              invoice.amountPaid ?? 0,
+              invoice.currencyCode ?? 'ARS',
+            ],
+          );
           invoice.status = InvoiceStatus.CANCELLED;
           return invoicesRepository.save(invoice);
         },

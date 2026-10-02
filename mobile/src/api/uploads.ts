@@ -2,6 +2,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import { API_URL, IS_MOCK_MODE } from '@/api/env';
 import { getToken } from '@/storage/auth-storage';
+import { apiClient } from '@/api/client';
 
 export type UploadedAsset = {
   url: string;
@@ -62,7 +63,7 @@ export async function uploadAsset(
     type: mimeType,
   } as unknown as Blob);
 
-  const response = await fetch(`${API_URL}/uploads`, {
+  const response = await fetch(`${API_URL}/properties/upload`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: formData,
@@ -95,8 +96,18 @@ export async function pickAndUploadImages(): Promise<UploadedAsset[]> {
   }
 
   const uploaded: UploadedAsset[] = [];
-  for (const asset of assets) {
-    uploaded.push(await uploadAsset(asset));
+  try {
+    for (const asset of assets) uploaded.push(await uploadAsset(asset));
+  } catch (error) {
+    await discardUploadedAssets(uploaded.map((asset) => asset.url)).catch(
+      () => undefined,
+    );
+    throw error;
   }
   return uploaded;
+}
+
+export async function discardUploadedAssets(images: string[]): Promise<void> {
+  if (IS_MOCK_MODE || images.length === 0) return;
+  await apiClient.post('/properties/uploads/discard', { images });
 }

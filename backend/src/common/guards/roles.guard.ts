@@ -84,13 +84,14 @@ export class RolesGuard implements CanActivate {
   ): boolean {
     if (!policy || !user) return false;
     const roles = this.getRoles(user);
-    if (
-      policy === 'self-service' ||
-      roles.some((role) => role !== UserRole.STAFF)
-    ) {
+    if (policy === 'self-service' || roles.includes(UserRole.ADMIN))
       return true;
+    // Domain services treat an identity with STAFF as an internal actor. An
+    // additional external role must never bypass that actor's module permissions.
+    if (roles.includes(UserRole.STAFF)) {
+      return this.staffHasAccess(path, user.permissions, policy);
     }
-    return this.staffHasAccess(path, user.permissions, policy);
+    return true;
   }
 
   private getRoles(user: { role: UserRole; roles?: UserRole[] }): UserRole[] {
@@ -150,10 +151,10 @@ export class RolesGuard implements CanActivate {
     }
 
     const userRoles = this.getRoles(user);
-    const hasDirectRole = userRoles.some(
-      (role) => role !== UserRole.STAFF && requiredRoles.includes(role),
-    );
-    if (hasDirectRole) {
+    if (
+      userRoles.includes(UserRole.ADMIN) &&
+      requiredRoles.includes(UserRole.ADMIN)
+    ) {
       return true;
     }
 
@@ -166,7 +167,7 @@ export class RolesGuard implements CanActivate {
       );
     }
 
-    // Check if user has one of the required roles
+    // External multirole identities may use either of their own relationships.
     return userRoles.some((role) => requiredRoles.includes(role));
   }
 }

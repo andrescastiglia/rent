@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import { CheckCircle2, Loader2, Search } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
@@ -14,6 +20,8 @@ import {
   InterestedSummary,
 } from "@/types/interested";
 import { useAuth } from "@/contexts/auth-context";
+import { Button, Pagination, StatePanel } from "@/components/ui";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 const STAGE_OPTIONS: InterestedStatus[] = ["interested", "tenant", "buyer"];
 
@@ -140,6 +148,7 @@ function getProfileOperations(
 }
 
 type ProfileExpandedDetailProps = {
+  error: boolean;
   isLoading: boolean;
   summary: InterestedSummary | null;
   selectedProfile: InterestedProfile | null;
@@ -168,6 +177,7 @@ type ProfileExpandedDetailProps = {
 };
 
 function ProfileExpandedDetail({
+  error,
   isLoading,
   summary,
   selectedProfile,
@@ -182,6 +192,7 @@ function ProfileExpandedDetail({
   onConfirm,
   getConfirmMatchLabel,
 }: Readonly<ProfileExpandedDetailProps>) {
+  if (error) return <StatePanel error title={t("errors.detail")} />;
   if (isLoading) {
     return (
       <div className="flex justify-center py-6">
@@ -263,6 +274,7 @@ function ProfileExpandedDetail({
 }
 
 type ProfilesListProps = {
+  detailError: boolean;
   profiles: InterestedProfile[];
   filteredProfiles: InterestedProfile[];
   selectedProfileId: string | null;
@@ -296,6 +308,7 @@ type ProfilesListProps = {
 };
 
 function ProfilesList({
+  detailError,
   profiles,
   filteredProfiles,
   selectedProfileId,
@@ -342,6 +355,7 @@ function ProfilesList({
           >
             <button
               type="button"
+              data-guide="person-open"
               onClick={() => onSelectProfile(profile)}
               className="w-full text-left"
             >
@@ -394,6 +408,7 @@ function ProfilesList({
 
             {isSelected && (
               <ProfileExpandedDetail
+                error={detailError}
                 isLoading={loadingDetail && !hasLoadedSummary}
                 summary={summary}
                 selectedProfile={selectedProfile}
@@ -430,6 +445,12 @@ export default function InterestedPage() {
 
   const [loading, setLoading] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [detailError, setDetailError] = useState(false);
+  const [readError, setReadError] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const listRequest = useRef(0);
+  const detailRequest = useRef(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [operationFilter, setOperationFilter] = useState<
     "all" | InterestedOperation
@@ -440,6 +461,7 @@ export default function InterestedPage() {
   const [confirmingMatchId, setConfirmingMatchId] = useState<string | null>(
     null,
   );
+  const search = useDebouncedValue(searchTerm);
 
   const statusLabel = useCallback(
     (status?: string) => t(`status.${status ?? "interested"}`),
@@ -508,41 +530,11 @@ export default function InterestedPage() {
   );
 
   const filteredProfiles = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-
-    return [...profiles]
-      .sort(
-        (a, b) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-      )
-      .filter((profile) => {
-        const operations = getProfileOperations(profile);
-
-        if (
-          operationFilter !== "all" &&
-          !operations.includes(operationFilter)
-        ) {
-          return false;
-        }
-
-        if (
-          statusFilter !== "all" &&
-          (profile.status ?? "interested") !== statusFilter
-        ) {
-          return false;
-        }
-
-        if (!term) return true;
-
-        const fullName =
-          `${profile.firstName ?? ""} ${profile.lastName ?? ""}`.toLowerCase();
-        return (
-          fullName.includes(term) ||
-          (profile.phone ?? "").toLowerCase().includes(term) ||
-          (profile.email ?? "").toLowerCase().includes(term)
-        );
-      });
-  }, [profiles, searchTerm, operationFilter, statusFilter]);
+    return [...profiles].sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  }, [profiles]);
 
   const selectedProfile = useMemo(() => {
     if (summary?.profile.id === selectedProfileId) {
@@ -626,8 +618,10 @@ export default function InterestedPage() {
   );
 
   const selectProfile = useCallback(
-    async (profile: InterestedProfile) => {
-      if (selectedProfileId === profile.id) {
+    async (profile: InterestedProfile, refresh = false) => {
+      const request = ++detailRequest.current;
+      setDetailError(false);
+      if (!refresh && selectedProfileId === profile.id) {
         setSelectedProfileId(null);
         setSummary(null);
         return;
@@ -637,6 +631,7 @@ export default function InterestedPage() {
       setLoadingDetail(true);
       try {
         const summaryResult = await interestedApi.getSummary(profile.id);
+        if (request !== detailRequest.current) return;
         setSummary(summaryResult);
         setProfiles((prev) =>
           prev.map((item) =>
@@ -647,25 +642,39 @@ export default function InterestedPage() {
         );
       } catch (error) {
         console.error("Failed to load interested summary", error);
-        setSummary(null);
+        if (request === detailRequest.current) {
+          setSummary(null);
+          setDetailError(true);
+        }
       } finally {
-        setLoadingDetail(false);
+        if (request === detailRequest.current) setLoadingDetail(false);
       }
     },
     [selectedProfileId],
   );
 
   const loadInitial = useCallback(async () => {
+    const request = ++listRequest.current;
     setLoading(true);
+    setReadError(false);
     try {
-      const profilesResult = await interestedApi.getAll({ limit: 100 });
+      const profilesResult = await interestedApi.getAll({
+        page,
+        limit: 20,
+        name: search.trim() || undefined,
+        operation: operationFilter === "all" ? undefined : operationFilter,
+        status: statusFilter === "all" ? undefined : statusFilter,
+      });
+      if (request !== listRequest.current) return;
       setProfiles(profilesResult.data);
+      setTotal(profilesResult.total);
     } catch (error) {
       console.error("Failed to load CRM interested data", error);
+      if (request === listRequest.current) setReadError(true);
     } finally {
-      setLoading(false);
+      if (request === listRequest.current) setLoading(false);
     }
-  }, []);
+  }, [page, search, operationFilter, statusFilter]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -673,6 +682,13 @@ export default function InterestedPage() {
       console.error("Failed to load CRM interested data", error);
     });
   }, [authLoading, loadInitial]);
+  useEffect(
+    () => () => {
+      listRequest.current += 1;
+      detailRequest.current += 1;
+    },
+    [],
+  );
 
   const handleConfirmMatch = useCallback(
     async (match: InterestedMatch) => {
@@ -704,7 +720,7 @@ export default function InterestedPage() {
           );
         }
 
-        await selectProfile(currentProfile);
+        await selectProfile(currentProfile, true);
       } catch (error) {
         console.error("Failed to confirm suggested property", error);
         alert(tc("error"));
@@ -768,6 +784,12 @@ export default function InterestedPage() {
           {t("title")}
         </h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">{t("subtitle")}</p>
+        <Link
+          className="ui-button ui-button-secondary mt-3"
+          href={`/${locale}/interested/workflow`}
+        >
+          {t("workflow")}
+        </Link>
       </div>
 
       <div className="space-y-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
@@ -795,7 +817,10 @@ export default function InterestedPage() {
             type="text"
             placeholder={t("listSearchPlaceholder")}
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
             className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white focus:outline-hidden focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           />
         </div>
@@ -807,9 +832,10 @@ export default function InterestedPage() {
           <select
             id="interested-operation-filter"
             value={operationFilter}
-            onChange={(e) =>
-              setOperationFilter(e.target.value as "all" | InterestedOperation)
-            }
+            onChange={(e) => {
+              setOperationFilter(e.target.value as "all" | InterestedOperation);
+              setPage(1);
+            }}
             className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           >
             <option value="all">{t("filters.allOperations")}</option>
@@ -822,9 +848,10 @@ export default function InterestedPage() {
           <select
             id="interested-status-filter"
             value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as "all" | InterestedStatus)
-            }
+            onChange={(e) => {
+              setStatusFilter(e.target.value as "all" | InterestedStatus);
+              setPage(1);
+            }}
             className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
           >
             <option value="all">{t("filters.allStages")}</option>
@@ -836,30 +863,61 @@ export default function InterestedPage() {
           </select>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-          </div>
+        {readError ? (
+          <StatePanel
+            error
+            title={t("errors.list")}
+            action={
+              <Button variant="secondary" onClick={() => void loadInitial()}>
+                {tc("retry")}
+              </Button>
+            }
+          />
         ) : (
-          <ProfilesList
-            profiles={profiles}
-            filteredProfiles={filteredProfiles}
-            selectedProfileId={selectedProfileId}
-            summary={summary}
-            selectedProfile={selectedProfile}
-            loadingDetail={loadingDetail}
-            confirmingMatchId={confirmingMatchId}
-            sortedActivities={sortedActivities}
-            locale={locale}
-            t={t}
-            statusLabel={statusLabel}
-            formatMatchReason={formatMatchReason}
-            formatActivityText={formatActivityText}
-            resolveMatchConfirmationAction={resolveMatchConfirmationAction}
-            resolveMatchContractLinks={resolveMatchContractLinks}
-            onSelectProfile={handleSelectProfileClick}
-            onConfirm={handleConfirmMatchClick}
-            getConfirmMatchLabel={getConfirmMatchLabel}
+          <>
+            {loading ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+              </div>
+            ) : (
+              <ProfilesList
+                detailError={detailError}
+                profiles={profiles}
+                filteredProfiles={filteredProfiles}
+                selectedProfileId={selectedProfileId}
+                summary={summary}
+                selectedProfile={selectedProfile}
+                loadingDetail={loadingDetail}
+                confirmingMatchId={confirmingMatchId}
+                sortedActivities={sortedActivities}
+                locale={locale}
+                t={t}
+                statusLabel={statusLabel}
+                formatMatchReason={formatMatchReason}
+                formatActivityText={formatActivityText}
+                resolveMatchConfirmationAction={resolveMatchConfirmationAction}
+                resolveMatchContractLinks={resolveMatchContractLinks}
+                onSelectProfile={handleSelectProfileClick}
+                onConfirm={handleConfirmMatchClick}
+                getConfirmMatchLabel={getConfirmMatchLabel}
+              />
+            )}
+          </>
+        )}
+        {detailError && selectedProfile && (
+          <Button
+            variant="secondary"
+            onClick={() => void selectProfile(selectedProfile, true)}
+          >
+            {tc("retry")}
+          </Button>
+        )}
+        {!loading && !readError && (
+          <Pagination
+            page={page}
+            pageSize={20}
+            total={total}
+            onPageChange={setPage}
           />
         )}
       </div>

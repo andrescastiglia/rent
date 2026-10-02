@@ -45,7 +45,7 @@ describe('InvoicesService', () => {
   beforeEach(async () => {
     tenantAccountsService = {
       findByLease: jest.fn(),
-      calculateLateFee: jest.fn(),
+      calculateLateFeeWithEvidence: jest.fn(),
       addMovement: jest.fn(),
       addMovementWithManager: jest.fn(),
     };
@@ -165,9 +165,9 @@ describe('InvoicesService', () => {
       currencyCode: 'ARS',
       id: 'acc-1',
     });
-    (tenantAccountsService.calculateLateFee as jest.Mock).mockResolvedValue(
-      100,
-    );
+    (
+      tenantAccountsService.calculateLateFeeWithEvidence as jest.Mock
+    ).mockResolvedValue({ amount: 100, version: 1, sources: [] });
     invoicesRepository.create!.mockImplementation((data) => data);
     invoicesRepository.save!.mockImplementation(async (data) => ({
       id: 'inv-1',
@@ -181,11 +181,9 @@ describe('InvoicesService', () => {
       'company-1',
     );
 
-    expect(tenantAccountsService.calculateLateFee).toHaveBeenCalledWith(
-      'acc-1',
-      'company-1',
-      manager,
-    );
+    expect(
+      tenantAccountsService.calculateLateFeeWithEvidence,
+    ).toHaveBeenCalledWith('acc-1', 'company-1', manager);
     expect(invoicesRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         lateFee: 100,
@@ -587,7 +585,10 @@ describe('InvoicesService', () => {
     leasesRepository.findOne!.mockResolvedValue({
       id: 'lease-1',
       owner: { commissionRate: 10 },
-      property: { companyId: 'company-1' },
+      property: {
+        companyId: 'company-1',
+        company: { settings: { financial: { commissionTaxRate: 21 } } },
+      },
     } as any);
     _commissionRepository.findOne!.mockResolvedValue({
       invoiceNumber: 'COM-202501-0002',
@@ -622,15 +623,19 @@ describe('InvoicesService', () => {
     );
   });
 
-  it('cancel rejects paid invoices and reverts pending movement', async () => {
+  it('cancel rejects untracked historical paid invoices and reverts pending movement', async () => {
     invoicesRepository.findOne!.mockResolvedValueOnce({
       id: 'inv-paid',
+      companyId: 'company-1',
+      total: 100,
+      amountPaid: 100,
+      tenantAccountId: 'acc-1',
       status: InvoiceStatus.PAID,
     } as any);
 
-    await expect(
-      service.cancel('inv-paid', 'company-1'),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.cancel('inv-paid', 'company-1')).rejects.toThrow(
+      'without allocation history',
+    );
 
     const pending = {
       id: 'inv-1',

@@ -1,4 +1,11 @@
-import { apiClient } from '@/api/client';
+import {
+  fetchAllPages,
+  fetchPage,
+  mockPage,
+  type ListQuery,
+  type Page,
+} from '@/api/pagination';
+import { ApiError, apiClient } from '@/api/client';
 import { IS_MOCK_MODE } from '@/api/env';
 import type {
   CreateTenantInput,
@@ -10,15 +17,22 @@ import type {
   UpdateTenantInput,
 } from '@/types/tenant';
 
-type PaginatedResponse<T> = {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-};
-
-type BackendTenant = {
+type BackendTenant = Partial<
+  Omit<
+    Tenant,
+    | 'id'
+    | 'monthlyIncome'
+    | 'dateOfBirth'
+    | 'creditScoreDate'
+    | 'createdAt'
+    | 'updatedAt'
+  >
+> & {
   id: string;
+  tenantEntityId?: string;
+  monthlyIncome?: number | string | null;
+  dateOfBirth?: string | Date | null;
+  creditScoreDate?: string | Date | null;
   firstName?: string | null;
   lastName?: string | null;
   email?: string | null;
@@ -83,12 +97,30 @@ const statusFromIsActive = (isActive?: boolean | null): TenantStatus =>
 const mapTenant = (raw: BackendTenant): Tenant => {
   const user = raw.user ?? null;
   return {
-    id: raw.id,
+    id: raw.tenantEntityId ?? raw.id,
     firstName: raw.firstName ?? user?.firstName ?? '',
     lastName: raw.lastName ?? user?.lastName ?? '',
     email: raw.email ?? user?.email ?? '',
     phone: raw.phone ?? user?.phone ?? '',
     dni: raw.dni ?? '',
+    cuil: raw.cuil ?? undefined,
+    dateOfBirth: raw.dateOfBirth
+      ? toIso(raw.dateOfBirth).slice(0, 10)
+      : undefined,
+    nationality: raw.nationality ?? undefined,
+    occupation: raw.occupation ?? undefined,
+    employer: raw.employer ?? undefined,
+    monthlyIncome:
+      raw.monthlyIncome == null ? undefined : Number(raw.monthlyIncome),
+    employmentStatus: raw.employmentStatus ?? undefined,
+    emergencyContactName: raw.emergencyContactName ?? undefined,
+    emergencyContactPhone: raw.emergencyContactPhone ?? undefined,
+    emergencyContactRelationship: raw.emergencyContactRelationship ?? undefined,
+    creditScore: raw.creditScore ?? undefined,
+    creditScoreDate: raw.creditScoreDate
+      ? toIso(raw.creditScoreDate).slice(0, 10)
+      : undefined,
+    notes: raw.notes ?? undefined,
     status: statusFromIsActive(raw.isActive ?? user?.isActive),
     createdAt: toIso(raw.createdAt),
     updatedAt: toIso(raw.updatedAt),
@@ -109,7 +141,9 @@ const mapTenantActivity = (raw: BackendTenantActivity): TenantActivity => ({
   updatedAt: toIso(raw.updatedAt),
 });
 
-const toCreatePayload = (value: CreateTenantInput) => ({
+const toCreatePayload = (value: CreateTenantInput | UpdateTenantInput) => ({
+  companyId: value.companyId,
+  password: value.password,
   firstName: value.firstName,
   lastName: value.lastName,
   email: value.email,
@@ -118,8 +152,6 @@ const toCreatePayload = (value: CreateTenantInput) => ({
   cuil: value.cuil,
   dateOfBirth: value.dateOfBirth,
   nationality: value.nationality,
-  status: value.status,
-  address: value.address,
   occupation: value.occupation,
   employer: value.employer,
   monthlyIncome: value.monthlyIncome,
@@ -131,29 +163,10 @@ const toCreatePayload = (value: CreateTenantInput) => ({
   notes: value.notes,
 });
 
-const toUpdatePayload = (value: UpdateTenantInput) => ({
-  ...toCreatePayload({
-    firstName: value.firstName ?? '',
-    lastName: value.lastName ?? '',
-    email: value.email ?? '',
-    phone: value.phone ?? '',
-    dni: value.dni ?? '',
-    status: value.status ?? 'ACTIVE',
-    cuil: value.cuil,
-    dateOfBirth: value.dateOfBirth,
-    nationality: value.nationality,
-    address: value.address,
-    occupation: value.occupation,
-    employer: value.employer,
-    monthlyIncome: value.monthlyIncome,
-    employmentStatus: value.employmentStatus,
-    emergencyContactName: value.emergencyContactName,
-    emergencyContactPhone: value.emergencyContactPhone,
-    emergencyContactRelationship: value.emergencyContactRelationship,
-    creditScore: value.creditScore,
-    notes: value.notes,
-  }),
-});
+const toUpdatePayload = (value: UpdateTenantInput) => {
+  const { password: _, ...payload } = toCreatePayload(value);
+  return payload;
+};
 
 export const tenantsApi = {
   async getAll(filters?: TenantFilters): Promise<Tenant[]> {
@@ -170,22 +183,26 @@ export const tenantsApi = {
       );
     }
 
-    const queryParams = new URLSearchParams();
-    if (filters?.name) queryParams.append('name', filters.name);
-    if (filters?.dni) queryParams.append('dni', filters.dni);
-    if (filters?.email) queryParams.append('email', filters.email);
-    if (filters?.page) queryParams.append('page', String(filters.page));
-    if (filters?.limit) queryParams.append('limit', String(filters.limit));
+    return fetchAllPages<BackendTenant, Tenant>(
+      '/tenants',
+      { ...filters },
+      mapTenant,
+    );
+  },
 
-    const endpoint = queryParams.toString()
-      ? `/tenants?${queryParams.toString()}`
-      : '/tenants';
-    const result = await apiClient.get<
-      BackendTenant[] | PaginatedResponse<BackendTenant>
-    >(endpoint);
-    return Array.isArray(result)
-      ? result.map(mapTenant)
-      : result.data.map(mapTenant);
+  async getPage(query: ListQuery = {}): Promise<Page<Tenant>> {
+    if (IS_MOCK_MODE) {
+      const term = String(query.name ?? query.search ?? '').toLowerCase();
+      return mockPage(
+        MOCK_TENANTS.filter((tenant) =>
+          `${tenant.firstName} ${tenant.lastName} ${tenant.email}`
+            .toLowerCase()
+            .includes(term),
+        ),
+        query,
+      );
+    }
+    return fetchPage<BackendTenant, Tenant>('/tenants', query, mapTenant);
   },
 
   async getById(id: string): Promise<Tenant | null> {
@@ -196,8 +213,9 @@ export const tenantsApi = {
     try {
       const result = await apiClient.get<BackendTenant>(`/tenants/${id}`);
       return mapTenant(result);
-    } catch {
-      return null;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
     }
   },
 

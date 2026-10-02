@@ -49,7 +49,7 @@ type RunnableTool = {
     strict?: boolean;
   };
   $parseRaw?: (value: string) => unknown;
-  $callback?: (args: unknown) => Promise<unknown> | unknown;
+  $callback?: (args: unknown) => unknown;
 };
 
 function loadRelationshipContext(): RelationshipContext {

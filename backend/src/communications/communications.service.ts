@@ -1,3 +1,4 @@
+import { maintenanceNoticeRecipients } from '../maintenance/maintenance-notices';
 import {
   BadRequestException,
   Injectable,
@@ -205,12 +206,12 @@ export class CommunicationsService {
     const personId = incoming.person_id;
     if (!personId || !['owner', 'tenant', 'interested'].includes(personType))
       return;
-    const table =
-      personType === 'owner'
-        ? 'owner_activities'
-        : personType === 'tenant'
-          ? 'tenant_activities'
-          : 'interested_activities';
+    const tables: Record<string, string> = {
+      owner: 'owner_activities',
+      tenant: 'tenant_activities',
+      interested: 'interested_activities',
+    };
+    const table = tables[personType];
     const personColumn =
       personType === 'interested'
         ? 'interested_profile_id'
@@ -505,62 +506,27 @@ export class CommunicationsService {
 
   private async send(delivery: CommunicationDelivery): Promise<string | null> {
     this.assertWhatsappOnly(delivery.channel);
+    if (
+      [
+        CommunicationEvent.PROPERTY_VISIT_SCHEDULED,
+        CommunicationEvent.PROPERTY_VISIT_COMPLETED,
+        CommunicationEvent.PROPERTY_VISIT_OFFER,
+      ].includes(delivery.event)
+    )
+      await this.assertVisitNoticeEligible(delivery);
+    if (
+      [
+        CommunicationEvent.MAINTENANCE_ASSIGNED,
+        CommunicationEvent.MAINTENANCE_RESOLVED,
+      ].includes(delivery.event)
+    )
+      await this.assertMaintenanceNoticeEligible(delivery);
     if (delivery.event === CommunicationEvent.PAYMENT_RECEIVED)
       await this.assertPaymentReceiptEligible(delivery);
-    if (delivery.event === CommunicationEvent.INVOICE_ISSUED) {
-      const [eligible] = await this.dataSource.query(
-        `SELECT i.id FROM invoices i
-         JOIN leases l ON l.id=i.lease_id AND l.company_id=$2 AND l.deleted_at IS NULL
-         JOIN tenants t ON t.id=l.tenant_id AND t.company_id=$2 AND t.deleted_at IS NULL
-         JOIN users u ON u.id=t.user_id AND u.company_id=$2 AND u.deleted_at IS NULL
-         WHERE i.id=$1 AND i.company_id=$2 AND i.deleted_at IS NULL
-         AND i.status IN ('pending','sent','partial','overdue') AND t.id=$3 AND u.phone=$4
-         AND t.contact_consent=true AND u.whatsapp_enabled=true
-         AND (t.preferred_contact_channel IS NULL OR t.preferred_contact_channel='whatsapp')`,
-        [
-          delivery.relatedEntityId,
-          delivery.companyId,
-          delivery.recipientId,
-          delivery.recipient,
-        ],
-      );
-      if (!eligible)
-        throw new BadRequestException(
-          'Invoice notice recipient or consent is no longer eligible',
-        );
-    }
-    if (delivery.event === CommunicationEvent.CREDIT_NOTE_ISSUED) {
-      const [eligible] = await this.dataSource.query(
-        `SELECT n.id FROM credit_notes n
-         JOIN payments p ON p.id=n.payment_id AND p.company_id=$2 AND p.deleted_at IS NULL AND p.status='completed'
-         JOIN invoices i ON i.id=n.invoice_id AND i.company_id=$2 AND i.deleted_at IS NULL
-         JOIN leases l ON l.id=i.lease_id AND l.company_id=$2 AND l.deleted_at IS NULL
-         JOIN tenants t ON t.id=l.tenant_id AND t.company_id=$2 AND t.deleted_at IS NULL
-         JOIN users u ON u.id=t.user_id AND u.company_id=$2 AND u.deleted_at IS NULL
-         WHERE n.id::text=$1 AND n.company_id=$2 AND n.deleted_at IS NULL AND n.status='issued'
-         AND n.payment_id=$5 AND n.pdf_url=$6 AND t.id=$3 AND u.phone=$4
-         AND t.contact_consent=true AND u.whatsapp_enabled=true
-         AND (t.preferred_contact_channel IS NULL OR t.preferred_contact_channel='whatsapp')`,
-        [
-          typeof delivery.metadata?.creditNoteId === 'string'
-            ? delivery.metadata.creditNoteId
-            : null,
-          delivery.companyId,
-          delivery.recipientId,
-          delivery.recipient,
-          delivery.relatedEntityType === 'payment'
-            ? delivery.relatedEntityId
-            : null,
-          typeof delivery.metadata?.attachmentUrl === 'string'
-            ? delivery.metadata.attachmentUrl
-            : null,
-        ],
-      );
-      if (!eligible)
-        throw new BadRequestException(
-          'Credit note notice or recipient is no longer eligible',
-        );
-    }
+    if (delivery.event === CommunicationEvent.INVOICE_ISSUED)
+      await this.assertInvoiceNoticeEligible(delivery);
+    if (delivery.event === CommunicationEvent.CREDIT_NOTE_ISSUED)
+      await this.assertCreditNoteNoticeEligible(delivery);
     const context = {
       companyId: delivery.companyId,
       idempotencyKey: delivery.id,
@@ -605,6 +571,167 @@ export class CommunicationsService {
       context,
     );
     return result.messageId;
+  }
+
+  private async assertInvoiceNoticeEligible(
+    delivery: CommunicationDelivery,
+  ): Promise<void> {
+    const [eligible] = await this.dataSource.query(
+      `SELECT i.id FROM invoices i
+         JOIN leases l ON l.id=i.lease_id AND l.company_id=$2 AND l.deleted_at IS NULL
+         JOIN tenants t ON t.id=l.tenant_id AND t.company_id=$2 AND t.deleted_at IS NULL
+         JOIN users u ON u.id=t.user_id AND u.company_id=$2 AND u.deleted_at IS NULL
+         WHERE i.id=$1 AND i.company_id=$2 AND i.deleted_at IS NULL
+         AND i.status IN ('pending','sent','partial','overdue') AND t.id=$3 AND u.phone=$4
+         AND t.contact_consent=true AND u.whatsapp_enabled=true
+         AND (t.preferred_contact_channel IS NULL OR t.preferred_contact_channel='whatsapp')`,
+      [
+        delivery.relatedEntityId,
+        delivery.companyId,
+        delivery.recipientId,
+        delivery.recipient,
+      ],
+    );
+    if (!eligible)
+      throw new BadRequestException(
+        'Invoice notice recipient or consent is no longer eligible',
+      );
+  }
+  private async assertCreditNoteNoticeEligible(
+    delivery: CommunicationDelivery,
+  ): Promise<void> {
+    const [eligible] = await this.dataSource.query(
+      `SELECT n.id FROM credit_notes n
+         JOIN payments p ON p.id=n.payment_id AND p.company_id=$2 AND p.deleted_at IS NULL AND p.status='completed'
+         JOIN invoices i ON i.id=n.invoice_id AND i.company_id=$2 AND i.deleted_at IS NULL
+         JOIN leases l ON l.id=i.lease_id AND l.company_id=$2 AND l.deleted_at IS NULL
+         JOIN tenants t ON t.id=l.tenant_id AND t.company_id=$2 AND t.deleted_at IS NULL
+         JOIN users u ON u.id=t.user_id AND u.company_id=$2 AND u.deleted_at IS NULL
+         WHERE n.id::text=$1 AND n.company_id=$2 AND n.deleted_at IS NULL AND n.status='issued'
+         AND n.payment_id=$5 AND n.pdf_url=$6 AND t.id=$3 AND u.phone=$4
+         AND t.contact_consent=true AND u.whatsapp_enabled=true
+         AND (t.preferred_contact_channel IS NULL OR t.preferred_contact_channel='whatsapp')`,
+      [
+        typeof delivery.metadata?.creditNoteId === 'string'
+          ? delivery.metadata.creditNoteId
+          : null,
+        delivery.companyId,
+        delivery.recipientId,
+        delivery.recipient,
+        delivery.relatedEntityType === 'payment'
+          ? delivery.relatedEntityId
+          : null,
+        typeof delivery.metadata?.attachmentUrl === 'string'
+          ? delivery.metadata.attachmentUrl
+          : null,
+      ],
+    );
+    if (!eligible)
+      throw new BadRequestException(
+        'Credit note notice or recipient is no longer eligible',
+      );
+  }
+  private async assertMaintenanceNoticeEligible(
+    delivery: CommunicationDelivery,
+  ): Promise<void> {
+    const snapshot = delivery.metadata?.maintenanceSnapshot as
+      Record<string, unknown> | undefined;
+    if (
+      delivery.relatedEntityType !== 'maintenance_ticket' ||
+      !delivery.relatedEntityId ||
+      !snapshot ||
+      typeof snapshot.updatedAt !== 'string'
+    )
+      throw new BadRequestException(
+        'Maintenance notice requires reviewed state evidence',
+      );
+    const [current] = await this.dataSource.query(
+      `SELECT status,title,assigned_to_staff_id AS "assignedToStaffId",updated_at AS "updatedAt" FROM maintenance_tickets WHERE id=$1 AND company_id=$2 AND deleted_at IS NULL`,
+      [delivery.relatedEntityId, delivery.companyId],
+    );
+    if (
+      !current ||
+      current.status !== snapshot.status ||
+      current.title !== snapshot.title ||
+      current.assignedToStaffId !== snapshot.assignedToStaffId ||
+      new Date(current.updatedAt).toISOString() !== snapshot.updatedAt
+    )
+      throw new BadRequestException(
+        'Maintenance notice state is no longer eligible',
+      );
+    const recipients = await maintenanceNoticeRecipients(
+      this.dataSource,
+      delivery.companyId,
+      delivery.relatedEntityId,
+    );
+    if (
+      !recipients.some(
+        (recipient) =>
+          recipient.id === delivery.recipientId &&
+          recipient.role === delivery.recipientRole &&
+          recipient.phone === delivery.recipient,
+      )
+    )
+      throw new BadRequestException(
+        'Maintenance notice recipient or consent is no longer eligible',
+      );
+  }
+
+  private async assertVisitNoticeEligible(
+    delivery: CommunicationDelivery,
+  ): Promise<void> {
+    if (
+      delivery.relatedEntityType !== 'property_visit' ||
+      !delivery.relatedEntityId ||
+      !delivery.recipientId
+    )
+      throw new BadRequestException(
+        'Visit notice requires a scoped visit and recipient',
+      );
+    const snapshot = delivery.metadata?.visitSnapshot as
+      Record<string, unknown> | undefined;
+    if (
+      !snapshot ||
+      typeof snapshot.result !== 'string' ||
+      typeof snapshot.currency !== 'string' ||
+      typeof snapshot.visitedAt !== 'string'
+    )
+      throw new BadRequestException(
+        'Historical visit notice requires review before sending',
+      );
+    const [eligible] = await this.dataSource.query(
+      `SELECT v.id FROM property_visits v
+       JOIN properties p ON p.id=v.property_id AND p.company_id=$2 AND p.deleted_at IS NULL
+       LEFT JOIN owners o ON o.id=p.owner_id AND o.company_id=$2 AND o.deleted_at IS NULL
+       LEFT JOIN users u ON u.id=o.user_id AND u.company_id=$2 AND u.deleted_at IS NULL
+       LEFT JOIN interested_profiles i ON i.id::text=v.interested_profile_id::text AND i.company_id=$2 AND i.deleted_at IS NULL
+       WHERE v.id=$1 AND v.kind='visit'
+       AND (($5='owner' AND o.id=$3 AND p.owner_whatsapp=$4 AND o.contact_consent=true AND u.whatsapp_enabled=true AND u.is_active=true
+         AND (o.preferred_contact_channel IS NULL OR o.preferred_contact_channel='whatsapp'))
+         OR ($5='interested' AND i.id=$3 AND i.phone=$4 AND i.consent_contact=true
+         AND (i.preferred_contact_channel IS NULL OR i.preferred_contact_channel='whatsapp')))
+       AND ($6='property_visit_scheduled' OR ($6='property_visit_offer' AND v.result='offer')
+         OR ($6='property_visit_completed' AND v.result IN ('interested','not_interested')))
+       AND v.result=$7 AND v.result_reason IS NOT DISTINCT FROM $8
+       AND v.offer_amount IS NOT DISTINCT FROM $9::numeric AND v.offer_currency=$10 AND v.visited_at=$11::timestamptz`,
+      [
+        delivery.relatedEntityId,
+        delivery.companyId,
+        delivery.recipientId,
+        delivery.recipient,
+        delivery.recipientRole,
+        delivery.event,
+        snapshot.result,
+        snapshot.reason ?? null,
+        snapshot.offerAmount ?? null,
+        snapshot.currency,
+        snapshot.visitedAt,
+      ],
+    );
+    if (!eligible)
+      throw new BadRequestException(
+        'Visit notice recipient, consent or result is no longer eligible',
+      );
   }
 
   private async assertPaymentReceiptEligible(delivery: CommunicationDelivery) {

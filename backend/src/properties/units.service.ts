@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
+import { withDomainOperationReceipt } from '../common/helpers/domain-operation-receipt';
 import { Unit } from './entities/unit.entity';
 import { Property } from './entities/property.entity';
 import { CreateUnitDto } from './dto/create-unit.dto';
@@ -32,17 +34,34 @@ export class UnitsService {
     private readonly propertiesRepository: Repository<Property>,
   ) {}
 
-  async create(createUnitDto: CreateUnitDto, actor: UnitActor): Promise<Unit> {
+  async create(
+    createUnitDto: CreateUnitDto,
+    actor: UnitActor,
+    executionKey?: string,
+  ): Promise<Unit> {
     this.assertCanMutate(actor);
-    const property = await this.findPropertyScoped(
-      createUnitDto.propertyId,
-      actor,
+    return this.unitsRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        actor.companyId,
+        executionKey,
+        'unit.create',
+        { ...createUnitDto, companyId: actor.companyId, actorId: actor.id },
+        async () => {
+          const property = await this.findPropertyScoped(
+            createUnitDto.propertyId,
+            actor,
+            manager,
+          );
+          const repository = manager.getRepository(Unit);
+          const unit = repository.create({
+            ...createUnitDto,
+            companyId: property.companyId,
+          } as Partial<Unit>);
+          return repository.save(unit);
+        },
+      ),
     );
-    const unit = this.unitsRepository.create({
-      ...createUnitDto,
-      companyId: property.companyId,
-    } as Partial<Unit>);
-    return this.unitsRepository.save(unit);
   }
 
   async findByProperty(propertyId: string, actor: UnitActor): Promise<Unit[]> {
@@ -53,8 +72,16 @@ export class UnitsService {
     });
   }
 
-  async findOne(id: string, actor: UnitActor): Promise<Unit> {
-    const unit = await this.unitsRepository.findOne({
+  async findOne(
+    id: string,
+    actor: UnitActor,
+    manager?: EntityManager,
+  ): Promise<Unit> {
+    if (!actor.companyId)
+      throw new ForbiddenException('Company scope required');
+    const unit = await (
+      manager?.getRepository(Unit) ?? this.unitsRepository
+    ).findOne({
       where: { id, companyId: actor.companyId, deletedAt: IsNull() },
       relations: ['property'],
     });
@@ -62,7 +89,7 @@ export class UnitsService {
     if (!unit) {
       throw new NotFoundException(`Unit with ID ${id} not found`);
     }
-    await this.findPropertyScoped(unit.propertyId, actor);
+    await this.findPropertyScoped(unit.propertyId, actor, manager);
 
     return unit;
   }
@@ -71,25 +98,73 @@ export class UnitsService {
     id: string,
     updateUnitDto: UpdateUnitDto,
     actor: UnitActor,
+    executionKey?: string,
   ): Promise<Unit> {
     this.assertCanMutate(actor);
-    const unit = await this.findOne(id, actor);
-    Object.assign(unit, updateUnitDto);
-    unit.companyId = actor.companyId;
-    return this.unitsRepository.save(unit);
+    if (
+      Object.hasOwn(updateUnitDto, 'propertyId') ||
+      Object.hasOwn(updateUnitDto, 'companyId')
+    )
+      throw new BadRequestException('Unit property and company are immutable');
+    return this.unitsRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        actor.companyId,
+        executionKey,
+        'unit.update',
+        { id, ...updateUnitDto, actorId: actor.id },
+        async () => {
+          await manager.query(
+            'SELECT id FROM units WHERE id=$1 AND company_id=$2 FOR UPDATE',
+            [id, actor.companyId],
+          );
+          const unit = await this.findOne(id, actor, manager);
+          Object.assign(unit, updateUnitDto);
+          unit.companyId = actor.companyId;
+          return manager.getRepository(Unit).save(unit);
+        },
+      ),
+    );
   }
 
-  async remove(id: string, actor: UnitActor): Promise<void> {
+  async remove(
+    id: string,
+    actor: UnitActor,
+    executionKey?: string,
+  ): Promise<void> {
     this.assertCanMutate(actor);
-    await this.findOne(id, actor);
-    await this.unitsRepository.softDelete(id);
+    await this.unitsRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        actor.companyId,
+        executionKey,
+        'unit.delete',
+        { id, actorId: actor.id },
+        async () => {
+          await manager.query(
+            'SELECT id FROM units WHERE id=$1 AND company_id=$2 FOR UPDATE',
+            [id, actor.companyId],
+          );
+          await this.findOne(id, actor, manager);
+          await manager
+            .getRepository(Unit)
+            .softDelete({ id, companyId: actor.companyId });
+          return null;
+        },
+      ),
+    );
   }
 
   private async findPropertyScoped(
     propertyId: string,
     actor: UnitActor,
+    manager?: EntityManager,
   ): Promise<Property> {
-    const query = this.propertiesRepository
+    if (!actor.companyId)
+      throw new ForbiddenException('Company scope required');
+    const query = (
+      manager?.getRepository(Property) ?? this.propertiesRepository
+    )
       .createQueryBuilder('property')
       .where('property.id = :propertyId', { propertyId })
       .andWhere('property.company_id = :companyId', {
@@ -103,6 +178,7 @@ export class UnitsService {
           ? `EXISTS (SELECT 1 FROM owners scope_owner
               WHERE scope_owner.id = property.owner_id
                 AND scope_owner.user_id = :actorId
+                AND scope_owner.company_id = :companyId
                 AND scope_owner.deleted_at IS NULL)`
           : null,
         roles.includes(UserRole.TENANT)
@@ -142,7 +218,10 @@ export class UnitsService {
   }
 
   private assertCanMutate(actor: UnitActor): void {
-    if (!hasAnyRole(actor, [UserRole.ADMIN, UserRole.OWNER])) {
+    if (
+      !actor.companyId ||
+      !hasAnyRole(actor, [UserRole.ADMIN, UserRole.OWNER, UserRole.STAFF])
+    ) {
       throw new ForbiddenException('Unit management is not allowed');
     }
   }

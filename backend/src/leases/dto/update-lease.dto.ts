@@ -28,15 +28,14 @@ export class UpdateLeaseDto extends PartialType(
   // A PATCH must not inject creation defaults for omitted fields, through HTTP or AI.
   static readonly zodSchema = createLeaseZodSchema
     .extend({
-      contractType: createLeaseZodSchema.shape.contractType.removeDefault(),
-      currency: createLeaseZodSchema.shape.currency.removeDefault(),
-      paymentFrequency:
-        createLeaseZodSchema.shape.paymentFrequency.removeDefault(),
-      paymentDueDay: createLeaseZodSchema.shape.paymentDueDay.removeDefault(),
+      contractType: createLeaseZodSchema.shape.contractType.unwrap(),
+      currency: createLeaseZodSchema.shape.currency.unwrap(),
+      paymentFrequency: createLeaseZodSchema.shape.paymentFrequency.unwrap(),
+      paymentDueDay: createLeaseZodSchema.shape.paymentDueDay.unwrap(),
       renewalAlertEnabled:
-        createLeaseZodSchema.shape.renewalAlertEnabled.removeDefault(),
+        createLeaseZodSchema.shape.renewalAlertEnabled.unwrap(),
       renewalAlertPeriodicity:
-        createLeaseZodSchema.shape.renewalAlertPeriodicity.removeDefault(),
+        createLeaseZodSchema.shape.renewalAlertPeriodicity.unwrap(),
     })
     .partial()
     .strict();

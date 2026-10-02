@@ -8,6 +8,8 @@ import { tenantsApi } from "@/lib/api/tenants";
 import { paymentsApi } from "@/lib/api/payments";
 import { TenantSummary } from "@/types/tenant";
 import { Payment } from "@/types/payment";
+import { Button, StatePanel } from "@/components/ui";
+import { formatCalendarDate } from "@/lib/calendar-date";
 import {
   FileText,
   CreditCard,
@@ -26,9 +28,13 @@ export default function TenantPortalDashboard() {
   const [summary, setSummary] = useState<TenantSummary | null>(null);
   const [recentPayments, setRecentPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
+      setError(false);
       try {
         const [summaryData, paymentsData] = await Promise.all([
           tenantsApi.getMySummary(),
@@ -37,13 +43,13 @@ export default function TenantPortalDashboard() {
         setSummary(summaryData);
         setRecentPayments(paymentsData.data.slice(0, 3));
       } catch {
-        // fail silently, show empty state
+        setError(true);
       } finally {
         setLoading(false);
       }
     };
     void load();
-  }, []);
+  }, [revision]);
 
   const leaseStatusIcon = (status?: string) => {
     switch (status) {
@@ -64,7 +70,7 @@ export default function TenantPortalDashboard() {
 
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString(localeCode);
+    return formatCalendarDate(dateStr, localeCode);
   };
 
   const formatCurrency = (amount: number, currency = "ARS") => {
@@ -82,11 +88,26 @@ export default function TenantPortalDashboard() {
     );
   }
 
+  if (error)
+    return (
+      <StatePanel
+        error
+        title={t("readError")}
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => setRevision((value) => value + 1)}
+          >
+            {t("retry")}
+          </Button>
+        }
+      />
+    );
   return (
     <div className="space-y-6">
       {/* Welcome card */}
       <div className="bg-blue-600 dark:bg-blue-700 rounded-xl p-5 text-white">
-        <p className="text-blue-100 text-sm">{t("welcome")}</p>
+        <p className="text-white text-sm">{t("welcome")}</p>
         <h1 className="text-2xl font-bold mt-1">
           {user?.firstName} {user?.lastName}
         </h1>
@@ -132,7 +153,12 @@ export default function TenantPortalDashboard() {
               {t("pendingBalance")}
             </p>
             <p className="mt-1 text-base font-semibold text-gray-900 dark:text-white">
-              {formatCurrency(summary?.accountBalance ?? 0)}
+              {summary
+                ? formatCurrency(
+                    summary.accountBalance,
+                    summary.activeLease?.currency ?? "ARS",
+                  )
+                : "—"}
             </p>
             {(summary?.pendingInvoicesCount ?? 0) > 0 && (
               <p className="text-xs text-orange-500 mt-0.5">

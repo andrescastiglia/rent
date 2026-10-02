@@ -1,8 +1,9 @@
+import { Pressable, Text, View } from '@/components/themed-native';
 import { EXTERNAL_SETTLEMENTS_ENABLED } from '@/config/deferred-features';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ownersApi } from '@/api/owners';
@@ -17,7 +18,7 @@ const formatAmount = (amount: number, currencyCode = 'ARS') =>
   new Intl.NumberFormat(i18n.language || 'es', {
     style: 'currency',
     currency: currencyCode,
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(amount);
 
 export default function OwnerPayScreen() {
@@ -119,7 +120,15 @@ function OwnerPayForm() {
   });
 
   return (
-    <Screen>
+    <Screen
+      guidanceReady={!ownerQuery.isLoading && !settlementsQuery.isLoading}
+      guidanceBlocked={
+        ownerQuery.isError ||
+        settlementsQuery.isError ||
+        mutation.isPending ||
+        mutation.isError
+      }
+    >
       <H1>{t('properties.registerOwnerPayment')}</H1>
       <Text style={styles.subtitle}>
         {ownerQuery.data
@@ -224,10 +233,16 @@ function OwnerPayForm() {
               title={t('properties.downloadOwnerReceipt')}
               variant="secondary"
               onPress={() => {
-                void ownersApi.downloadSettlementReceipt(
-                  settlement.ownerId,
-                  settlement.id,
-                );
+                void ownersApi
+                  .downloadSettlementReceipt(settlement.ownerId, settlement.id)
+                  .catch((error) =>
+                    Alert.alert(
+                      t('common.error'),
+                      error instanceof Error
+                        ? error.message
+                        : t('messages.saveError'),
+                    ),
+                  );
               }}
               testID={`ownerPay.download.${settlement.id}`}
             />

@@ -28,7 +28,7 @@ describe('SalesController', () => {
     );
   });
 
-  it('restricts every sales endpoint to admin and staff', () => {
+  it('authorizes buyers only for scoped reads', () => {
     const endpoints: Array<keyof SalesController> = [
       'createFolder',
       'listFolders',
@@ -43,7 +43,16 @@ describe('SalesController', () => {
     for (const endpoint of endpoints) {
       expect(
         Reflect.getMetadata(ROLES_KEY, SalesController.prototype[endpoint]),
-      ).toEqual([UserRole.ADMIN, UserRole.STAFF]);
+      ).toEqual(
+        [
+          'listAgreements',
+          'getAgreement',
+          'listReceipts',
+          'downloadReceipt',
+        ].includes(endpoint)
+          ? [UserRole.ADMIN, UserRole.STAFF, UserRole.BUYER]
+          : [UserRole.ADMIN, UserRole.STAFF],
+      );
     }
   });
 

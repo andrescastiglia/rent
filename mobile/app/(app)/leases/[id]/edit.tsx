@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Text } from 'react-native';
+import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { leasesApi } from '@/api/leases';
 import { Screen } from '@/components/screen';
+import { QueryStatus } from '@/components/query-status';
 import { H1 } from '@/components/ui';
 import { LeaseForm } from '@/screens/lease-form';
 import type { UpdateLeaseInput } from '@/types/lease';
@@ -37,12 +38,19 @@ export default function EditLeaseScreen() {
   });
 
   return (
-    <Screen scrollViewTestID="leaseEdit.scroll">
+    <Screen
+      scrollViewTestID="leaseEdit.scroll"
+      guidanceReady={!query.isLoading}
+      guidanceBlocked={
+        Boolean(query.error) || mutation.isPending || mutation.isError
+      }
+    >
       <H1>{t('leases.editLease')}</H1>
-      {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {!query.isLoading && !query.data ? (
-        <Text>{t('leases.notFound')}</Text>
-      ) : null}
+      <QueryStatus
+        query={query}
+        empty={!query.data}
+        emptyLabel={t('leases.notFound')}
+      />
 
       {query.data ? (
         <LeaseForm

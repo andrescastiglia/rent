@@ -1,4 +1,13 @@
-import { IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsString,
+  MaxLength,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 import { z } from 'zod';
 import { InvoiceStatus } from '../entities/invoice.entity';
 
@@ -10,6 +19,7 @@ const invoiceFiltersZodSchema = z
       .enum(InvoiceStatus)
       .optional()
       .describe('draft|pending|sent|partial|paid|overdue|cancelled|refunded'),
+    search: z.string().trim().max(200).optional(),
     page: z.coerce.number().int().min(1).optional().default(1),
     limit: z.coerce.number().int().min(1).max(100).optional().default(10),
   })
@@ -29,6 +39,11 @@ export class InvoiceFiltersDto {
   @IsOptional()
   @IsEnum(InvoiceStatus)
   status?: InvoiceStatus;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
 
   @IsOptional()
   @IsInt()

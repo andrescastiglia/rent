@@ -26,15 +26,15 @@ export class CreateMaintenanceTicketDto {
 
   @IsOptional()
   @IsEnum(MaintenanceTicketArea)
-  area?: MaintenanceTicketArea = MaintenanceTicketArea.OTHER;
+  area?: MaintenanceTicketArea;
 
   @IsOptional()
   @IsEnum(MaintenanceTicketPriority)
-  priority?: MaintenanceTicketPriority = MaintenanceTicketPriority.MEDIUM;
+  priority?: MaintenanceTicketPriority;
 
   @IsOptional()
   @IsEnum(MaintenanceTicketSource)
-  source?: MaintenanceTicketSource = MaintenanceTicketSource.ADMIN;
+  source?: MaintenanceTicketSource;
 
   @IsOptional()
   @IsDateString()
@@ -47,5 +47,5 @@ export class CreateMaintenanceTicketDto {
 
   @IsOptional()
   @IsString()
-  costCurrency?: string = 'ARS';
+  costCurrency?: string;
 }

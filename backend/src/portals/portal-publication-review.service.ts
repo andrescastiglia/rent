@@ -98,91 +98,19 @@ export class PortalPublicationReviewService {
         jobId,
         true,
       );
-      if (dto.action === 'link' || dto.action === 'confirm_not_created')
-        this.assertLinkable(job, listing);
-      if (
-        dto.action === 'confirm_not_created' &&
-        dto.confirmedNoPublication !== true
-      )
-        throw new BadRequestException(
-          'Explicit confirmation of manual provider review required',
-        );
-      if (
-        dto.action === 'retry' &&
-        !listing.external_id &&
-        !(
-          job.operation === 'publish' &&
-          job.status === 'failed' &&
-          job.error_code === 'provider_rejected'
-        )
-      )
-        throw new ConflictException(
-          'An uncertain creation must be reviewed before another publication',
-        );
-      if (dto.action === 'accept_remote' && listing.external_id !== remote?.id)
-        throw new ConflictException('External item changed during review');
-      if (remote) {
-        const [bound] = await manager.query(
-          "SELECT id FROM portal_listings WHERE portal = 'mercadolibre' AND external_id = $1 AND id <> $2::uuid",
-          [remote.id, listingId],
-        );
-        if (bound)
-          throw new ConflictException('External item is already linked');
-        const localStatus =
-          remote.status === 'active'
-            ? 'published'
-            : remote.status === 'paused'
-              ? 'paused'
-              : remote.status === 'closed'
-                ? 'removed'
-                : 'error';
-        try {
-          await manager.query(
-            `UPDATE portal_listings SET external_id = $3, external_url = $4, provider_status = $5::text,
-            status = $6::portal_listing_status, published_at = CASE WHEN $5::text = 'active' THEN COALESCE(published_at,now()) ELSE published_at END,
-            last_synced_at = now(), error_message = $7, updated_at = now() WHERE id = $1::uuid AND company_id = $2::uuid`,
-            [
-              listingId,
-              companyId,
-              remote.id,
-              remote.permalink,
-              remote.status,
-              localStatus,
-              localStatus === 'error' ? 'provider_not_active' : null,
-            ],
-          );
-        } catch (error) {
-          if ((error as { code?: string }).code === '23505')
-            throw new ConflictException('External item is already linked');
-          throw error;
-        }
-      }
+      this.assertResolution(dto, job, listing, remote);
+      if (remote) await this.bindRemote(manager, companyId, listingId, remote);
       await manager.query(
         "UPDATE portal_publication_outbox SET status = 'resolved', claim_token = NULL, lease_expires_at = NULL, updated_at = now() WHERE id = $1::uuid",
         [jobId],
       );
-      let followupJobId: string | null = null;
-      // Linking confirms the remote state; only unfinished description work is queued, without reactivating the item.
-      if (
-        dto.action === 'retry' ||
-        (dto.action === 'link' && job.payload.description)
-      ) {
-        const [followup] = await manager.query(
-          `INSERT INTO portal_publication_outbox(company_id,listing_id,operation,payload)
-          VALUES($1::uuid,$2::uuid,$3,$4::jsonb) RETURNING id`,
-          [
-            companyId,
-            listingId,
-            dto.action === 'link' ? 'refresh' : job.operation,
-            JSON.stringify(
-              dto.action === 'link'
-                ? { description: job.payload.description }
-                : job.payload,
-            ),
-          ],
-        );
-        followupJobId = followup.id;
-      }
+      const followupJobId = await this.queueFollowup(
+        manager,
+        companyId,
+        listingId,
+        job,
+        dto,
+      );
       const [result]: PortalResolutionDto[] = await manager.query(
         `INSERT INTO portal_publication_resolutions(company_id,listing_id,job_id,actor_id,action,reason,external_id,provider_snapshot,followup_job_id)
         VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5,$6,$7,$8::jsonb,$9::uuid)
@@ -203,6 +131,105 @@ export class PortalPublicationReviewService {
     });
   }
 
+  private assertResolution(
+    dto: ResolvePortalPublicationDto,
+    job: ReviewJob,
+    listing: ReviewListing,
+    remote: PortalCandidateDto | null,
+  ): void {
+    if (dto.action === 'link' || dto.action === 'confirm_not_created')
+      this.assertLinkable(job, listing);
+    if (
+      dto.action === 'confirm_not_created' &&
+      dto.confirmedNoPublication !== true
+    )
+      throw new BadRequestException(
+        'Explicit confirmation of manual provider review required',
+      );
+    if (
+      dto.action === 'retry' &&
+      !listing.external_id &&
+      !(
+        job.operation === 'publish' &&
+        job.status === 'failed' &&
+        job.error_code === 'provider_rejected'
+      )
+    )
+      throw new ConflictException(
+        'An uncertain creation must be reviewed before another publication',
+      );
+    if (dto.action === 'accept_remote' && listing.external_id !== remote?.id)
+      throw new ConflictException('External item changed during review');
+  }
+  private async bindRemote(
+    manager: EntityManager,
+    companyId: string,
+    listingId: string,
+    remote: PortalCandidateDto,
+  ): Promise<void> {
+    const [bound] = await manager.query(
+      "SELECT id FROM portal_listings WHERE portal = 'mercadolibre' AND external_id = $1 AND id <> $2::uuid",
+      [remote.id, listingId],
+    );
+    if (bound) throw new ConflictException('External item is already linked');
+    const statuses: Record<string, string> = {
+      active: 'published',
+      paused: 'paused',
+      closed: 'removed',
+    };
+    const localStatus = statuses[remote.status] ?? 'error';
+    try {
+      await manager.query(
+        `UPDATE portal_listings SET external_id = $3, external_url = $4, provider_status = $5::text,
+            status = $6::portal_listing_status, published_at = CASE WHEN $5::text = 'active' THEN COALESCE(published_at,now()) ELSE published_at END,
+            last_synced_at = now(), error_message = $7, updated_at = now() WHERE id = $1::uuid AND company_id = $2::uuid`,
+        [
+          listingId,
+          companyId,
+          remote.id,
+          remote.permalink,
+          remote.status,
+          localStatus,
+          localStatus === 'error' ? 'provider_not_active' : null,
+        ],
+      );
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505')
+        throw new ConflictException('External item is already linked');
+      throw error;
+    }
+  }
+  private async queueFollowup(
+    manager: EntityManager,
+    companyId: string,
+    listingId: string,
+    job: ReviewJob,
+    dto: ResolvePortalPublicationDto,
+  ): Promise<string | null> {
+    let followupJobId: string | null = null;
+    // Linking confirms the remote state; only unfinished description work is queued, without reactivating the item.
+    if (
+      dto.action === 'retry' ||
+      (dto.action === 'link' && job.payload.description)
+    ) {
+      const [followup] = await manager.query(
+        `INSERT INTO portal_publication_outbox(company_id,listing_id,operation,payload)
+          VALUES($1::uuid,$2::uuid,$3,$4::jsonb) RETURNING id`,
+        [
+          companyId,
+          listingId,
+          dto.action === 'link' ? 'refresh' : job.operation,
+          JSON.stringify(
+            dto.action === 'link'
+              ? { description: job.payload.description }
+              : job.payload,
+          ),
+        ],
+      );
+      followupJobId = followup.id;
+    }
+    return followupJobId;
+  }
   async history(
     companyId: string,
     listingId: string,

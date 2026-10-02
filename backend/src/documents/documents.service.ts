@@ -8,7 +8,12 @@ import {
 } from '@nestjs/common';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, FindOptionsWhere, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  FindOptionsWhere,
+  Repository,
+} from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import {
   Document,
@@ -72,6 +77,7 @@ export class DocumentsService {
   async generateUploadUrl(
     dto: GenerateUploadUrlDto,
     actor: DocumentActor,
+    manager?: EntityManager,
   ): Promise<{ uploadUrl: string; documentId: string }> {
     const companyId = this.requireCompanyId(actor);
     await this.assertEntityAccessible(dto.entityType, dto.entityId, actor);
@@ -142,7 +148,9 @@ export class DocumentsService {
     const fileUrl = `db://document/${id}`;
 
     // Create document record
-    const document = this.documentsRepository.create({
+    const repository =
+      manager?.getRepository(Document) ?? this.documentsRepository;
+    const document = repository.create({
       id,
       companyId,
       entityType,
@@ -155,11 +163,44 @@ export class DocumentsService {
       status: DocumentStatus.PENDING,
     });
 
-    const savedDocument = await this.documentsRepository.save(document);
+    const savedDocument = await repository.save(document);
 
     return {
       uploadUrl: this.createContentUrl(savedDocument.id, 'upload', actor),
       documentId: savedDocument.id,
+    };
+  }
+
+  /** Refresh a short-lived upload capability without creating another document. */
+  async renewUploadUrl(
+    documentId: string,
+    actor: DocumentActor,
+  ): Promise<{
+    documentId: string;
+    status: DocumentStatus;
+    uploadUrl?: string;
+  }> {
+    const document = await this.documentsRepository.findOne({
+      where: { id: documentId, companyId: this.requireCompanyId(actor) },
+    });
+    if (!document) throw new NotFoundException('Upload document not found');
+    await this.assertEntityAccessible(
+      document.entityType,
+      document.entityId,
+      actor,
+    );
+    if (
+      ![DocumentStatus.PENDING, DocumentStatus.APPROVED].includes(
+        document.status,
+      )
+    )
+      throw new BadRequestException('Document cannot accept an upload');
+    return {
+      documentId,
+      status: document.status,
+      ...(document.status === DocumentStatus.PENDING
+        ? { uploadUrl: this.createContentUrl(documentId, 'upload', actor) }
+        : {}),
     };
   }
 
@@ -236,7 +277,7 @@ export class DocumentsService {
   ): DocumentActor {
     try {
       if (typeof token !== 'string' || !token || token.length > 4096)
-        throw new Error();
+        throw new Error('Invalid signed document content token');
       const [payload, signature, extra] = token.split('.');
       const expected = Buffer.from(this.signContentToken(payload));
       const supplied = Buffer.from(signature ?? '');
@@ -245,7 +286,7 @@ export class DocumentsService {
         supplied.length !== expected.length ||
         !timingSafeEqual(supplied, expected)
       )
-        throw new Error();
+        throw new Error('Invalid signed document content token');
       const claim = JSON.parse(Buffer.from(payload, 'base64url').toString());
       if (
         claim.id !== id ||
@@ -255,7 +296,7 @@ export class DocumentsService {
         !claim.actor?.id ||
         !claim.actor?.companyId
       )
-        throw new Error();
+        throw new Error('Invalid signed document content token');
       return claim.actor as DocumentActor;
     } catch {
       throw new ForbiddenException('Invalid or expired document link');
@@ -338,9 +379,12 @@ export class DocumentsService {
   async confirmUpload(
     documentId: string,
     actor: DocumentActor,
+    manager?: EntityManager,
   ): Promise<Document> {
     const companyId = this.requireCompanyId(actor);
-    const document = await this.documentsRepository.findOne({
+    const repository =
+      manager?.getRepository(Document) ?? this.documentsRepository;
+    const document = await repository.findOne({
       where: { id: documentId, companyId },
     });
 
@@ -361,7 +405,7 @@ export class DocumentsService {
     }
     // Validate and approve in one statement so a concurrent PUT cannot change
     // the content after the approval check. Never return binary data in JSON.
-    const result = await this.documentsRepository
+    const result = await repository
       .createQueryBuilder()
       .update(Document)
       .set({
@@ -377,7 +421,7 @@ export class DocumentsService {
       .andWhere('file_data IS NOT NULL AND octet_length(file_data) = file_size')
       .execute();
     if (!result.affected) {
-      const current = await this.documentsRepository.findOne({
+      const current = await repository.findOne({
         where: { id: documentId, companyId },
       });
       if (current?.status === DocumentStatus.APPROVED) return current;
@@ -385,7 +429,7 @@ export class DocumentsService {
         'Pending upload content was not found or has invalid size',
       );
     }
-    const approvedDocument = await this.documentsRepository.findOneOrFail({
+    const approvedDocument = await repository.findOneOrFail({
       where: { id: documentId, companyId },
     });
     this.logger.log(

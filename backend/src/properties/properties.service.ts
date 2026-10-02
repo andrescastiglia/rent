@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository, SelectQueryBuilder } from 'typeorm';
+import { DomainMutationScope } from '../common/helpers/domain-mutation-scope';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Property } from './entities/property.entity';
 import { PropertyImage } from './entities/property-image.entity';
@@ -34,6 +35,22 @@ interface UserContext {
 
 @Injectable()
 export class PropertiesService {
+  private readonly scope = new DomainMutationScope((execute) =>
+    this._propertiesRepository.manager.transaction(execute),
+  );
+  private get propertiesRepository(): Repository<Property> {
+    return this.scope.repository(Property, this._propertiesRepository);
+  }
+  private get propertyImagesRepository(): Repository<PropertyImage> {
+    return this.scope.repository(PropertyImage, this._propertyImagesRepository);
+  }
+  private get unitsRepository(): Repository<Unit> {
+    return this.scope.repository(Unit, this._unitsRepository);
+  }
+  private get ownersRepository(): Repository<Owner> {
+    return this.scope.repository(Owner, this._ownersRepository);
+  }
+
   private static readonly MAX_PROPERTY_IMAGE_BYTES = 5 * 1024 * 1024;
   private static readonly TEMPORARY_IMAGE_URL_TTL_SECONDS = 15 * 60;
   private static readonly ALLOWED_PROPERTY_IMAGE_MIME_TYPES = new Set([
@@ -46,19 +63,29 @@ export class PropertiesService {
 
   constructor(
     @InjectRepository(Property)
-    private readonly propertiesRepository: Repository<Property>,
+    private readonly _propertiesRepository: Repository<Property>,
     @InjectRepository(PropertyImage)
-    private readonly propertyImagesRepository: Repository<PropertyImage>,
+    private readonly _propertyImagesRepository: Repository<PropertyImage>,
     @InjectRepository(Unit)
-    private readonly unitsRepository: Repository<Unit>,
+    private readonly _unitsRepository: Repository<Unit>,
     @InjectRepository(Owner)
-    private readonly ownersRepository: Repository<Owner>,
+    private readonly _ownersRepository: Repository<Owner>,
   ) {}
 
   async create(
     createPropertyDto: CreatePropertyDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<Property> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        user.companyId,
+        executionKey,
+        'property.create',
+        { ...createPropertyDto, actorId: user.id },
+        () => this.create(createPropertyDto, user),
+      );
+
     if (!user.companyId) {
       throw new ForbiddenException('Company scope required');
     }
@@ -142,6 +169,35 @@ export class PropertiesService {
     });
 
     this.applyVisibilityScope(query, user);
+
+    if (filters.search?.trim()) {
+      query.andWhere(
+        `(property.name ILIKE :search OR property.address_street ILIKE :search
+          OR property.address_city ILIKE :search OR ownerUser.first_name ILIKE :search
+          OR ownerUser.last_name ILIKE :search)`,
+        {
+          search:
+            '%' +
+            filters.search.trim().replace(/[\\%_]/g, String.raw`\$&`) +
+            '%',
+        },
+      );
+    }
+    if (filters.operation)
+      query.andWhere(':operation = ANY(property.operations)', {
+        operation: filters.operation,
+      });
+    if (filters.operationState)
+      query.andWhere('property.operation_state = :operationState', {
+        operationState: filters.operationState,
+      });
+    query.orderBy(
+      filters.order === 'address'
+        ? 'property.addressStreet'
+        : 'property.createdAt',
+      filters.order === 'address' ? 'ASC' : 'DESC',
+    );
+    query.addOrderBy('property.id', 'ASC');
 
     query.skip((page - 1) * limit).take(limit);
 
@@ -280,7 +336,17 @@ export class PropertiesService {
     id: string,
     updatePropertyDto: UpdatePropertyDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<Property> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        user.companyId,
+        executionKey,
+        'property.update',
+        { id, ...updatePropertyDto, actorId: user.id },
+        () => this.update(id, updatePropertyDto, user),
+      );
+
     const property = await this.findOneScoped(id, user);
     const previousImageRefs = this.normalizePropertyImages(
       Array.isArray(property.images) ? property.images : [],
@@ -319,7 +385,20 @@ export class PropertiesService {
     return updatedProperty;
   }
 
-  async remove(id: string, user: UserContext): Promise<void> {
+  async remove(
+    id: string,
+    user: UserContext,
+    executionKey?: string,
+  ): Promise<void> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        user.companyId,
+        executionKey,
+        'property.remove',
+        { id, actorId: user.id },
+        () => this.remove(id, user),
+      );
+
     const property = await this.findOneScoped(id, user);
 
     // Check if property has occupied units
@@ -430,6 +509,22 @@ export class PropertiesService {
       );
     }
 
+    return image;
+  }
+
+  async getPropertyImageScoped(
+    imageId: string,
+    actor: UserContext,
+  ): Promise<PropertyImage> {
+    if (!actor.companyId)
+      throw new ForbiddenException('Company scope required');
+    const image = await this.propertyImagesRepository.findOne({
+      where: { id: imageId, companyId: actor.companyId },
+    });
+    if (!image) throw new NotFoundException('Property image not found');
+    if (image.propertyId) await this.findOneScoped(image.propertyId, actor);
+    else if (image.uploadedByUserId !== actor.id)
+      throw new NotFoundException('Property image not found');
     return image;
   }
 
@@ -659,7 +754,7 @@ export class PropertiesService {
       throw new BadRequestException('Some property images are invalid');
     }
 
-    const invalidImage = images.find((image) => {
+    const invalidImage = images.some((image) => {
       if (!image.propertyId) {
         return false;
       }

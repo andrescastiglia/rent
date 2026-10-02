@@ -9,8 +9,9 @@ import {
 
 function firstLeaseCard(page: Page) {
   return page
-    .locator("section button")
-    .filter({ hasText: /Alertas de renovación/ })
+    .locator(
+      'main a[href*="/leases/"]:not([href$="/new"]):not([href$="/import"]):visible',
+    )
     .first();
 }
 
@@ -73,9 +74,12 @@ test.describe("Lease Creation Flow", () => {
     await page.getByRole("button", { name: /save|guardar/i }).click();
 
     // Should show validation errors
-    await expect(
-      page.getByText(/required|requerido|obrigatório/i).first(),
-    ).toBeVisible();
+    const invalid = page
+      .locator("form input:invalid, form select:invalid")
+      .first();
+    await expect(invalid).toBeVisible();
+    await expect(invalid).toBeFocused();
+    await expect(page).toHaveURL(/\/es\/leases\/new$/);
   });
 
   test("should create a new lease with valid data", async ({ page }) => {
@@ -114,30 +118,27 @@ test.describe("Lease Creation Flow", () => {
     ).toBeVisible();
   });
 
-  test("should display edit and delete buttons on lease detail page", async ({
+  test("should permit a new version and prevent deleting an active lease", async ({
     page,
   }) => {
     await gotoWithRetry(page, localePath("/leases"));
     await openFirstLease(page);
 
-    // Should show edit/new-version and delete buttons
+    // Active contracts are retained; administrative edits create a new version.
     await expect(
       page.locator('a[href*="/leases/"][href$="/edit"]'),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: /delete|eliminar/i }),
-    ).toBeVisible();
+    ).toHaveCount(0);
   });
 
   test("should search leases", async ({ page }) => {
     await gotoWithRetry(page, localePath("/leases"));
 
     // Type in search box
-    const searchInput = page.getByPlaceholder(/search|buscar/i);
+    const searchInput = page.getByRole("searchbox");
     await searchInput.fill("Test");
-
-    // Wait for filter to apply
-    await page.waitForTimeout(500);
 
     // Search input should have the value
     await expect(searchInput).toHaveValue("Test");

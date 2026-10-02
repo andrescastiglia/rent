@@ -459,7 +459,7 @@ describe('WhatsappService', () => {
     const payload = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(payload.to).toBe('5491112345678');
     expect(payload.type).toBe('text');
-    expect(payload.text.body.length).toBe(4096);
+    expect(payload.text.body).toHaveLength(4096);
     expect(result).toEqual({
       messageId: 'wamid-1',
       raw: { messages: [{ id: 'wamid-1' }] },
@@ -485,7 +485,7 @@ describe('WhatsappService', () => {
     expect(payload.document.filename).toBe(
       'document-123e4567-e89b-12d3-a456-426614174000.pdf',
     );
-    expect(payload.document.caption.length).toBe(1024);
+    expect(payload.document.caption).toHaveLength(1024);
     expect(payload.document.link).toContain(
       'https://frontend.example.com/whatsapp/documents/123e4567-e89b-12d3-a456-426614174000?token=',
     );

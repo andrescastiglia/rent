@@ -156,6 +156,15 @@
         "operationId": "Users_findAll",
         "parameters": [
           {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -473,7 +482,25 @@
     "/properties": {
       "post": {
         "operationId": "Properties_create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -503,6 +530,52 @@
       "get": {
         "operationId": "Properties_findAll",
         "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "operation",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "rent",
+                "sale"
+              ]
+            }
+          },
+          {
+            "name": "operationState",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "available",
+                "rented",
+                "reserved",
+                "sold"
+              ]
+            }
+          },
+          {
+            "name": "order",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "address",
+                "newest"
+              ]
+            }
+          },
           {
             "name": "ownerId",
             "required": false,
@@ -685,6 +758,23 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -720,6 +810,23 @@
             "name": "id",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -811,7 +918,16 @@
     "/units": {
       "post": {
         "operationId": "Units_create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -911,6 +1027,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -949,6 +1073,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -969,6 +1101,14 @@
             "name": "propertyId",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
             "schema": {
               "type": "string"
             }
@@ -1051,6 +1191,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -1088,6 +1236,14 @@
             "name": "propertyId",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
             "schema": {
               "type": "string"
             }
@@ -3375,7 +3531,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateAmendmentDto"
+                "$ref": "#/components/schemas/CreateAmendmentRequestDto"
               }
             }
           }
@@ -3460,6 +3616,77 @@
         ]
       }
     },
+    "/amendments/{id}/reviews": {
+      "post": {
+        "operationId": "Amendments_review",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewAmendmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewAmendmentResultDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Amendments"
+        ]
+      },
+      "get": {
+        "operationId": "Amendments_reviews",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AmendmentReviewDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Amendments"
+        ]
+      }
+    },
     "/amendments/{id}/submit": {
       "patch": {
         "operationId": "Amendments_submit",
@@ -3473,6 +3700,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AmendmentTransitionDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -3503,6 +3740,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AmendmentTransitionDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -3533,6 +3780,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AmendmentTransitionDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -3653,6 +3910,65 @@
         },
         "tags": [
           "LeasesContract"
+        ]
+      }
+    },
+    "/companies/current/financial-settings": {
+      "get": {
+        "operationId": "CompanyFinancialSettings_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyFinancialSettingsViewDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CompanyFinancialSettings"
+        ]
+      },
+      "patch": {
+        "operationId": "CompanyFinancialSettings_update",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompanyFinancialSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyFinancialSettingsViewDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "CompanyFinancialSettings"
         ]
       }
     },
@@ -3940,6 +4256,15 @@
             }
           },
           {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -4219,7 +4544,16 @@
     "/payments": {
       "post": {
         "operationId": "Payments_create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -4348,6 +4682,15 @@
             }
           },
           {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
             "name": "page",
             "required": false,
             "in": "query",
@@ -4386,6 +4729,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -4414,6 +4765,14 @@
             "name": "id",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
             "schema": {
               "type": "string"
             }
@@ -4521,6 +4880,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -4536,6 +4903,113 @@
           }
         },
         "summary": "Cancela un pago.",
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/payments/{id}/refunds": {
+      "post": {
+        "operationId": "Payments_refund",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundPaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      },
+      "get": {
+        "operationId": "Payments_listRefunds",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/payments/{id}/refunds/{refundId}/pdf": {
+      "get": {
+        "operationId": "Payments_refundDocument",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "refundId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
         "tags": [
           "Payments"
         ]
@@ -4675,7 +5149,25 @@
     "/tenants": {
       "post": {
         "operationId": "Tenants_create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -4842,6 +5334,23 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -4877,6 +5386,23 @@
             "name": "id",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -4967,6 +5493,23 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -5012,6 +5555,23 @@
             "name": "activityId",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -5128,7 +5688,25 @@
       },
       "post": {
         "operationId": "Owners_create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -5146,6 +5724,71 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Owner"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Owners"
+        ]
+      }
+    },
+    "/owners/page": {
+      "get": {
+        "operationId": "Owners_getPage",
+        "parameters": [
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "maxLength": 200,
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "ASC",
+              "type": "string",
+              "enum": [
+                "ASC",
+                "DESC"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerPageDto"
                 }
               }
             }
@@ -5237,6 +5880,23 @@
             "name": "id",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -5415,6 +6075,23 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -5460,6 +6137,23 @@
             "name": "activityId",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -6171,10 +6865,277 @@
         ]
       }
     },
+    "/interested/workflow/import/preview": {
+      "post": {
+        "operationId": "InterestedWorkflow_previewImport",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewInterestedImportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "interested"
+        ]
+      }
+    },
+    "/interested/workflow/import": {
+      "post": {
+        "operationId": "InterestedWorkflow_applyImport",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyInterestedImportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "interested"
+        ]
+      }
+    },
+    "/interested/workflow/merge/preview": {
+      "post": {
+        "operationId": "InterestedWorkflow_previewMerge",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewInterestedMergeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "interested"
+        ]
+      }
+    },
+    "/interested/workflow/merge": {
+      "post": {
+        "operationId": "InterestedWorkflow_merge",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyInterestedMergeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "interested"
+        ]
+      }
+    },
+    "/interested/workflow/pipeline": {
+      "get": {
+        "operationId": "InterestedWorkflow_pipeline",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "interested"
+        ]
+      },
+      "patch": {
+        "operationId": "InterestedWorkflow_configurePipeline",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureInterestedPipelineDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "interested"
+        ]
+      }
+    },
+    "/interested/workflow/pipeline/{id}": {
+      "patch": {
+        "operationId": "InterestedWorkflow_move",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MoveInterestedPipelineDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "interested"
+        ]
+      }
+    },
     "/interested": {
       "post": {
         "operationId": "Interested_create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -6391,6 +7352,23 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -6426,6 +7404,23 @@
             "name": "id",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -6538,6 +7533,23 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -6576,6 +7588,23 @@
             "name": "matchId",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -6619,6 +7648,23 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -6656,6 +7702,23 @@
             "name": "id",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -6726,6 +7789,23 @@
             "name": "id",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -6808,6 +7888,23 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -6848,6 +7945,23 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -6881,6 +7995,23 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -6906,7 +8037,16 @@
     "/sales/folders": {
       "post": {
         "operationId": "Sales_createFolder",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -6959,7 +8099,16 @@
     "/sales/agreements": {
       "post": {
         "operationId": "Sales_createAgreement",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -6996,6 +8145,30 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
           }
         ],
         "responses": {
@@ -7011,6 +8184,53 @@
                 }
               }
             }
+          }
+        },
+        "tags": [
+          "Sales"
+        ]
+      }
+    },
+    "/sales/agreements/page": {
+      "get": {
+        "operationId": "Sales_pageAgreements",
+        "parameters": [
+          {
+            "name": "folderId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
           }
         },
         "tags": [
@@ -7090,6 +8310,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -7112,6 +8340,101 @@
                 }
               }
             }
+          }
+        },
+        "tags": [
+          "Sales"
+        ]
+      }
+    },
+    "/sales/receipts/{receiptId}/cancel": {
+      "patch": {
+        "operationId": "Sales_cancelReceipt",
+        "parameters": [
+          {
+            "name": "receiptId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelSaleReceiptDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleReceipt"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Sales"
+        ]
+      }
+    },
+    "/sales/agreements/{id}/schedule": {
+      "get": {
+        "operationId": "Sales_getSchedule",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "asOf",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
           }
         },
         "tags": [
@@ -7380,6 +8703,36 @@
         ]
       }
     },
+    "/pending-actions/{id}": {
+      "get": {
+        "operationId": "PendingActions_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "PendingActions"
+        ]
+      }
+    },
     "/pending-actions/{id}/reject": {
       "post": {
         "operationId": "PendingActions_reject",
@@ -7503,7 +8856,16 @@
       },
       "post": {
         "operationId": "Maintenance_create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -7570,6 +8932,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -7605,6 +8975,14 @@
             "name": "id",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
             "schema": {
               "type": "string"
             }
@@ -7659,6 +9037,14 @@
             "name": "id",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
             "schema": {
               "type": "string"
             }
@@ -8873,7 +10259,25 @@
       },
       "post": {
         "operationId": "Buyers_create",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -8937,6 +10341,23 @@
             "name": "id",
             "required": true,
             "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
             "schema": {
               "type": "string"
             }
@@ -9131,10 +10552,122 @@
         ]
       }
     },
+    "/maintenance/tickets/{id}/attachments/upload-url": {
+      "post": {
+        "operationId": "MaintenanceAttachments_create",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaintenanceAttachmentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "maintenance"
+        ]
+      }
+    },
+    "/maintenance/tickets/{id}/attachments/{documentId}/confirm": {
+      "patch": {
+        "operationId": "MaintenanceAttachments_confirm",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Document"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "maintenance"
+        ]
+      }
+    },
     "/payment-gateway/preferences": {
       "post": {
         "operationId": "PaymentGateway_createPreference",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -11279,12 +12812,10 @@
           },
           "bedrooms": {
             "type": "number",
-            "default": 0,
             "minimum": 0
           },
           "bathrooms": {
             "type": "number",
-            "default": 0,
             "minimum": 0
           },
           "area": {
@@ -11296,34 +12827,28 @@
             "minimum": 0
           },
           "currency": {
-            "type": "string",
-            "default": "ARS"
+            "type": "string"
           },
           "unitType": {
             "type": "string"
           },
           "hasParking": {
-            "type": "boolean",
-            "default": false
+            "type": "boolean"
           },
           "parkingSpots": {
-            "type": "number",
-            "default": 0
+            "type": "number"
           },
           "hasStorage": {
-            "type": "boolean",
-            "default": false
+            "type": "boolean"
           },
           "isFurnished": {
-            "type": "boolean",
-            "default": false
+            "type": "boolean"
           },
           "expenses": {
             "type": "number"
           },
           "status": {
             "type": "string",
-            "default": "available",
             "enum": [
               "available",
               "occupied",
@@ -12368,6 +13893,24 @@
           "pdfUrl": {
             "type": "string"
           },
+          "financialSnapshot": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true
+          },
+          "cancelledAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "cancelledBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancellationReason": {
+            "type": "string",
+            "nullable": true
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -12390,6 +13933,10 @@
           "overdueAmount",
           "copyCount",
           "pdfUrl",
+          "financialSnapshot",
+          "cancelledAt",
+          "cancelledBy",
+          "cancellationReason",
           "createdAt",
           "updatedAt"
         ]
@@ -12895,6 +14442,10 @@
             "type": "object",
             "additionalProperties": true
           },
+          "pipelineStage": {
+            "type": "string",
+            "nullable": true
+          },
           "lastContactAt": {
             "format": "date-time",
             "type": "string"
@@ -13025,6 +14576,7 @@
           "assignedToUser",
           "organizationName",
           "customFields",
+          "pipelineStage",
           "lastContactAt",
           "nextContactAt",
           "lostReason",
@@ -13291,7 +14843,9 @@
               "office_prospect_welcome_sale",
               "property_visit_scheduled",
               "property_visit_completed",
-              "property_visit_offer"
+              "property_visit_offer",
+              "maintenance_assigned",
+              "maintenance_resolved"
             ],
             "type": "string"
           },
@@ -13393,7 +14947,9 @@
               "office_prospect_welcome_sale",
               "property_visit_scheduled",
               "property_visit_completed",
-              "property_visit_offer"
+              "property_visit_offer",
+              "maintenance_assigned",
+              "maintenance_resolved"
             ]
           },
           "recipientRole": {
@@ -13478,7 +15034,9 @@
               "office_prospect_welcome_sale",
               "property_visit_scheduled",
               "property_visit_completed",
-              "property_visit_offer"
+              "property_visit_offer",
+              "maintenance_assigned",
+              "maintenance_resolved"
             ]
           },
           "recipientRole": {
@@ -13630,7 +15188,9 @@
               "office_prospect_welcome_sale",
               "property_visit_scheduled",
               "property_visit_completed",
-              "property_visit_offer"
+              "property_visit_offer",
+              "maintenance_assigned",
+              "maintenance_resolved"
             ],
             "type": "string"
           },
@@ -14825,9 +16385,13 @@
           "contractType"
         ]
       },
-      "CreateAmendmentDto": {
+      "CreateAmendmentRequestDto": {
         "type": "object",
         "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
           "leaseId": {
             "type": "string",
             "format": "uuid"
@@ -14871,6 +16435,108 @@
           "description"
         ]
       },
+      "ReviewAmendmentDto": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "cancel",
+              "schedule"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 2000
+          },
+          "expectedUpdatedAt": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "action",
+          "reason",
+          "expectedUpdatedAt",
+          "idempotencyKey"
+        ]
+      },
+      "AmendmentReviewDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "amendmentId": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "cancel",
+              "schedule"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "performedBy": {
+            "type": "string"
+          },
+          "performedAt": {
+            "type": "string"
+          },
+          "before": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "after": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "amendmentId",
+          "action",
+          "reason",
+          "performedBy",
+          "performedAt",
+          "before",
+          "after"
+        ]
+      },
+      "ReviewAmendmentResultDto": {
+        "type": "object",
+        "properties": {
+          "amendment": {
+            "$ref": "#/components/schemas/LeaseAmendment"
+          },
+          "review": {
+            "$ref": "#/components/schemas/AmendmentReviewDto"
+          }
+        },
+        "required": [
+          "amendment",
+          "review"
+        ]
+      },
+      "AmendmentTransitionDto": {
+        "type": "object",
+        "properties": {
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedUpdatedAt": {
+            "type": "string"
+          }
+        }
+      },
       "LeaseContractStatusDto": {
         "type": "object",
         "properties": {
@@ -14890,6 +16556,57 @@
         "required": [
           "status",
           "available"
+        ]
+      },
+      "CompanyFinancialSettingsViewDto": {
+        "type": "object",
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "commissionTaxRate": {
+            "type": "number",
+            "nullable": true
+          },
+          "source": {
+            "type": "string",
+            "nullable": true
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "nullable": true,
+            "format": "date"
+          }
+        },
+        "required": [
+          "configured",
+          "commissionTaxRate",
+          "source",
+          "effectiveFrom"
+        ]
+      },
+      "CompanyFinancialSettingsDto": {
+        "type": "object",
+        "properties": {
+          "commissionTaxRate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "source": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 500
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "commissionTaxRate",
+          "source",
+          "effectiveFrom"
         ]
       },
       "ScheduledBillingDto": {
@@ -14985,6 +16702,10 @@
           },
           "lateFee": {
             "type": "number"
+          },
+          "lateFeeCalculation": {
+            "type": "object",
+            "nullable": true
           },
           "adjustments": {
             "type": "number"
@@ -15151,6 +16872,7 @@
           "subtotal",
           "taxAmount",
           "lateFee",
+          "lateFeeCalculation",
           "adjustments",
           "total",
           "netAmount",
@@ -15370,6 +17092,9 @@
             "type": "string",
             "nullable": true
           },
+          "refundedAmount": {
+            "type": "number"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -15386,6 +17111,7 @@
           "amount",
           "previousInvoiceStatus",
           "reversedAt",
+          "refundedAmount",
           "createdAt"
         ]
       },
@@ -15513,6 +17239,9 @@
               "$ref": "#/components/schemas/PaymentAllocation"
             }
           },
+          "refundedAmount": {
+            "type": "number"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -15556,6 +17285,7 @@
           "receipt",
           "items",
           "allocations",
+          "refundedAmount",
           "createdAt",
           "updatedAt",
           "deletedAt"
@@ -16086,6 +17816,28 @@
           }
         }
       },
+      "RefundPaymentDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 0.01
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 2000
+          },
+          "reference": {
+            "type": "string",
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "amount",
+          "reason"
+        ]
+      },
       "PaymentDocumentTemplate": {
         "type": "object",
         "properties": {
@@ -16190,6 +17942,7 @@
           },
           "email": {
             "type": "string",
+            "nullable": true,
             "maxLength": 255,
             "format": "email"
           },
@@ -16225,12 +17978,63 @@
               "email",
               "sms"
             ]
+          },
+          "cuil": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "dateOfBirth": {
+            "type": "string"
+          },
+          "nationality": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "occupation": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "employer": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "monthlyIncome": {
+            "type": "number",
+            "minimum": 0
+          },
+          "employmentStatus": {
+            "type": "string",
+            "enum": [
+              "employed",
+              "self_employed",
+              "unemployed",
+              "retired",
+              "student"
+            ]
+          },
+          "emergencyContactName": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "emergencyContactPhone": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "emergencyContactRelationship": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "creditScore": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 10000
           }
         },
         "required": [
-          "companyId",
-          "email",
-          "password",
           "firstName",
           "lastName",
           "dni"
@@ -16393,13 +18197,40 @@
       "UpdateTenantDto": {
         "type": "object",
         "properties": {
-          "email": {
-            "type": "string"
-          },
           "password": {
             "type": "string"
           }
         }
+      },
+      "OwnerPageDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Owner"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "data",
+          "total",
+          "page",
+          "limit"
+        ]
       },
       "CreateOwnerDto": {
         "type": "object",
@@ -17626,7 +19457,6 @@
             }
           },
           "propertyTypePreference": {
-            "type": "string",
             "enum": [
               "apartment",
               "house",
@@ -17636,18 +19466,19 @@
               "land",
               "parking",
               "other"
-            ]
+            ],
+            "type": "string"
           },
           "operation": {
-            "type": "string",
             "enum": [
               "rent",
               "sale"
-            ]
+            ],
+            "type": "string"
           },
           "operations": {
-            "type": "array",
             "minItems": 1,
+            "type": "array",
             "items": {
               "type": "string",
               "enum": [
@@ -17657,20 +19488,20 @@
             }
           },
           "status": {
-            "type": "string",
             "enum": [
               "interested",
               "tenant",
               "buyer"
-            ]
+            ],
+            "type": "string"
           },
           "qualificationLevel": {
-            "type": "string",
             "enum": [
               "mql",
               "sql",
               "rejected"
-            ]
+            ],
+            "type": "string"
           },
           "qualificationNotes": {
             "type": "string"
@@ -17700,12 +19531,12 @@
             "type": "boolean"
           },
           "preferredContactChannel": {
-            "type": "string",
             "enum": [
               "whatsapp",
               "email",
               "sms"
-            ]
+            ],
+            "type": "string"
           },
           "lastContactAt": {
             "format": "date-time",
@@ -17724,6 +19555,125 @@
         },
         "required": [
           "phone"
+        ]
+      },
+      "PreviewInterestedImportDto": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "minItems": 1,
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateInterestedProfileDto"
+            }
+          }
+        },
+        "required": [
+          "rows"
+        ]
+      },
+      "ApplyInterestedImportDto": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "minItems": 1,
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreateInterestedProfileDto"
+            }
+          },
+          "reviewToken": {
+            "type": "string"
+          },
+          "skipRows": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "rows",
+          "reviewToken",
+          "skipRows"
+        ]
+      },
+      "PreviewInterestedMergeDto": {
+        "type": "object",
+        "properties": {
+          "targetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "targetId",
+          "sourceId"
+        ]
+      },
+      "ApplyInterestedMergeDto": {
+        "type": "object",
+        "properties": {
+          "targetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reviewToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetId",
+          "sourceId",
+          "reviewToken"
+        ]
+      },
+      "ConfigureInterestedPipelineDto": {
+        "type": "object",
+        "properties": {
+          "stages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "label"
+              ]
+            }
+          }
+        },
+        "required": [
+          "stages"
+        ]
+      },
+      "MoveInterestedPipelineDto": {
+        "type": "object",
+        "properties": {
+          "stageId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z\\d_]{0,39}$"
+          }
+        },
+        "required": [
+          "stageId"
         ]
       },
       "UpdateInterestedMatchDto": {
@@ -18113,6 +20063,19 @@
           "paymentDate"
         ]
       },
+      "CancelSaleReceiptDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
       "ExecuteAiToolDto": {
         "type": "object",
         "properties": {
@@ -18416,7 +20379,6 @@
           },
           "area": {
             "type": "string",
-            "default": "other",
             "enum": [
               "kitchen",
               "bathroom",
@@ -18432,7 +20394,6 @@
           },
           "priority": {
             "type": "string",
-            "default": "medium",
             "enum": [
               "low",
               "medium",
@@ -18442,7 +20403,6 @@
           },
           "source": {
             "type": "string",
-            "default": "admin",
             "enum": [
               "tenant",
               "owner",
@@ -18460,8 +20420,7 @@
             "minimum": 0
           },
           "costCurrency": {
-            "type": "string",
-            "default": "ARS"
+            "type": "string"
           }
         },
         "required": [
@@ -20264,6 +22223,10 @@
           "updatedAt"
         ]
       },
+      "MaintenanceAttachmentDto": {
+        "type": "object",
+        "properties": {}
+      },
       "CreatePaymentPreferenceDto": {
         "type": "object",
         "properties": {
@@ -20331,6 +22294,17 @@
           "amount": {
             "type": "number"
           },
+          "idempotencyKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "paymentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "refundedAmount": {
+            "type": "number"
+          },
           "currency": {
             "type": "string"
           },
@@ -20374,6 +22348,9 @@
           "externalPaymentId",
           "status",
           "amount",
+          "idempotencyKey",
+          "paymentId",
+          "refundedAmount",
           "currency",
           "paymentMethod",
           "installments",

@@ -45,6 +45,7 @@ export interface InterestedProfile {
   propertyTypePreference?: InterestedPropertyType;
   operation?: InterestedOperation;
   operations?: InterestedOperation[];
+  pipelineStage?: string;
   status?: InterestedStatus;
   qualificationLevel?: InterestedQualificationLevel;
   qualificationNotes?: string;

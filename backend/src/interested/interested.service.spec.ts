@@ -140,6 +140,12 @@ describe('InterestedService', () => {
       getRepositoryToken(InterestedStageHistory),
     );
     activityRepository = module.get(getRepositoryToken(InterestedActivity));
+    dataSource.transaction.mockImplementation(async (execute) =>
+      execute({
+        query: jest.fn().mockResolvedValue([]),
+        getRepository: (entity: any) => module.get(getRepositoryToken(entity)),
+      }),
+    );
   });
 
   it('should create a detailed interested profile', async () => {
@@ -245,6 +251,7 @@ describe('InterestedService', () => {
         recipient: 'ana@example.com',
         consented: true,
       }),
+      expect.objectContaining({ getRepository: expect.any(Function) }),
     );
     expect(activityRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -387,7 +394,10 @@ describe('InterestedService', () => {
     });
     const reservationRepo = (service as any)
       .reservationRepository as MockRepository;
-    reservationRepo.findOne!.mockResolvedValue({ id: 'res-1' });
+    reservationRepo.findOne!.mockResolvedValue({
+      id: 'res-1',
+      interestedProfileId: 'int-1',
+    });
 
     const result = await service.createReservation(
       'int-1',
@@ -395,7 +405,7 @@ describe('InterestedService', () => {
       { id: 'user-1', role: 'admin', companyId: 'company-1' },
     );
 
-    expect(result).toEqual({ id: 'res-1' });
+    expect(result).toEqual(expect.objectContaining({ id: 'res-1' }));
   });
 
   it('should apply filters and pagination on findAll query', async () => {
@@ -428,6 +438,14 @@ describe('InterestedService', () => {
       limit: 5,
     });
     expect(qb.skip).toHaveBeenCalledWith(5);
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('interested.email'),
+      { name: '%Ana%' },
+    );
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('interested.phone'),
+      { name: '%Ana%' },
+    );
   });
 
   it('should save stage history when update changes status', async () => {
@@ -634,7 +652,7 @@ describe('InterestedService', () => {
       { id: 'user-1', role: 'admin', companyId: 'company-1' },
     );
 
-    expect(result).toEqual({ id: 'res-1' });
+    expect(result).toEqual(expect.objectContaining({ id: 'res-1' }));
     expect(propertiesRepository.update).toHaveBeenCalledWith('prop-1', {
       operationState: PropertyOperationState.RESERVED,
     });
@@ -906,13 +924,23 @@ describe('InterestedService', () => {
     dataSource.transaction.mockImplementation(async (cb) =>
       cb({
         getRepository: (entity: any) => {
-          if (entity === User) return userRepo;
-          if (entity === Buyer) return buyerRepo;
+          if (entity === User)
+            return { ...(service as any)._usersRepository, ...userRepo };
+          if (entity === Buyer)
+            return { ...(service as any)._buyersRepository, ...buyerRepo };
           if (entity === SaleFolder) return folderRepo;
           if (entity === SaleAgreement) return agreementsRepo;
-          if (entity === Property) return propertyRepo;
+          if (entity === Property)
+            return {
+              ...(service as any)._propertiesRepository,
+              ...propertyRepo,
+            };
           if (entity === Lease) return contractRepo;
-          if (entity === InterestedProfile) return profileRepo;
+          if (entity === InterestedProfile)
+            return {
+              ...(service as any)._interestedRepository,
+              ...profileRepo,
+            };
           if (entity === InterestedStageHistory) return historyRepo;
           if (entity === InterestedActivity) return activityRepo;
           return { create: jest.fn(), save: jest.fn(), findOne: jest.fn() };
@@ -1040,9 +1068,15 @@ describe('InterestedService', () => {
     dataSource.transaction.mockImplementation(async (cb) =>
       cb({
         getRepository: (entity: any) => {
-          if (entity === User) return userRepo;
-          if (entity === Tenant) return tenantRepo;
-          if (entity === InterestedProfile) return profileRepo;
+          if (entity === User)
+            return { ...(service as any)._usersRepository, ...userRepo };
+          if (entity === Tenant)
+            return { ...(service as any)._tenantsRepository, ...tenantRepo };
+          if (entity === InterestedProfile)
+            return {
+              ...(service as any)._interestedRepository,
+              ...profileRepo,
+            };
           if (entity === InterestedStageHistory) return historyRepo;
           if (entity === InterestedActivity) return activityRepo;
           return { create: jest.fn(), save: jest.fn() };
@@ -1121,8 +1155,10 @@ describe('InterestedService', () => {
     dataSource.transaction.mockImplementation(async (cb) =>
       cb({
         getRepository: (entity: any) => {
+          if (entity === InterestedProfile) return interestedRepository;
           if (entity === User) {
             return {
+              ...(service as any)._usersRepository,
               create: jest.fn((data) => data),
               save: jest.fn().mockResolvedValue({ id: 'user-2' }),
             };
@@ -1542,9 +1578,15 @@ describe('InterestedService', () => {
     dataSource.transaction.mockImplementation(async (cb: any) =>
       cb({
         getRepository: (entity: any) => {
-          if (entity === User) return userRepo;
-          if (entity === Tenant) return tenantRepo;
-          if (entity === InterestedProfile) return profileRepo;
+          if (entity === User)
+            return { ...(service as any)._usersRepository, ...userRepo };
+          if (entity === Tenant)
+            return { ...(service as any)._tenantsRepository, ...tenantRepo };
+          if (entity === InterestedProfile)
+            return {
+              ...(service as any)._interestedRepository,
+              ...profileRepo,
+            };
           if (entity === InterestedStageHistory) return historyRepo;
           if (entity === InterestedActivity) return activityRepoTx;
           return { create: jest.fn(), save: jest.fn() };
@@ -1563,8 +1605,7 @@ describe('InterestedService', () => {
 
     expect(result.status).toBe(InterestedStatus.TENANT);
     // reason provided → should create an activity
-    const activityRepo = (service as any).activityRepository;
-    expect(activityRepo.save).toHaveBeenCalled();
+    expect(activityRepoTx.save).toHaveBeenCalled();
   });
 
   it('should changeStage INTERESTED → BUYER', async () => {
@@ -1640,9 +1681,15 @@ describe('InterestedService', () => {
     dataSource.transaction.mockImplementation(async (cb: any) =>
       cb({
         getRepository: (entity: any) => {
-          if (entity === User) return userRepo;
-          if (entity === Buyer) return buyerRepo;
-          if (entity === InterestedProfile) return profileRepo;
+          if (entity === User)
+            return { ...(service as any)._usersRepository, ...userRepo };
+          if (entity === Buyer)
+            return { ...(service as any)._buyersRepository, ...buyerRepo };
+          if (entity === InterestedProfile)
+            return {
+              ...(service as any)._interestedRepository,
+              ...profileRepo,
+            };
           if (entity === InterestedStageHistory) return historyRepo;
           if (entity === InterestedActivity) return activityRepoTx;
           return { create: jest.fn(), save: jest.fn(), findOne: jest.fn() };

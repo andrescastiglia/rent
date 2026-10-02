@@ -1,86 +1,58 @@
 "use client";
 
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 
 export default function Footer() {
-  const currentYear = new Date().getFullYear();
   const locale = useLocale();
   const t = useTranslations("footer");
-
+  const supportEmail = process.env.NEXT_PUBLIC_COMPANY_SUPPORT_EMAIL;
   return (
-    <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* About */}
-          <div>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              {t("aboutUs")}
-            </p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {t("description")}
-            </p>
-          </div>
-
-          {/* Links */}
-          <div>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
-              {t("usefulLinks")}
-            </p>
-            <ul className="space-y-2">
-              <li>
-                <a
-                  href="https://github.com/andrescastiglia/rent/blob/main/README.md"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                >
-                  {t("help")}
-                </a>
-              </li>
-              <li>
-                <a
-                  href={`/${locale}/terms`}
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                >
-                  {t("termsAndConditions")}
-                </a>
-              </li>
-              <li>
-                <a
-                  href={`/${locale}/privacy`}
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                >
-                  {t("privacy")}
-                </a>
-              </li>
-              <li>
-                <a
-                  href={`/${locale}/data-deletion`}
-                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                >
-                  {t("dataDeletion")}
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+    <footer
+      data-sidebar-background
+      className="mt-auto border-t border-line bg-surface"
+    >
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4 text-xs text-muted sm:px-6">
+        <p>{t("copyright", { year: new Date().getFullYear() })}</p>
+        <nav
+          aria-label={t("usefulLinks")}
+          className="flex flex-wrap items-center gap-x-4 gap-y-2"
+        >
+          <a
+            className="inline-flex min-h-11 items-center hover:underline"
+            href="https://github.com/andrescastiglia/rent/blob/main/README.md"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t("help")}
+          </a>
+          <Link
+            className="inline-flex min-h-11 items-center hover:underline"
+            href={`/${locale}/terms`}
+          >
+            {t("termsAndConditions")}
+          </Link>
+          <Link
+            className="inline-flex min-h-11 items-center hover:underline"
+            href={`/${locale}/privacy`}
+          >
+            {t("privacy")}
+          </Link>
+          <Link
+            className="inline-flex min-h-11 items-center hover:underline"
+            href={`/${locale}/data-deletion`}
+          >
+            {t("dataDeletion")}
+          </Link>
+          {supportEmail && (
+            <a
+              className="inline-flex min-h-11 items-center hover:underline"
+              href={`mailto:${supportEmail}`}
+            >
               {t("contact")}
-            </p>
-            <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-              <li>Email: acastiglia@gmail.com</li>
-              <li>Tel: +54 9 2227 44-2981</li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-          <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-            {t("copyright", { year: currentYear })}
-          </p>
-        </div>
+            </a>
+          )}
+        </nav>
       </div>
     </footer>
   );

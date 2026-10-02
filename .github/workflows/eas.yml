@@ -4,6 +4,7 @@ on:
   workflow_call:
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -187,6 +188,27 @@ jobs:
             > "rent-android-${GITHUB_SHA}.aab.sha256"
           npm sbom --omit=dev --package-lock-only --sbom-format=cyclonedx > mobile.cdx.json
           ccache --show-stats
+
+      - name: Require successful native validation before publishing Android
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node --input-type=module <<'JS'
+          const url = new URL(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/actions/workflows/mobile-native.yml/runs`);
+          url.searchParams.set('head_sha', process.env.GITHUB_SHA);
+          url.searchParams.set('branch', 'main');
+          url.searchParams.set('event', 'push');
+          url.searchParams.set('per_page', '1');
+          const response = await fetch(url, {
+            headers: { Authorization: `Bearer ${process.env.GH_TOKEN}`, Accept: 'application/vnd.github+json' },
+          });
+          if (!response.ok) throw new Error(`Native validation lookup failed: HTTP ${response.status}`);
+          const run = (await response.json()).workflow_runs[0];
+          if (run?.head_sha !== process.env.GITHUB_SHA || run?.conclusion !== 'success') {
+            throw new Error(`Android publication requires successful native validation for ${process.env.GITHUB_SHA}: ${run?.html_url ?? 'no matching run'}`);
+          }
+          console.log(`Validated native run ${run.html_url}`);
+          JS
 
       - name: Submit Android and publish JavaScript update
         env:

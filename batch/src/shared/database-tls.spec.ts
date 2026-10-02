@@ -4,7 +4,9 @@ jest.mock("node:fs", () => ({ readFileSync: jest.fn(() => "test-ca") }));
 describe("database TLS policy", () => {
   it("preserves legacy defaults and supports explicit local disable", () => {
     expect(databaseTls({})).toBeUndefined();
-    expect(databaseTls({ DATABASE_SSL_MODE: "disable" })).toBe(false);
+    expect(databaseTls({ DATABASE_SSL_MODE: "disable" })).toEqual({
+      ssl: false,
+    });
   });
   it("requires a CA and rejects ambiguous connection-string overrides", () => {
     expect(() => databaseTls({ DATABASE_SSL_MODE: "require" })).toThrow(
@@ -28,7 +30,7 @@ describe("database TLS policy", () => {
         DATABASE_SSL_CA_FILE: "/ca.crt",
         DATABASE_URL: "postgres://db/app",
       }),
-    ).toEqual({ rejectUnauthorized: true, ca: "test-ca" });
+    ).toEqual({ ssl: { rejectUnauthorized: true, ca: "test-ca" } });
     expect(readFileSync).toHaveBeenCalledWith("/ca.crt", "utf8");
   });
 });

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
+import { CommunicationsService } from '../communications/communications.service';
 import { MaintenanceService } from './maintenance.service';
 import {
   MaintenanceTicket,
@@ -14,6 +15,7 @@ import { MaintenanceTicketComment } from './entities/maintenance-ticket-comment.
 import { PropertiesService } from '../properties/properties.service';
 import { UserRole } from '../users/entities/user.entity';
 import { ContractType, LeaseStatus } from '../leases/entities/lease.entity';
+import { Staff } from '../staff/entities/staff.entity';
 
 type MockRepository<T extends Record<string, any> = any> = Partial<
   Record<keyof Repository<T>, jest.Mock>
@@ -120,6 +122,10 @@ describe('MaintenanceService', () => {
       providers: [
         MaintenanceService,
         {
+          provide: CommunicationsService,
+          useValue: { dispatchEvent: jest.fn() },
+        },
+        {
           provide: getRepositoryToken(MaintenanceTicket),
           useValue: createMockRepository(),
         },
@@ -140,6 +146,25 @@ describe('MaintenanceService', () => {
       getRepositoryToken(MaintenanceTicketComment),
     );
     propertiesService = module.get(PropertiesService);
+    const manager = {
+      query: jest.fn().mockResolvedValue([]),
+      getRepository: (entity: unknown) =>
+        entity === MaintenanceTicket
+          ? ticketRepository
+          : entity === MaintenanceTicketComment
+            ? commentRepository
+            : {
+                findOne: jest.fn().mockResolvedValue({
+                  companyId: adminActor.companyId,
+                  user: { companyId: adminActor.companyId, isActive: true },
+                } as Partial<Staff>),
+              },
+    };
+    Object.assign(ticketRepository, {
+      manager: {
+        transaction: (work: (m: unknown) => unknown) => work(manager),
+      },
+    });
   });
 
   it('should be defined', () => {
@@ -455,7 +480,10 @@ describe('MaintenanceService', () => {
 
       await service.remove('ticket-uuid-1', adminActor);
 
-      expect(ticketRepository.softDelete).toHaveBeenCalledWith('ticket-uuid-1');
+      expect(ticketRepository.softDelete).toHaveBeenCalledWith({
+        id: 'ticket-uuid-1',
+        companyId: adminActor.companyId,
+      });
     });
 
     it('throws NotFoundException when ticket not found', async () => {
@@ -527,5 +555,85 @@ describe('MaintenanceService', () => {
       expect(qb.andWhere).toHaveBeenCalledWith('comment.is_internal = false');
       expect(result).toEqual(publicComments);
     });
+  });
+  it('queues assignment and closure notices with the same transaction and skips ordinary edits', async () => {
+    const communications = await (service as any).communicationsService;
+    const query = jest.fn(async (sql: string) =>
+      sql.includes('WITH subject')
+        ? [
+            {
+              id: 'owner',
+              role: 'owner',
+              name: 'Owner',
+              phone: '+5491112345678',
+              locale: 'es',
+            },
+          ]
+        : [],
+    );
+    const manager = { query, getRepository: () => ticketRepository };
+    const ticket = mockTicket({
+      assignedToStaffId: 'staff-1',
+      status: MaintenanceTicketStatus.ASSIGNED,
+    });
+    await (service as any).queueTransitionNotices(manager, ticket, {
+      assignedToStaffId: null,
+      status: 'open',
+    });
+    expect(communications.dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'maintenance_assigned',
+        relatedEntityId: ticket.id,
+        consented: true,
+      }),
+      manager,
+    );
+    communications.dispatchEvent.mockClear();
+    await (service as any).queueTransitionNotices(manager, ticket, {
+      assignedToStaffId: 'staff-1',
+      status: 'assigned',
+    });
+    expect(communications.dispatchEvent).not.toHaveBeenCalled();
+    ticket.status = MaintenanceTicketStatus.RESOLVED;
+    await (service as any).queueTransitionNotices(manager, ticket, {
+      assignedToStaffId: 'staff-1',
+      status: 'assigned',
+    });
+    expect(communications.dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'maintenance_resolved',
+        metadata: {
+          maintenanceSnapshot: expect.objectContaining({
+            status: 'resolved',
+            assignedToStaffId: 'staff-1',
+          }),
+        },
+      }),
+      manager,
+    );
+  });
+  it('propagates an enqueue failure so ticket, audit and receipt can roll back together', async () => {
+    const communications = await (service as any).communicationsService;
+    communications.dispatchEvent.mockRejectedValueOnce(
+      new Error('enqueue unavailable'),
+    );
+    const manager = {
+      query: jest.fn().mockResolvedValue([
+        {
+          id: 'owner',
+          role: 'owner',
+          name: 'Owner',
+          phone: '123',
+          locale: 'es',
+        },
+      ]),
+    };
+    await expect(
+      (service as any).queueTransitionNotices(
+        manager,
+        mockTicket({ status: MaintenanceTicketStatus.RESOLVED }),
+        { status: 'assigned' },
+      ),
+    ).rejects.toThrow('enqueue unavailable');
   });
 });

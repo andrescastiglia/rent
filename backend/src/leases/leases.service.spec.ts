@@ -235,6 +235,44 @@ describe('LeasesService', () => {
     });
   });
 
+  it('normalizes a scoped tenant user identifier to the tenant entity identifier', async () => {
+    const dto = { tenantId: 'tenant-user' };
+    tenantRepository.findOne!.mockResolvedValue({ id: 'tenant-entity' });
+    await (service as any).validatePartiesForCompany(
+      dto,
+      ContractType.RENTAL,
+      'company-1',
+      manager,
+    );
+    expect(dto.tenantId).toBe('tenant-entity');
+    expect(tenantRepository.findOne).toHaveBeenCalledWith({
+      where: [
+        {
+          id: 'tenant-user',
+          companyId: 'company-1',
+          deletedAt: expect.anything(),
+        },
+        {
+          userId: 'tenant-user',
+          companyId: 'company-1',
+          deletedAt: expect.anything(),
+        },
+      ],
+    });
+  });
+
+  it('does not accept an unknown or foreign tenant user identifier', async () => {
+    tenantRepository.findOne!.mockResolvedValue(null);
+    await expect(
+      (service as any).validatePartiesForCompany(
+        { tenantId: 'foreign-user' },
+        ContractType.RENTAL,
+        'company-1',
+        manager,
+      ),
+    ).rejects.toThrow('Tenant not found');
+  });
+
   it('requires company scope for lease queries', async () => {
     await expect(
       service.findAll({} as any, { ...adminActor, companyId: '' }),

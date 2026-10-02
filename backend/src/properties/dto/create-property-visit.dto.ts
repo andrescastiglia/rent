@@ -11,7 +11,10 @@ import { z } from 'zod';
 
 const createPropertyVisitZodSchema = z
   .object({
-    visitedAt: z.iso.date().optional().describe('Visit date (YYYY-MM-DD)'),
+    visitedAt: z
+      .union([z.iso.date(), z.iso.datetime({ offset: true })])
+      .optional()
+      .describe('Civil visit date (YYYY-MM-DD) or ISO datetime with timezone'),
     interestedName: z.string().min(1).optional(),
     interestedProfileId: z
       .uuid()

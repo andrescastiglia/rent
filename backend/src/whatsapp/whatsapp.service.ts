@@ -1411,14 +1411,11 @@ export class WhatsappService implements OnApplicationBootstrap {
     role: UserRole,
   ): Promise<string> {
     if (!this.dataSource) return userId;
-    const table =
-      role === UserRole.OWNER
-        ? 'owners'
-        : role === UserRole.TENANT
-          ? 'tenants'
-          : role === UserRole.BUYER
-            ? 'buyers'
-            : null;
+    const table = new Map<UserRole, string>([
+      [UserRole.OWNER, 'owners'],
+      [UserRole.TENANT, 'tenants'],
+      [UserRole.BUYER, 'buyers'],
+    ]).get(role);
     if (!table) return userId;
     const rows = await this.dataSource.query(
       `SELECT id FROM ${table} WHERE user_id = $1::uuid AND deleted_at IS NULL LIMIT 1`,

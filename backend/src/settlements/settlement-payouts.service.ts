@@ -194,8 +194,7 @@ export class SettlementPayoutsService {
         [settlementId, companyId],
       );
       if (
-        !job ||
-        job.status !== 'needs_review' ||
+        job?.status !== 'needs_review' ||
         job.payout_id ||
         !dto.payoutId ||
         !dto.transactionId
@@ -218,62 +217,19 @@ export class SettlementPayoutsService {
           'Payout is missing or currently processing',
         );
       await this.settlement(manager, settlementId, companyId, true);
-      if (dto.action === 'link') {
-        if (job.status !== 'needs_review' || job.payout_id || !verified)
-          throw new ConflictException('Payout was already resolved');
-        try {
-          await manager.query(
-            `UPDATE settlement_payout_outbox SET payout_id=$2,transaction_id=$3,status='awaiting',error_code=NULL,failures=0,next_attempt_at=now(),claim_token=NULL,lease_expires_at=NULL,updated_at=now() WHERE id=$1::uuid`,
-            [job.id, dto.payoutId, dto.transactionId],
-          );
-        } catch (error) {
-          if ((error as { code?: string }).code === '23505')
-            throw new ConflictException(
-              'External transaction is already linked',
-            );
-          throw error;
-        }
-      } else if (dto.action === 'retry') {
-        if (
-          job.status !== 'failed' ||
-          job.payout_id ||
-          !['provider_rejected', 'configuration_error'].includes(
-            job.error_code ?? '',
-          )
-        )
-          throw new ConflictException(
-            'Uncertain transfers must never be sent again',
-          );
-        const settlement = await this.settlement(
-          manager,
-          settlementId,
-          companyId,
-          true,
-        );
-        this.assertSnapshot(job, settlement);
-        await this.generations.assertSources(manager, settlementId, companyId);
-        if (settlement.status !== 'failed')
-          throw new ConflictException(
-            'Settlement is no longer eligible for retry',
-          );
-        await manager.query(
-          `UPDATE settlement_payout_outbox SET status='queued',error_code=NULL,failures=0,next_attempt_at=now(),claim_token=NULL,lease_expires_at=NULL,updated_at=now() WHERE id=$1::uuid`,
-          [job.id],
-        );
-        await manager.query(
-          "UPDATE settlements SET status='processing',updated_at=now() WHERE id=$1::uuid",
-          [settlementId],
-        );
-      } else if (dto.action === 'refresh') {
-        if (!job.payout_id)
-          throw new ConflictException(
-            'A known transaction is required for reconciliation',
-          );
-        await manager.query(
-          `UPDATE settlement_payout_outbox SET status='awaiting',error_code=NULL,failures=0,next_attempt_at=now(),claim_token=NULL,lease_expires_at=NULL,updated_at=now() WHERE id=$1::uuid`,
-          [job.id],
-        );
-      } else throw new BadRequestException('Unsupported payout review action');
+      switch (dto.action) {
+        case 'link':
+          await this.linkReviewedPayout(manager, job, dto, verified);
+          break;
+        case 'retry':
+          await this.retryReviewedPayout(manager, job, settlementId, companyId);
+          break;
+        case 'refresh':
+          await this.refreshReviewedPayout(manager, job);
+          break;
+        default:
+          throw new BadRequestException('Unsupported payout review action');
+      }
       await manager.query(
         `INSERT INTO settlement_payout_reviews(company_id,payout_job_id,actor_id,action,reason,payout_id,transaction_id) VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7)`,
         [
@@ -289,6 +245,71 @@ export class SettlementPayoutsService {
     });
     return this.overview(settlementId, companyId);
   }
+  private async linkReviewedPayout(
+    manager: EntityManager,
+    job: Job,
+    dto: ReviewSettlementPayoutDto,
+    verified?: PayoutTransaction,
+  ) {
+    if (job.status !== 'needs_review' || job.payout_id || !verified)
+      throw new ConflictException('Payout was already resolved');
+    try {
+      await manager.query(
+        `UPDATE settlement_payout_outbox SET payout_id=$2,transaction_id=$3,status='awaiting',error_code=NULL,failures=0,next_attempt_at=now(),claim_token=NULL,lease_expires_at=NULL,updated_at=now() WHERE id=$1::uuid`,
+        [job.id, dto.payoutId, dto.transactionId],
+      );
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505')
+        throw new ConflictException('External transaction is already linked');
+      throw error;
+    }
+  }
+  private async retryReviewedPayout(
+    manager: EntityManager,
+    job: Job,
+    settlementId: string,
+    companyId: string,
+  ) {
+    if (
+      job.status !== 'failed' ||
+      job.payout_id ||
+      !['provider_rejected', 'configuration_error'].includes(
+        job.error_code ?? '',
+      )
+    )
+      throw new ConflictException(
+        'Uncertain transfers must never be sent again',
+      );
+    const settlement = await this.settlement(
+      manager,
+      settlementId,
+      companyId,
+      true,
+    );
+    this.assertSnapshot(job, settlement);
+    await this.generations.assertSources(manager, settlementId, companyId);
+    if (settlement.status !== 'failed')
+      throw new ConflictException('Settlement is no longer eligible for retry');
+    await manager.query(
+      `UPDATE settlement_payout_outbox SET status='queued',error_code=NULL,failures=0,next_attempt_at=now(),claim_token=NULL,lease_expires_at=NULL,updated_at=now() WHERE id=$1::uuid`,
+      [job.id],
+    );
+    await manager.query(
+      "UPDATE settlements SET status='processing',updated_at=now() WHERE id=$1::uuid",
+      [settlementId],
+    );
+  }
+  private async refreshReviewedPayout(manager: EntityManager, job: Job) {
+    if (!job.payout_id)
+      throw new ConflictException(
+        'A known transaction is required for reconciliation',
+      );
+    await manager.query(
+      `UPDATE settlement_payout_outbox SET status='awaiting',error_code=NULL,failures=0,next_attempt_at=now(),claim_token=NULL,lease_expires_at=NULL,updated_at=now() WHERE id=$1::uuid`,
+      [job.id],
+    );
+  }
+
   async processDue() {
     const counts = {
       processed: 0,
@@ -449,86 +470,21 @@ export class SettlementPayoutsService {
         );
         return false;
       }
-      const accredited = this.client.isAccredited(remote);
-      const refunded =
-        remote.status === 'refunded' && remote.status_detail === 'refunded';
-      let status = 'awaiting';
-      let error: string | null = null;
-      let completed = false;
-      if (accredited) {
-        if (
-          ledger.reversals ||
-          (current.remote_status === 'refunded' &&
-            current.remote_detail === 'refunded')
-        ) {
-          status = 'needs_review';
-          error = 'accreditation_after_reversal';
-        } else if (!ledger.transfers && settlement.status !== 'processing') {
-          status = 'needs_review';
-          error = 'unexpected_settlement_status';
-        } else {
-          if (!ledger.transfers) {
-            await this.movement(manager, current, 'transfer', observedAt);
-            completed = true;
-          }
-          await manager.query(
-            `UPDATE settlements SET status='completed',processed_at=COALESCE(processed_at,$2::timestamptz),transfer_reference=$3,updated_at=now() WHERE id=$1::uuid`,
-            [
-              current.settlement_id,
-              observedAt.toISOString(),
-              current.transaction_id,
-            ],
+      const outcome = this.client.isAccredited(remote)
+        ? await this.reconcileAccredited(
+            manager,
+            current,
+            settlement,
+            ledger,
+            observedAt,
+          )
+        : await this.reconcileOtherStatus(
+            manager,
+            current,
+            remote,
+            ledger,
+            observedAt,
           );
-          status = 'completed';
-        }
-      } else if (refunded) {
-        if (ledger.transfers && !ledger.reversals)
-          await this.movement(manager, current, 'reversal', observedAt);
-        await manager.query(
-          `UPDATE settlements SET status='failed',processed_at=NULL,transfer_reference=$2,updated_at=now() WHERE id=$1::uuid`,
-          [current.settlement_id, current.transaction_id],
-        );
-        status = 'reversed';
-      } else if (remote.status_detail === 'partially_refunded') {
-        status = 'needs_review';
-        error = 'partial_refund_requires_review';
-        await this.blockQueuedPaidNotices(
-          manager,
-          current,
-          'Partial refund requires review',
-        );
-        await manager.query(
-          "UPDATE settlements SET status='processing',updated_at=now() WHERE id=$1::uuid",
-          [current.settlement_id],
-        );
-      } else if (ledger.transfers || ledger.reversals) {
-        status = 'needs_review';
-        error = 'status_changed_after_accreditation';
-        await this.blockQueuedPaidNotices(
-          manager,
-          current,
-          'Provider status requires review',
-        );
-      } else if (['rejected', 'canceled', 'error'].includes(remote.status)) {
-        status = 'failed';
-        error = 'transfer_not_accredited';
-        await manager.query(
-          "UPDATE settlements SET status='failed',updated_at=now() WHERE id=$1::uuid",
-          [current.settlement_id],
-        );
-      } else if (
-        ![
-          'created',
-          'pending',
-          'approved',
-          'processed',
-          'transaction_in_process',
-        ].includes(remote.status) &&
-        !(remote.status === 'success' && remote.status_detail === 'in_progress')
-      ) {
-        status = 'needs_review';
-        error = 'unknown_provider_status';
-      }
       await manager.query(
         `UPDATE settlement_payout_outbox SET remote_status=$2,remote_detail=$3,remote_updated_at=$4::timestamptz WHERE id=$1::uuid`,
         [
@@ -538,10 +494,110 @@ export class SettlementPayoutsService {
           observedAt.toISOString(),
         ],
       );
-      await this.finish(manager, current, status, error, true);
-      return completed;
+      await this.finish(manager, current, outcome.status, outcome.error, true);
+      return outcome.completed;
     });
   }
+  private async reconcileAccredited(
+    manager: EntityManager,
+    current: Job,
+    settlement: SettlementRow,
+    ledger: { transfers: number; reversals: number },
+    observedAt: Date,
+  ) {
+    let status: string;
+    let error: string | null = null,
+      completed = false;
+
+    if (
+      ledger.reversals ||
+      (current.remote_status === 'refunded' &&
+        current.remote_detail === 'refunded')
+    ) {
+      status = 'needs_review';
+      error = 'accreditation_after_reversal';
+    } else if (!ledger.transfers && settlement.status !== 'processing') {
+      status = 'needs_review';
+      error = 'unexpected_settlement_status';
+    } else {
+      if (!ledger.transfers) {
+        await this.movement(manager, current, 'transfer', observedAt);
+        completed = true;
+      }
+      await manager.query(
+        `UPDATE settlements SET status='completed',processed_at=COALESCE(processed_at,$2::timestamptz),transfer_reference=$3,updated_at=now() WHERE id=$1::uuid`,
+        [
+          current.settlement_id,
+          observedAt.toISOString(),
+          current.transaction_id,
+        ],
+      );
+      status = 'completed';
+    }
+    return { status, error, completed };
+  }
+  private async reconcileOtherStatus(
+    manager: EntityManager,
+    current: Job,
+    remote: PayoutTransaction,
+    ledger: { transfers: number; reversals: number },
+    observedAt: Date,
+  ) {
+    const refunded =
+      remote.status === 'refunded' && remote.status_detail === 'refunded';
+    let status = 'awaiting',
+      error: string | null = null;
+    if (refunded) {
+      if (ledger.transfers && !ledger.reversals)
+        await this.movement(manager, current, 'reversal', observedAt);
+      await manager.query(
+        `UPDATE settlements SET status='failed',processed_at=NULL,transfer_reference=$2,updated_at=now() WHERE id=$1::uuid`,
+        [current.settlement_id, current.transaction_id],
+      );
+      status = 'reversed';
+    } else if (remote.status_detail === 'partially_refunded') {
+      status = 'needs_review';
+      error = 'partial_refund_requires_review';
+      await this.blockQueuedPaidNotices(
+        manager,
+        current,
+        'Partial refund requires review',
+      );
+      await manager.query(
+        "UPDATE settlements SET status='processing',updated_at=now() WHERE id=$1::uuid",
+        [current.settlement_id],
+      );
+    } else if (ledger.transfers || ledger.reversals) {
+      status = 'needs_review';
+      error = 'status_changed_after_accreditation';
+      await this.blockQueuedPaidNotices(
+        manager,
+        current,
+        'Provider status requires review',
+      );
+    } else if (['rejected', 'canceled', 'error'].includes(remote.status)) {
+      status = 'failed';
+      error = 'transfer_not_accredited';
+      await manager.query(
+        "UPDATE settlements SET status='failed',updated_at=now() WHERE id=$1::uuid",
+        [current.settlement_id],
+      );
+    } else if (
+      ![
+        'created',
+        'pending',
+        'approved',
+        'processed',
+        'transaction_in_process',
+      ].includes(remote.status) &&
+      !(remote.status === 'success' && remote.status_detail === 'in_progress')
+    ) {
+      status = 'needs_review';
+      error = 'unknown_provider_status';
+    }
+    return { status, error, completed: false };
+  }
+
   private async movement(
     manager: EntityManager,
     job: Job,

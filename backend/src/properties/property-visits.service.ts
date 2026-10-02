@@ -5,7 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { EntityManager, IsNull, Repository } from 'typeorm';
+import { withDomainOperationReceipt } from '../common/helpers/domain-operation-receipt';
 import { Property } from './entities/property.entity';
 import {
   PropertyVisit,
@@ -53,10 +54,14 @@ interface VisitWhatsappContext {
   activityId?: string;
   templateLanguage?: string;
   templateParameters: string[];
+  visitSnapshot: Record<string, unknown>;
+  ownerId: string;
+  consented: boolean;
 }
 
 @Injectable()
 export class PropertyVisitsService {
+  private transactionManager?: EntityManager;
   constructor(
     @InjectRepository(Property)
     private readonly propertiesRepository: Repository<Property>,
@@ -77,7 +82,18 @@ export class PropertyVisitsService {
     propertyId: string,
     dto: CreatePropertyVisitDto,
     user: VisitUserContext,
+    executionKey?: string,
   ): Promise<PropertyVisit> {
+    if (!this.transactionManager) {
+      await this.getPropertyForAccess(propertyId, user);
+      return this.transact(
+        user,
+        executionKey,
+        'property-visit.create',
+        { propertyId, ...dto },
+        (service) => service.create(propertyId, dto, user),
+      );
+    }
     const property = await this.getPropertyForAccess(propertyId, user);
     const interested = await this.getInterestedForVisit(
       dto.interestedProfileId,
@@ -119,6 +135,9 @@ export class PropertyVisitsService {
           property,
           savedVisit,
         ),
+        ownerId: property.ownerId,
+        consented: this.ownerConsented(property),
+        visitSnapshot: this.noticeSnapshot(savedVisit),
       });
     }
 
@@ -140,13 +159,44 @@ export class PropertyVisitsService {
     visitId: string,
     dto: UpdatePropertyVisitResultDto,
     user: VisitUserContext,
+    executionKey?: string,
   ): Promise<PropertyVisit> {
+    if (!isAdminOrStaff(user))
+      throw new ForbiddenException(
+        'Only staff or admin can record visit results',
+      );
+    if (!this.transactionManager) {
+      await this.getPropertyForAccess(propertyId, user);
+      return this.transact(
+        user,
+        executionKey,
+        'property-visit.result',
+        { propertyId, visitId, ...dto },
+        (service) => service.updateResult(propertyId, visitId, dto, user),
+      );
+    }
     const property = await this.getPropertyForAccess(propertyId, user);
+    await this.transactionManager.query(
+      'SELECT id FROM property_visits WHERE id=$1 AND property_id=$2 FOR UPDATE',
+      [visitId, propertyId],
+    );
     const visit = await this.propertyVisitsRepository.findOne({
       where: { id: visitId, propertyId, kind: PropertyVisitKind.VISIT },
       relations: ['interestedProfile'],
     });
     if (!visit) throw new NotFoundException('Property visit not found');
+    if (dto.result === PropertyVisitResult.OFFER)
+      this.validateOffer(
+        dto.offerAmount,
+        dto.offerCurrency ?? visit.offerCurrency ?? 'ARS',
+      );
+    if (
+      dto.result === PropertyVisitResult.NOT_INTERESTED &&
+      !dto.reason?.trim()
+    )
+      throw new BadRequestException(
+        'A reason is required when the visitor is not interested',
+      );
 
     visit.result = dto.result;
     visit.resultReason = dto.reason?.trim() || null;
@@ -182,7 +232,18 @@ export class PropertyVisitsService {
     propertyId: string,
     dto: CreatePropertyMaintenanceTaskDto,
     user: VisitUserContext,
+    executionKey?: string,
   ): Promise<PropertyVisit> {
+    if (!this.transactionManager) {
+      await this.getPropertyForAccess(propertyId, user);
+      return this.transact(
+        user,
+        executionKey,
+        'property-visit.maintenance',
+        { propertyId, ...dto },
+        (service) => service.createMaintenanceTask(propertyId, dto, user),
+      );
+    }
     const property = await this.getPropertyForAccess(propertyId, user);
     const maintenanceTask = await this.createVisitRecord(
       property,
@@ -248,6 +309,8 @@ export class PropertyVisitsService {
     if (hasOffer && input.offerAmount === undefined) {
       throw new BadRequestException('Offer amount is required when hasOffer');
     }
+    if (hasOffer)
+      this.validateOffer(input.offerAmount, input.offerCurrency ?? 'ARS');
 
     if (
       input.kind === PropertyVisitKind.VISIT &&
@@ -274,12 +337,12 @@ export class PropertyVisitsService {
       interestedProfileId: input.interestedProfileId,
       comments: input.comments,
       hasOffer,
-      offerAmount: input.offerAmount,
+      offerAmount: hasOffer ? input.offerAmount : undefined,
       offerCurrency: input.offerCurrency ?? 'ARS',
-      result: input.hasOffer
+      result: hasOffer
         ? PropertyVisitResult.OFFER
         : PropertyVisitResult.PENDING,
-      completedAt: input.hasOffer ? new Date() : undefined,
+      completedAt: hasOffer ? new Date() : undefined,
       createdByUserId: user.id,
     };
 
@@ -295,6 +358,8 @@ export class PropertyVisitsService {
     if (!user.companyId) {
       throw new ForbiddenException('Company scope required');
     }
+    if (!isAdminOrStaff(user) && !hasRole(user, UserRole.OWNER))
+      throw new ForbiddenException('Property visit access is not allowed');
     const property = await this.propertiesRepository.findOne({
       where: {
         id: propertyId,
@@ -342,10 +407,8 @@ export class PropertyVisitsService {
   ): Promise<void> {
     const channel =
       interested.preferredContactChannel ?? CommunicationChannel.WHATSAPP;
-    const recipient =
-      channel === CommunicationChannel.EMAIL
-        ? interested.email
-        : interested.phone;
+    if (channel !== CommunicationChannel.WHATSAPP) return;
+    const recipient = interested.phone;
     if (!recipient) return;
 
     const name =
@@ -353,24 +416,31 @@ export class PropertyVisitsService {
         .filter(Boolean)
         .join(' ')
         .trim() || 'cliente';
-    const delivery = await this.communicationsService.dispatchEvent({
-      companyId: property.companyId,
-      event,
-      recipientRole: CommunicationRecipientRole.INTERESTED,
-      recipientId: interested.id,
-      channel,
-      recipient,
-      variables: this.buildCommunicationVariables(property, visit, name),
-      fallbackSubject: `Visita a ${property.name}`,
-      fallbackBody:
-        event === CommunicationEvent.PROPERTY_VISIT_SCHEDULED
-          ? 'Hola {{nombre_interesado}}, confirmamos la visita a {{propiedad}} para el {{fecha_visita}} a las {{hora_visita}}. Detalle: {{link_visita}}'
-          : 'Hola {{nombre_interesado}}, registramos el resultado de la visita a {{propiedad}}: {{resultado}}. {{motivo}} Detalle: {{link_visita}}',
-      consented: interested.consentContact,
-      relatedEntityType: 'property_visit',
-      relatedEntityId: visit.id,
-      metadata: { propertyId: property.id, result: visit.result },
-    });
+    const delivery = await this.communicationsService.dispatchEvent(
+      {
+        companyId: property.companyId,
+        event,
+        recipientRole: CommunicationRecipientRole.INTERESTED,
+        recipientId: interested.id,
+        channel,
+        recipient,
+        variables: this.buildCommunicationVariables(property, visit, name),
+        fallbackSubject: `Visita a ${property.name}`,
+        fallbackBody:
+          event === CommunicationEvent.PROPERTY_VISIT_SCHEDULED
+            ? 'Hola {{nombre_interesado}}, confirmamos la visita a {{propiedad}} para el {{fecha_visita}} a las {{hora_visita}}. Detalle: {{link_visita}}'
+            : 'Hola {{nombre_interesado}}, registramos el resultado de la visita a {{propiedad}}: {{resultado}}. {{motivo}} Detalle: {{link_visita}}',
+        consented: interested.consentContact,
+        relatedEntityType: 'property_visit',
+        relatedEntityId: visit.id,
+        metadata: {
+          propertyId: property.id,
+          result: visit.result,
+          visitSnapshot: this.noticeSnapshot(visit),
+        },
+      },
+      this.transactionManager,
+    );
 
     await this.interestedActivitiesRepository.save(
       this.interestedActivitiesRepository.create({
@@ -409,22 +479,29 @@ export class PropertyVisitsService {
         .filter(Boolean)
         .join(' ')
         .trim() || 'propietario';
-    await this.communicationsService.dispatchEvent({
-      companyId: property.companyId,
-      event,
-      recipientRole: CommunicationRecipientRole.OWNER,
-      recipientId: property.ownerId,
-      channel: CommunicationChannel.WHATSAPP,
-      recipient: property.ownerWhatsapp,
-      variables: this.buildCommunicationVariables(property, visit, ownerName),
-      fallbackSubject: `Resultado de visita a ${property.name}`,
-      fallbackBody:
-        'Se registró el resultado de la visita a {{propiedad}}: {{resultado}}. {{motivo}} {{detalle_oferta}} Detalle: {{link_visita}}',
-      consented: true,
-      relatedEntityType: 'property_visit',
-      relatedEntityId: visit.id,
-      metadata: { propertyId: property.id, result: visit.result },
-    });
+    await this.communicationsService.dispatchEvent(
+      {
+        companyId: property.companyId,
+        event,
+        recipientRole: CommunicationRecipientRole.OWNER,
+        recipientId: property.ownerId,
+        channel: CommunicationChannel.WHATSAPP,
+        recipient: property.ownerWhatsapp,
+        variables: this.buildCommunicationVariables(property, visit, ownerName),
+        fallbackSubject: `Resultado de visita a ${property.name}`,
+        fallbackBody:
+          'Se registró el resultado de la visita a {{propiedad}}: {{resultado}}. {{motivo}} {{detalle_oferta}} Detalle: {{link_visita}}',
+        consented: this.ownerConsented(property),
+        relatedEntityType: 'property_visit',
+        relatedEntityId: visit.id,
+        metadata: {
+          propertyId: property.id,
+          result: visit.result,
+          visitSnapshot: this.noticeSnapshot(visit),
+        },
+      },
+      this.transactionManager,
+    );
   }
 
   private buildCommunicationVariables(
@@ -636,6 +713,7 @@ export class PropertyVisitsService {
         notification.sentAt = null;
         notification.error = null;
       } catch (error) {
+        if (this.transactionManager) throw error;
         notification.status = VisitNotificationStatus.FAILED;
         notification.error =
           error instanceof Error ? error.message : 'Failed to send';
@@ -653,27 +731,95 @@ export class PropertyVisitsService {
       if (!context) {
         throw new BadRequestException('Missing visit notification context');
       }
-      await this.communicationsService.dispatchEvent({
-        companyId: context.companyId,
-        event: CommunicationEvent.PROPERTY_VISIT_SCHEDULED,
-        recipientRole: CommunicationRecipientRole.OWNER,
-        channel: CommunicationChannel.WHATSAPP,
-        recipient: notification.recipient,
-        variables: {},
-        fallbackBody: notification.message,
-        consented: true,
-        forceSend: true,
-        skipTemplateLookup: true,
-        relatedEntityType: 'property_visit',
-        relatedEntityId: context.relatedEntityId,
-        metadata: {
-          visitNotificationId: notification.id,
-          ownerActivityId: context.activityId,
-          templateName: 'property_visit_registered',
-          templateLanguage: context.templateLanguage ?? 'es',
-          templateParameters: context.templateParameters,
+      await this.communicationsService.dispatchEvent(
+        {
+          companyId: context.companyId,
+          event: CommunicationEvent.PROPERTY_VISIT_SCHEDULED,
+          recipientRole: CommunicationRecipientRole.OWNER,
+          recipientId: context.ownerId,
+          channel: CommunicationChannel.WHATSAPP,
+          recipient: notification.recipient,
+          variables: {},
+          fallbackBody: notification.message,
+          consented: context.consented,
+          skipTemplateLookup: true,
+          relatedEntityType: 'property_visit',
+          relatedEntityId: context.relatedEntityId,
+          metadata: {
+            visitNotificationId: notification.id,
+            ownerActivityId: context.activityId,
+            templateName: 'property_visit_registered',
+            templateLanguage: context.templateLanguage ?? 'es',
+            templateParameters: context.templateParameters,
+            visitSnapshot: context.visitSnapshot,
+          },
         },
-      });
+        this.transactionManager,
+      );
     }
+  }
+
+  private ownerConsented(property: Property): boolean {
+    return (
+      property.owner?.contactConsent === true &&
+      property.owner?.user?.whatsappEnabled === true &&
+      (!property.owner.preferredContactChannel ||
+        property.owner.preferredContactChannel ===
+          CommunicationChannel.WHATSAPP)
+    );
+  }
+
+  private noticeSnapshot(visit: PropertyVisit): Record<string, unknown> {
+    return {
+      result: visit.result,
+      reason: visit.resultReason ?? null,
+      offerAmount: visit.offerAmount == null ? null : String(visit.offerAmount),
+      currency: visit.offerCurrency,
+      visitedAt: visit.visitedAt.toISOString(),
+    };
+  }
+
+  private validateOffer(amount: number | undefined, currency: string): void {
+    if (
+      amount === undefined ||
+      amount <= 0 ||
+      !/^\d{1,10}(\.\d{1,2})?$/.test(String(amount))
+    )
+      throw new BadRequestException(
+        'Offer amount requires positive exact cents',
+      );
+    if (!['ARS', 'USD', 'BRL'].includes(currency))
+      throw new BadRequestException('Unsupported offer currency');
+  }
+
+  private transact<T>(
+    user: VisitUserContext,
+    key: string | undefined,
+    operation: string,
+    request: Record<string, unknown>,
+    execute: (service: PropertyVisitsService) => Promise<T>,
+  ): Promise<T> {
+    return this.propertiesRepository.manager.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        user.companyId,
+        key,
+        operation,
+        { ...request, actorId: user.id },
+        async () => {
+          const scoped = new PropertyVisitsService(
+            manager.getRepository(Property),
+            manager.getRepository(PropertyVisit),
+            manager.getRepository(PropertyVisitNotification),
+            manager.getRepository(OwnerActivity),
+            manager.getRepository(InterestedProfile),
+            manager.getRepository(InterestedActivity),
+            this.communicationsService,
+          );
+          scoped.transactionManager = manager;
+          return execute(scoped);
+        },
+      ),
+    );
   }
 }

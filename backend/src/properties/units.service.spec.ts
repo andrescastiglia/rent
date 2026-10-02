@@ -73,6 +73,16 @@ describe('UnitsService', () => {
     propertyRepository.createQueryBuilder!.mockReturnValue(
       propertyQueryBuilder,
     );
+    const manager = {
+      query: jest.fn().mockResolvedValue([]),
+      getRepository: (entity: unknown) =>
+        entity === Unit ? repository : propertyRepository,
+    };
+    Object.assign(repository, {
+      manager: {
+        transaction: (work: (m: unknown) => unknown) => work(manager),
+      },
+    });
   });
 
   it('should be defined', () => {
@@ -178,7 +188,10 @@ describe('UnitsService', () => {
         }),
         relations: ['property'],
       });
-      expect(repository.softDelete).toHaveBeenCalledWith('unit-1');
+      expect(repository.softDelete).toHaveBeenCalledWith({
+        id: 'unit-1',
+        companyId: admin.companyId,
+      });
     });
   });
 

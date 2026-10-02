@@ -8,14 +8,9 @@ import {
 } from "@/lib/api/users";
 import type { User, UserModulePermissions } from "@/types/auth";
 import { useTranslations } from "next-intl";
-import {
-  Loader2,
-  Plus,
-  RotateCcw,
-  ShieldCheck,
-  ShieldX,
-  UserPen,
-} from "lucide-react";
+import { Plus, RotateCcw, ShieldCheck, ShieldX, UserPen } from "lucide-react";
+import { Pagination, Dialog } from "@/components/ui";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 type FormState = {
   email: string;
@@ -460,13 +455,12 @@ function ResetPasswordDialog({
   const tCommon = useTranslations("common");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-        aria-label={tCommon("close")}
-      />
+    <Dialog
+      open
+      onClose={onClose}
+      title={tUsers("resetPasswordDialog.title")}
+      busy={submitting}
+    >
       <form
         onSubmit={onSubmit}
         className="relative z-10 w-full max-w-md rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
@@ -483,10 +477,14 @@ function ResetPasswordDialog({
         </div>
 
         <div className="space-y-2 p-4">
-          <label className="block text-sm text-gray-700 dark:text-gray-200">
+          <label
+            htmlFor="reset-user-password"
+            className="block text-sm text-gray-700 dark:text-gray-200"
+          >
             {tAuth("password")}
           </label>
           <input
+            id="reset-user-password"
             required
             minLength={8}
             autoFocus
@@ -524,7 +522,7 @@ function ResetPasswordDialog({
           </button>
         </div>
       </form>
-    </div>
+    </Dialog>
   );
 }
 
@@ -535,6 +533,10 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -552,15 +554,16 @@ export default function UsersPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await usersApi.list(1, 100);
+      const result = await usersApi.list(page, 20, debouncedSearch);
       setUsers(result.data);
+      setTotal(result.total);
     } catch (err) {
       console.error("Failed to load users", err);
       setError(tUsers("errors.load"));
     } finally {
       setLoading(false);
     }
-  }, [tUsers]);
+  }, [tUsers, page, debouncedSearch]);
 
   useEffect(() => {
     loadUsers().catch((error) => {
@@ -690,6 +693,7 @@ export default function UsersPage() {
     <>
       <button
         type="button"
+        data-guide="user-open"
         onClick={() => openEdit(user)}
         className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
       >
@@ -719,14 +723,6 @@ export default function UsersPage() {
     </>
   );
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
-    );
-  }
-
   return (
     <section className="space-y-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -742,6 +738,7 @@ export default function UsersPage() {
           <button
             type="button"
             onClick={openCreate}
+            data-guide="user-new"
             className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             <Plus className="h-4 w-4" />
@@ -751,7 +748,10 @@ export default function UsersPage() {
       </header>
 
       {error ? (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p
+          role="alert"
+          className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700"
+        >
           {error}
         </p>
       ) : null}
@@ -773,7 +773,33 @@ export default function UsersPage() {
       ) : null}
 
       {isEditing ? null : (
-        <UserList users={users} renderUserActions={renderUserActions} />
+        <>
+          <label htmlFor="users-search" className="block text-sm font-medium">
+            {tUsers("search")}
+          </label>
+          <input
+            id="users-search"
+            type="search"
+            className="ui-field"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setPage(1);
+            }}
+          />
+          {loading ? (
+            <output aria-busy="true">{tCommon("loading")}</output>
+          ) : (
+            <UserList users={users} renderUserActions={renderUserActions} />
+          )}
+          <Pagination
+            page={page}
+            pageSize={20}
+            total={total}
+            onPageChange={setPage}
+            busy={loading}
+          />
+        </>
       )}
 
       {resetPasswordUser ? (

@@ -30,7 +30,10 @@ export default function NewInterestedScreen() {
   });
 
   return (
-    <Screen scrollViewTestID="interestedCreate.scroll">
+    <Screen
+      scrollViewTestID="interestedCreate.scroll"
+      guidanceBlocked={mutation.isPending || mutation.isError}
+    >
       <H1>{t('interested.newTitle')}</H1>
       <InterestedForm
         mode="create"

@@ -6,12 +6,13 @@ La fuente vigente se lee en este orden:
 2. [ADR-001](technical/adr-001-modelo-producto.md)
 3. [Historias principales](user/historias-de-usuario.md) y [refactor](user/historias-de-usuario-refactor-personas-contratos.md)
 4. [OpenAPI](api/openapi.v1.json) y [capacidades](api/capabilities.v1.json)
-5. [Despliegue](deployment/deployment.md) y runbooks específicos
+5. [Despliegue Kubernetes vigente](deployment/kubernetes.md), [archivo PM2 histórico](deployment/deployment.md) y runbooks específicos
 
 ## Catálogo y gobierno
 
-El catálogo cubre todos los archivos bajo `docs/`. El corte común es
-**2026-09-02**; Git conserva el historial de cada revisión.
+El catálogo resume las fuentes principales bajo `docs/`. Actualización operativa:
+**2026-10-02**; Git conserva el historial de cada revisión. Los runbooks de dominio
+complementan este índice y documentan sus propias restricciones y evidencias.
 
 - **Fuente — owner Producto — sin reemplazo:**
   `user/SISTEMA DE ALQUILERES.docx`.
@@ -25,16 +26,17 @@ El catálogo cubre todos los archivos bajo `docs/`. El corte común es
   `technical/adr-001-modelo-producto.md`, `technical/arquitectura.md`,
   `technical/observability-prometheus.md`, `technical/payments.md`,
   `technical/seguridad-runtime.md`, `technical/uploads-seguros.md` y
-  `technical/whatsapp-inbox.md`.
+  `technical/whatsapp-inbox.md` y `technical/design-system.md`.
 - **Vigente operativo — owner Operaciones e Ingeniería — sin reemplazo
-  vigente:** `deployment/deployment.md`, `deployment/operations-slo.md` y
+  vigente:** `deployment/kubernetes.md`, `deployment/deployment.md`, `deployment/operations-slo.md` y
   `development/local-setup.md`.
 - **Vigente generado — owner Ingeniería — se regenera desde el código:**
   `api/openapi.v1.json` y `api/capabilities.v1.json`.
 - **Evidencia — owner Ingeniería — no normativa:**
   `auditoria-integral-2026-08-27.md`,
   `technical/frontend-wcag22-nielsen-audit.md` y
-  `deployment/rag-production-readiness.md`.
+  `deployment/rag-production-readiness.md` y
+  [validación del plan 2026-10-02](technical/validacion-plan-2026-10-02.md).
 - **Histórico — owner Producto e Ingeniería — reemplazado:**
   `functional/drf-original.md` por `functional/requisitos-producto.md`;
   `technical/c4-model.md`, `technical/der.md` y `technical/sequence.md` por

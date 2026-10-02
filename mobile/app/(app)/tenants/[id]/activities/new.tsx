@@ -1,23 +1,17 @@
+import { Pressable, Text, TextInput, View } from '@/components/themed-native';
 import DateTimePicker, {
-  DateTimePickerEvent,
+  DateTimePickerChangeEvent,
 } from '@react-native-community/datetimepicker';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import {
-  Alert,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { useRef, useState } from 'react';
+import { Alert, Platform, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { tenantsApi } from '@/api/tenants';
 import { whatsappApi } from '@/api/whatsapp';
 import * as Crypto from 'expo-crypto';
+import { QueryStatus } from '@/components/query-status';
 import { Screen } from '@/components/screen';
 import { AppButton, ChoiceGroup, Field, H1 } from '@/components/ui';
 import type { TenantActivityType } from '@/types/tenant';
@@ -45,6 +39,7 @@ export default function NewTenantActivityScreen() {
     enabled: Boolean(id),
   });
 
+  const whatsappRequestId = useRef<string | null>(null);
   const [type, setType] = useState<TenantActivityType>('task');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -53,11 +48,14 @@ export default function NewTenantActivityScreen() {
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
   const [showPicker, setShowPicker] = useState(false);
 
-  const handlePickerChange = (event: DateTimePickerEvent, selected?: Date) => {
+  const handlePickerChange = (
+    _event: DateTimePickerChangeEvent,
+    selected?: Date,
+  ) => {
     if (Platform.OS === 'android') {
       setShowPicker(false);
     }
-    if (event.type === 'dismissed' || !selected) {
+    if (!selected) {
       return;
     }
     setDueAt(selected);
@@ -79,8 +77,9 @@ export default function NewTenantActivityScreen() {
       }
 
       if (type === 'whatsapp' && tenantQuery.data?.phone?.trim()) {
+        whatsappRequestId.current ??= Crypto.randomUUID();
         return whatsappApi.createActivity({
-          requestId: Crypto.randomUUID(),
+          requestId: whatsappRequestId.current,
           personType: 'tenant',
           personId: id,
           subject: subject.trim(),
@@ -96,6 +95,7 @@ export default function NewTenantActivityScreen() {
       });
     },
     onSuccess: () => {
+      whatsappRequestId.current = null;
       Alert.alert(t('common.success'));
       router.replace(`/(app)/tenants/${id}` as never);
     },
@@ -110,8 +110,25 @@ export default function NewTenantActivityScreen() {
   const tenantName =
     `${tenantQuery.data?.firstName ?? ''} ${tenantQuery.data?.lastName ?? ''}`.trim();
 
+  if (tenantQuery.isLoading || tenantQuery.isError || !tenantQuery.data)
+    return (
+      <QueryStatus
+        query={tenantQuery}
+        empty={!tenantQuery.data}
+        emptyLabel={t('common.notFound')}
+      />
+    );
+
   return (
-    <Screen>
+    <Screen
+      guidanceReady={!tenantQuery.isLoading}
+      guidanceBlocked={
+        tenantQuery.isError ||
+        mutation.isPending ||
+        mutation.isError ||
+        showPicker
+      }
+    >
       <H1>{t('tenants.activities.add')}</H1>
       {tenantName ? <Text style={styles.subtitle}>{tenantName}</Text> : null}
 
@@ -196,7 +213,8 @@ export default function NewTenantActivityScreen() {
               value={dueAt}
               mode={pickerMode}
               is24Hour
-              onChange={handlePickerChange}
+              onValueChange={handlePickerChange}
+              onDismiss={() => setShowPicker(false)}
               testID="tenantActivityCreate.dueAt.picker"
             />
           ) : null}
@@ -207,6 +225,9 @@ export default function NewTenantActivityScreen() {
         title={t('tenants.activities.add')}
         onPress={() => mutation.mutate()}
         loading={mutation.isPending}
+        disabled={
+          !tenantQuery.data || tenantQuery.isLoading || tenantQuery.isError
+        }
         testID="tenantActivityCreate.submit"
       />
     </Screen>

@@ -16,6 +16,13 @@ import { SettlementCalculationDetails } from "./SettlementCalculationDetails";
 const inputClass =
   "block w-full rounded border p-2 bg-white text-gray-900 dark:bg-gray-900 dark:text-white";
 const buttonClass = "rounded border px-4 py-2 disabled:opacity-50";
+function isDefinitiveGenerationError(error: unknown, retry: boolean): boolean {
+  return (
+    !retry &&
+    error instanceof ApiRequestError &&
+    [400, 401, 403, 404, 409, 503].includes(error.status)
+  );
+}
 export function SettlementGenerationForm({
   ownerId,
   scopeKey,
@@ -205,11 +212,7 @@ export function SettlementGenerationForm({
       if (!mounted.current) return;
       if (error instanceof ApiRequestError && error.status === 503)
         setEnabled(false);
-      if (
-        !retry &&
-        error instanceof ApiRequestError &&
-        [400, 401, 403, 404, 409, 503].includes(error.status)
-      ) {
+      if (isDefinitiveGenerationError(error, retry)) {
         forget();
         setCalculation(null);
         setFault("generateError");
@@ -280,6 +283,7 @@ export function SettlementGenerationForm({
     setConfirmed(false);
     setNotice(null);
   };
+  const refreshLabel = pending ? "recover" : "refresh";
   return (
     <section
       className="space-y-4 rounded-lg border p-5"
@@ -288,17 +292,17 @@ export function SettlementGenerationForm({
     >
       <h2 className="text-xl font-semibold">{t("title")}</h2>
       <p>{t("intro")}</p>
-      {ready && !enabled && <p role="status">{t("disabled")}</p>}
+      {ready && !enabled && <output>{t("disabled")}</output>}
       {fault && <p role="alert">{t(fault)}</p>}
       {storageFault && <p role="alert">{t("storageError")}</p>}
-      {notice && <p role="status">{t(notice)}</p>}
+      {notice && <output>{t(notice)}</output>}
       <button
         type="button"
         className={buttonClass}
         disabled={busy}
         onClick={() => void recover()}
       >
-        {busy ? t("loading") : pending ? t("recover") : t("refresh")}
+        {t(busy ? "loading" : refreshLabel)}
       </button>
       {pending ? (
         <div className="space-y-3">
@@ -382,7 +386,7 @@ export function SettlementGenerationForm({
                 <p>{t("existing")}</p>
               )}
               {!calculation.invoices.length ? (
-                <p role="status">{t("empty")}</p>
+                <output>{t("empty")}</output>
               ) : (
                 <>
                   <SettlementCalculationDetails calculation={calculation} />

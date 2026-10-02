@@ -1,4 +1,5 @@
 import { verifyFinancialDocumentAccess } from './financial-document-helpers';
+import { randomUUID } from 'node:crypto';
 import { UserRole } from '../src/users/entities/user.entity';
 import { Owner } from '../src/owners/entities/owner.entity';
 import { Buyer } from '../src/buyers/entities/buyer.entity';
@@ -22,6 +23,7 @@ import { SaleReceiptPdfService } from '../src/sales/sale-receipt-pdf.service';
 import {
   createActiveTestUser,
   configureE2eApp,
+  purgeFinancialCorrections,
   createTestCompany,
   createSuperAdminTestUser,
   loginTestUser,
@@ -132,6 +134,11 @@ describe('Durable sale receipts (e2e)', () => {
   afterAll(async () => {
     jest.restoreAllMocks();
     if (companyId) {
+      await purgeFinancialCorrections(ds, companyId);
+      await ds.query(
+        'DELETE FROM domain_operation_receipts WHERE company_id=$1',
+        [companyId],
+      );
       await ds.query(
         'DELETE FROM sale_receipt_effects_outbox WHERE company_id = $1',
         [companyId],
@@ -347,5 +354,248 @@ describe('Durable sale receipts (e2e)', () => {
         delete process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN;
       else process.env.BATCH_COMMUNICATIONS_INTERNAL_TOKEN = previous;
     }
+  });
+
+  const accountingAgreement = async (
+    changes: Partial<{
+      totalAmount: number;
+      installmentAmount: number;
+      installmentCount: number;
+      startDate: string;
+      dueDay: number;
+    }> = {},
+  ) => {
+    const source = await ds
+      .getRepository(SaleAgreement)
+      .findOneByOrFail({ id: agreementId });
+    return app.get(SalesService).createAgreement(
+      {
+        folderId: source.folderId,
+        propertyId: source.propertyId!,
+        buyerId: source.buyerId!,
+        totalAmount: 0.3,
+        installmentAmount: 0.1,
+        installmentCount: 3,
+        startDate: '2026-01-01',
+        dueDay: 31,
+        ...changes,
+      },
+      { companyId },
+    );
+  };
+
+  it('adds fractional payments exactly, carries credit and never reports negative arrears', async () => {
+    const agreement = await accountingAgreement(),
+      sales = app.get(SalesService);
+    const first = await sales.createReceipt(
+      agreement.id,
+      { amount: 0.1, paymentDate: '2026-01-15' },
+      { companyId },
+    );
+    expect(Number(first.overdueAmount)).toBe(0);
+    const second = await sales.createReceipt(
+      agreement.id,
+      { amount: 0.2, paymentDate: '2026-02-28' },
+      { companyId },
+    );
+    expect(Number(second.balanceAfter)).toBe(0);
+    const advance = await sales.createReceipt(
+      agreement.id,
+      { amount: 0.1, paymentDate: '2026-03-31' },
+      { companyId },
+    );
+    expect(Number(advance.balanceAfter)).toBe(-0.1);
+    expect(Number(advance.overdueAmount)).toBe(0);
+    expect(
+      Number(
+        (
+          await ds
+            .getRepository(SaleAgreement)
+            .findOneByOrFail({ id: agreement.id })
+        ).paidAmount,
+      ),
+    ).toBe(0.4);
+    expect(first.installmentNumber).toBe(1);
+    expect(second.installmentNumber).toBe(2);
+  });
+
+  it('clamps days 29–31 to month end and caps the last installment at the sale total', async () => {
+    const agreement = await accountingAgreement({ totalAmount: 0.25 });
+    const receipt = await app
+      .get(SalesService)
+      .createReceipt(
+        agreement.id,
+        { amount: 0.01, paymentDate: '2026-02-28' },
+        { companyId },
+      );
+    expect(Number(receipt.overdueAmount)).toBe(0.2);
+    const final = await app
+      .get(SalesService)
+      .createReceipt(
+        agreement.id,
+        { amount: 0.01, paymentDate: '2026-03-31' },
+        { companyId },
+      );
+    expect(Number(final.overdueAmount)).toBe(0.24);
+  });
+
+  it('recovers concurrent receipt requests without duplicate money, numbering or document tasks', async () => {
+    const agreement = await accountingAgreement(),
+      key = randomUUID();
+    const dto = { amount: 0.1, paymentDate: '2026-01-31' };
+    const send = () =>
+      app
+        .get(SalesService)
+        .createReceipt(agreement.id, dto, { companyId }, key);
+    const [first, second] = await Promise.all([send(), send()]);
+    expect(first.id).toBe(second.id);
+    expect(
+      Number(
+        (
+          await ds
+            .getRepository(SaleAgreement)
+            .findOneByOrFail({ id: agreement.id })
+        ).paidAmount,
+      ),
+    ).toBe(0.1);
+    expect(
+      (
+        await ds.query(
+          'SELECT count(*)::int AS count FROM sale_receipt_effects_outbox WHERE receipt_id=$1',
+          [first.id],
+        )
+      )[0].count,
+    ).toBe(1);
+    expect(
+      (
+        await ds.query(
+          'SELECT last_number FROM sale_receipt_number_counters WHERE agreement_id=$1',
+          [agreement.id],
+        )
+      )[0].last_number,
+    ).toBe('1');
+    await expect(
+      app
+        .get(SalesService)
+        .createReceipt(
+          agreement.id,
+          { ...dto, amount: 0.2 },
+          { companyId },
+          key,
+        ),
+    ).rejects.toThrow('different operation');
+  });
+
+  it('preserves counters after deletion, immutable receipt terms and rendering snapshots', async () => {
+    const agreement = await accountingAgreement(),
+      sales = app.get(SalesService);
+    const first = await sales.createReceipt(
+      agreement.id,
+      { amount: 0.1, paymentDate: '2026-01-31' },
+      { companyId },
+    );
+    await expect(
+      ds.query('UPDATE sale_receipts SET amount=0.2 WHERE id=$1', [first.id]),
+    ).rejects.toThrow('cannot be overwritten');
+    expect(first.financialSnapshot).toMatchObject({
+      version: 1,
+      agreement: { buyerName: agreement.buyerName },
+      receipt: { copyCount: 2, amount: 0.1 },
+    });
+    await ds.query(
+      'DELETE FROM sale_receipt_effects_outbox WHERE receipt_id=$1',
+      [first.id],
+    );
+    await ds.query('DELETE FROM sale_receipts WHERE id=$1', [first.id]);
+    const second = await sales.createReceipt(
+      agreement.id,
+      { amount: 0.1, paymentDate: '2026-02-28' },
+      { companyId },
+    );
+    expect(second.receiptNumber).toContain(agreement.id.replaceAll('-', ''));
+    expect(second.receiptNumber).toMatch(/-0002$/);
+  });
+
+  it('rejects invalid calendar days, excessive precision and schedules that do not cover the price', async () => {
+    const agreement = await accountingAgreement(),
+      sales = app.get(SalesService);
+    for (const dto of [
+      { amount: 0.001, paymentDate: '2026-01-31' },
+      { amount: 0.1, paymentDate: '2026-02-30' },
+      { amount: 0.1, paymentDate: '2026-01-31', installmentNumber: 1.5 },
+    ])
+      await expect(
+        sales.createReceipt(agreement.id, dto, { companyId }),
+      ).rejects.toThrow();
+    await expect(accountingAgreement({ dueDay: 32 })).rejects.toThrow(
+      'due day',
+    );
+    await expect(accountingAgreement({ totalAmount: 0.4 })).rejects.toThrow(
+      'schedule',
+    );
+  });
+  it('audits sale receipt reversal once, preserves historical copies and recomputes the schedule', async () => {
+    const agreement = await accountingAgreement({ totalAmount: 0.25 }),
+      sales = app.get(SalesService);
+    const first = await sales.createReceipt(
+      agreement.id,
+      { amount: 0.1, paymentDate: '2026-01-31' },
+      { companyId },
+    );
+    const second = await sales.createReceipt(
+      agreement.id,
+      { amount: 0.1, paymentDate: '2026-02-28' },
+      { companyId },
+    );
+    const key = randomUUID(),
+      cancel = () =>
+        sales.cancelReceipt(
+          first.id,
+          { reason: 'Corrección de cobro duplicado' },
+          { companyId },
+          key,
+        );
+    const [original, replay] = await Promise.all([cancel(), cancel()]);
+    expect(original.id).toBe(replay.id);
+    expect(original.cancelledAt).toBeTruthy();
+    expect(
+      (
+        await ds.query(
+          'SELECT count(*)::int AS count FROM sale_receipt_cancellations WHERE receipt_id=$1',
+          [first.id],
+        )
+      )[0].count,
+    ).toBe(1);
+    expect(
+      Number(
+        (
+          await ds
+            .getRepository(SaleAgreement)
+            .findOneByOrFail({ id: agreement.id })
+        ).paidAmount,
+      ),
+    ).toBe(0.1);
+    const schedule = await sales.getSchedule(
+      agreement.id,
+      { companyId },
+      1,
+      20,
+      '2026-03-31',
+    );
+    expect(schedule.data).toMatchObject([
+      { amount: 0.1, paidAmount: 0.1, status: 'paid' },
+      { amount: 0.1, paidAmount: 0, status: 'overdue' },
+      { amount: 0.05, paidAmount: 0, status: 'pending' },
+    ]);
+    expect(schedule.balance).toBe(0.15);
+    expect(schedule.overdueAmount).toBe(0.15);
+    const later = await sales.getReceipt(second.id, { companyId });
+    expect(Number(later.balanceAfter)).toBe(0.05);
+    await expect(
+      ds.query(
+        'UPDATE sale_receipt_cancellations SET amount=0.2 WHERE receipt_id=$1',
+        [first.id],
+      ),
+    ).rejects.toThrow('immutable');
   });
 });

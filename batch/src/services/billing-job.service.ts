@@ -126,6 +126,7 @@ export class BillingJobService {
         ],
       );
 
+      if (status === "partial_failure") process.exitCode = 1;
       logger.info("Billing job completed", {
         jobId,
         status,

@@ -1,6 +1,7 @@
+import { Text, View } from '@/components/themed-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { usersApi } from '@/api/users';
@@ -42,7 +43,9 @@ export default function UserDetailScreen() {
       {query.error ? (
         <Text style={styles.error}>{query.error.message}</Text>
       ) : null}
-      {!query.isLoading && !user ? <Text>{t('users.noUsers')}</Text> : null}
+      {!query.isLoading && !query.error && !user ? (
+        <Text>{t('users.noUsers')}</Text>
+      ) : null}
 
       {user ? (
         <View style={styles.card}>

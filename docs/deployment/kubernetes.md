@@ -64,7 +64,7 @@ run non-root with read-only application filesystems and bounded writable tmp.
 5. Write the verified SHA to `/etc/rent-kubernetes/migration-ready`; tag that
    exact green main SHA. The release refuses first activation without this marker.
    It runs migrations once, starts HTTP services, checks readiness, switches
-   Nginx, then starts the worker and unsuspends the 11 unique schedules.
+   Nginx, then starts the worker and enables validated schedules. Billing, index synchronization and settlement processing remain suspended.
 6. Confirm external health, database-backed features, New Relic delivery and a
    Restic restore. Observe 24 hours including the first scheduled backup. Retain
    the previous database and stopped PM2 definitions for at least seven days.
@@ -136,3 +136,26 @@ existing account owner email destination. Other applications’ workflows are un
 
 The five GHCR packages are anonymously readable and were verified by digest.
 Workloads do not depend on a registry credential or an expiring workflow token.
+
+## Manual bank reconciliation and suspended schedules
+
+`billing`, `sync-indices` and `process-settlements` remain suspended in the
+production overlay. A release preserves that state; modifying it requires a
+separate data validation and explicit activation. BFA, Mercado Libre and Mercado
+Pago Payouts are also forced off in the runtime ConfigMap. Historical reads and
+local accounting corrections remain available.
+
+Bank reconciliation is available as `reconcile-bank` in **Batch operations**
+from protected `main`, initially with `dry_run=true`. It reuses the currently
+deployed batch image, mounted runtime and database readiness check, and receives
+the internal backend URL. It does not add an automatic schedule. The protected
+runtime must contain `BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN`, shared with the
+backend. A live invocation selects pending credit movements at least five minutes
+old, up to 100 per pass, and delegates each matching operation to the canonical
+backend. Existing matches are recovered without posting duplicate payments.
+
+A partial failure persists `partial_failure`, reports failed metrics and exits
+nonzero. Inspect `billing_jobs`, `bank_reconciliation_alerts` and the Job logs
+before retrying. Unmatched movements remain visible; an unmatched result is not
+an accounting approval. Repeated/manual invocations share the database lock
+`rent:operation:reconcile-bank`. Jobs do not retry business effects automatically.

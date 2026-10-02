@@ -1,7 +1,8 @@
+import { ActivityIndicator, Text, View } from '@/components/themed-native';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { listTemplates } from '@/api/templates';

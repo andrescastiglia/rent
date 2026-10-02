@@ -82,47 +82,7 @@ export class RagVerificationService {
           ],
         )) as Array<Record<string, unknown>>;
         const byKey = new Map(rows.map((row) => [String(row.chunk_key), row]));
-        result.checked += expected.length;
-        for (const chunk of expected) {
-          const actual = byKey.get(chunk.chunkKey);
-          if (!actual) {
-            result.missing += 1;
-            result.details.push({
-              type: "missing",
-              entityType: type,
-              entityId: source.id,
-              chunkKey: chunk.chunkKey,
-            });
-            continue;
-          }
-          if (
-            actual.content_hash !== chunk.contentHash ||
-            (actual.source_updated_at instanceof Date
-              ? actual.source_updated_at
-              : new Date(String(actual.source_updated_at))
-            ).getTime() !== chunk.sourceUpdatedAt.getTime()
-          ) {
-            result.stale += 1;
-            result.details.push({
-              type: "stale",
-              entityType: type,
-              entityId: source.id,
-              chunkKey: chunk.chunkKey,
-            });
-          }
-          if (
-            actual.has_embedding !== true ||
-            Number(actual.dimensions) !== RAG_EMBEDDING_DIMENSIONS
-          ) {
-            result.invalidDimensions += 1;
-            result.details.push({
-              type: "invalid_embedding",
-              entityType: type,
-              entityId: source.id,
-              chunkKey: chunk.chunkKey,
-            });
-          }
-        }
+        this.verifyChunks(type, source.id, expected, byKey, result);
       }
     }
 
@@ -133,6 +93,56 @@ export class RagVerificationService {
       options.sampleSize,
     );
     return result;
+  }
+
+  private verifyChunks(
+    type: RagSourceEntityType,
+    entityId: string,
+    expected: ReturnType<RagDocumentBuilderService["build"]>,
+    byKey: Map<string, Record<string, unknown>>,
+    result: RagVerificationResult,
+  ): void {
+    result.checked += expected.length;
+    for (const chunk of expected) {
+      const actual = byKey.get(chunk.chunkKey);
+      if (!actual) {
+        result.missing += 1;
+        result.details.push({
+          type: "missing",
+          entityType: type,
+          entityId: entityId,
+          chunkKey: chunk.chunkKey,
+        });
+        continue;
+      }
+      if (
+        actual.content_hash !== chunk.contentHash ||
+        (actual.source_updated_at instanceof Date
+          ? actual.source_updated_at
+          : new Date(String(actual.source_updated_at))
+        ).getTime() !== chunk.sourceUpdatedAt.getTime()
+      ) {
+        result.stale += 1;
+        result.details.push({
+          type: "stale",
+          entityType: type,
+          entityId: entityId,
+          chunkKey: chunk.chunkKey,
+        });
+      }
+      if (
+        actual.has_embedding !== true ||
+        Number(actual.dimensions) !== RAG_EMBEDDING_DIMENSIONS
+      ) {
+        result.invalidDimensions += 1;
+        result.details.push({
+          type: "invalid_embedding",
+          entityType: type,
+          entityId: entityId,
+          chunkKey: chunk.chunkKey,
+        });
+      }
+    }
   }
 
   async buildHnswIndex(): Promise<void> {

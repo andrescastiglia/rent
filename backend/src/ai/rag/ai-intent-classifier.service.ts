@@ -1,35 +1,58 @@
 import { Injectable } from '@nestjs/common';
 import { AiRagStrategy } from './ai-rag.types';
 
+const MUTATION_VERBS = new Set(
+  `crea crear creame cree creeme agrega agregar agregue actualiza actualizar actualice actualicen modifica modificar modifique modifiquen elimina eliminar elimine borra borrar borre registra registrar registre cobra cobrar cobre paga pagar pague envia enviar envie cancela cancelar cancele reserva reservar reserve cambia cambiar cambie edita editar edite asigna asignar asigne`.split(
+    ' ',
+  ),
+);
+const STRUCTURED_WORDS = new Set(
+  `saldo deuda debe factura facturas pago pagos vencido vencida vencidos vencidas monto montos importe importes total cuanto cuanta cuantos cuantas estado vigencia contrato contratos alquiler disponible disponibles ocupado ocupada ocupados ocupadas cartera portfolio dashboard`.split(
+    ' ',
+  ),
+);
+const DOCUMENT_STATE_WORDS = new Set(
+  `estado saldo monto importe fecha vence vencimiento clausula`.split(' '),
+);
+const SEMANTIC_PREFIXES = [
+  'describ',
+  'explic',
+  'resum',
+  'detalle',
+  'documento',
+  'clausula',
+  'menciona',
+  'dice',
+  'caracteristica',
+  'amenit',
+  'mascota',
+  'garantia',
+];
+
 @Injectable()
 export class AiIntentClassifierService {
   classify(prompt: string): AiRagStrategy {
     const text = prompt.trim().toLocaleLowerCase('es');
     if (!text) return 'unsupported';
-    if (/\b(?:or\s+1\s*=\s*1|union\s+select)\b|--|\/\*/i.test(text)) {
+    if (/\b(?:or\s+1\s*=\s*1|union\s+select)\b|--|\/\*/i.test(text))
       return 'unsupported';
-    }
-
-    const mutation =
-      /\b(cr(?:e(?:a|á|ar|ame|e|é|eme)|é(?:ame|eme))|agreg(?:a|á|ar|ue)|actualiz(?:a|á|ar)|actualic(?:e|en)|modific(?:a|á|ar)|modifiqu(?:e|en)|elimin(?:a|á|ar|e)|borr(?:a|á|ar|e)|registr(?:a|á|ar|e)|cobr(?:a|á|ar|e)|pag(?:a|á|ar|ue)|env(?:i(?:a|á|ar|e)|í(?:a|e))|cancel(?:a|á|ar|e)|reserv(?:a|á|ar|e)|cambi(?:a|á|ar|e)|edit(?:a|á|ar|e)|asign(?:a|á|ar|e))(?=\s|$|[.,;:!?])/i;
-    const lifecycleMutation = /\bd(?:a|á|ar|e|é)\s+de\s+(?:alta|baja)\b/i;
-    if (mutation.test(text) || lifecycleMutation.test(text)) return 'mutation';
-
+    const normalized = text.normalize('NFD').replaceAll(/\p{M}/gu, '');
+    const words = normalized.split(/[^\p{L}\p{N}_]+/u).filter(Boolean);
+    const lifecycleMutation = /\b(?:da|dar|de)\s+de\s+(?:alta|baja)\b/u.test(
+      normalized,
+    );
+    if (words.some((word) => MUTATION_VERBS.has(word)) || lifecycleMutation)
+      return 'mutation';
     if (
-      /\bdocumentos?\b/i.test(text) &&
-      !/\b(estado|saldo|monto|importe|fecha|vence|vencimiento|cl[aá]usula)\b/i.test(
-        text,
-      )
-    ) {
+      words.some((word) => word === 'documento' || word === 'documentos') &&
+      !words.some((word) => DOCUMENT_STATE_WORDS.has(word))
+    )
       return 'semantic';
-    }
-
-    const structured =
-      /\b(saldo|deuda|debe|facturas?|pagos?|vencid[ao]s?|montos?|importes?|total|cu[aá]nt[oa]s?|estado|vigencia|contratos?|alquiler|disponibles?|ocupad[ao]s?|cartera|portfolio|dashboard)\b/i;
-    const semantic =
-      /\b(describ|explic|resum|detalle|documento|cl[aá]usula|menciona|dice|caracter[ií]stica|amenit|mascota|garant[ií]a)\b/i;
-    if (structured.test(text) && semantic.test(text)) return 'hybrid';
-    if (structured.test(text)) return 'structured';
-    return 'semantic';
+    const structured = words.some((word) => STRUCTURED_WORDS.has(word));
+    const semantic = words.some((word) =>
+      SEMANTIC_PREFIXES.some((prefix) => word.startsWith(prefix)),
+    );
+    if (structured && semantic) return 'hybrid';
+    return structured ? 'structured' : 'semantic';
   }
 }

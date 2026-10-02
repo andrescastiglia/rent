@@ -34,10 +34,10 @@ const normalizeText = (value: string): string => {
     .forEach((element) => element.remove());
 
   return document.structuredText
-    .replace(/\u00a0/g, " ")
-    .replace(/\r\n/g, "\n")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
+    .replaceAll("\u00a0", " ")
+    .replaceAll("\r\n", "\n")
+    .replaceAll(/[ \t]+/g, " ")
+    .replaceAll(/\n{3,}/g, "\n\n")
     .trim();
 };
 

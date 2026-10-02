@@ -121,12 +121,10 @@ export class BcraService {
         );
 
         const results = this.normalizeResults(response.data.results);
-        if (
-          results.length >= 3000 ||
-          (response.data.metadata?.resultset?.count ?? results.length) >
-            results.length
-        )
-          throw new Error("Incomplete ICL response; use a smaller date range");
+        this.assertCompleteResponse(
+          results,
+          response.data.metadata?.resultset?.count,
+        );
         if (results.length === 0) {
           logger.warn("No ICL data returned from BCRA", {
             from,
@@ -160,7 +158,7 @@ export class BcraService {
         }
 
         logger.error("Failed to fetch ICL data from BCRA", {
-          error: error instanceof Error ? error.message : error,
+          error: this.errorMessage(error),
           endpoint: candidate.endpoint,
           status: this.extractStatus(error),
           responseData: this.extractResponseData(error),
@@ -170,7 +168,7 @@ export class BcraService {
     }
 
     logger.error("Failed to fetch ICL data from BCRA", {
-      error: lastError instanceof Error ? lastError.message : lastError,
+      error: this.errorMessage(lastError),
       status: this.extractStatus(lastError),
       responseData: this.extractResponseData(lastError),
       variableId: this.iclVariableId,
@@ -241,18 +239,31 @@ export class BcraService {
     return `${trimmed}/estadisticas/v4.0`;
   }
 
+  private errorMessage(error: unknown): unknown {
+    return error instanceof Error ? error.message : error;
+  }
+
+  private assertCompleteResponse(
+    results: BcraVariableData[],
+    count?: number,
+  ): void {
+    if (results.length >= 3000 || (count ?? results.length) > results.length)
+      throw new Error("Incomplete ICL response; use a smaller date range");
+  }
+
   private normalizeResults(
     results: Array<BcraVariableData | BcraV4VariableData> | undefined,
   ): BcraVariableData[] {
     if (!Array.isArray(results)) {
-      throw new Error("Invalid ICL response");
+      throw new TypeError("Invalid ICL response");
     }
 
     return results.flatMap((item) => {
       if (item.idVariable !== undefined && item.idVariable !== 40)
         throw new Error("Unexpected ICL series");
       if ("detalle" in item) {
-        if (!Array.isArray(item.detalle)) throw new Error("Invalid ICL detail");
+        if (!Array.isArray(item.detalle))
+          throw new TypeError("Invalid ICL detail");
         return item.detalle;
       }
       return item;

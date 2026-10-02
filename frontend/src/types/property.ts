@@ -140,6 +140,10 @@ export interface UpdatePropertyVisitResultInput {
 }
 
 export interface PropertyFilters {
+  search?: string;
+  operation?: "rent" | "sale" | "both";
+  operationState?: "available" | "rented" | "reserved" | "sold";
+  order?: "address" | "newest";
   ownerId?: string;
   addressCity?: string;
   addressState?: string;

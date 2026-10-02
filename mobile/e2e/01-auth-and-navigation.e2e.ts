@@ -1,3 +1,4 @@
+import { openModule } from './helpers';
 import { loginAsAdmin, relaunchFreshApp } from './helpers';
 
 describe('Auth and navigation', () => {
@@ -8,28 +9,27 @@ describe('Auth and navigation', () => {
   it('logs in and can open core tabs', async () => {
     await loginAsAdmin();
 
-    await element(by.id('tab.properties')).tap();
-    await waitFor(element(by.id('properties.owners.search')))
+    await openModule('properties');
+    await waitFor(element(by.id('properties.search')))
       .toBeVisible()
       .withTimeout(15000);
 
-    await element(by.id('tab.tenants')).tap();
+    await openModule('tenants');
     await waitFor(element(by.id('tenants.new')))
       .toBeVisible()
       .withTimeout(15000);
 
-    await element(by.id('tab.payments')).tap();
+    await openModule('payments');
     await waitFor(element(by.id('payments.search')))
       .toBeVisible()
       .withTimeout(15000);
 
-    await element(by.id('tab.interested')).tap();
+    await openModule('interested');
     await waitFor(element(by.id('interested.new')))
       .toBeVisible()
       .withTimeout(15000);
 
-    await element(by.id('tab.settings')).tap();
-    await element(by.id('settings.goto.leases')).tap();
+    await openModule('leases');
     await waitFor(element(by.id('leases.search')))
       .toBeVisible()
       .withTimeout(15000);

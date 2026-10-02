@@ -22,6 +22,7 @@ describe('AiToolExecutorService', () => {
     testTool = {
       name: 'users_list',
       description: 'List users',
+      supportsIdempotentRecovery: true,
       mutability: 'readonly',
       allowedRoles: [UserRole.ADMIN],
       parameters: z
@@ -74,6 +75,22 @@ describe('AiToolExecutorService', () => {
     await expect(
       service.execute('users_list', { page: 1 }, context),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('rejects unsupported mutations before creating a review or invoking the tool', async () => {
+    process.env.AI_TOOLS_MODE = 'FULL';
+    testTool.mutability = 'mutable';
+    testTool.supportsIdempotentRecovery = false;
+    expect(service.listTools(UserRole.ADMIN)[0].enabled).toBe(false);
+    await expect(
+      service.execute(
+        testTool.name,
+        { page: 1 },
+        { ...context, conversationId: 'conversation' },
+      ),
+    ).rejects.toThrow('verified transactional');
+    expect(databaseQuery).not.toHaveBeenCalled();
+    expect(testTool.execute).not.toHaveBeenCalled();
   });
 
   it('should reject role not allowed for tool', async () => {
@@ -395,9 +412,18 @@ describe('AiToolExecutorService', () => {
   it('executes a mutable tool only after matching explicit confirmation', async () => {
     process.env.AI_TOOLS_MODE = 'FULL';
     testTool.mutability = 'mutable';
+    testTool.supportsIdempotentRecovery = true;
     databaseQuery
       .mockResolvedValueOnce([
-        [{ id: '44444444-4444-4444-8444-444444444444' }],
+        [
+          {
+            id: '44444444-4444-4444-8444-444444444444',
+            review: {
+              observedVersion: 'version',
+              expiresAt: new Date(Date.now() + 60000).toISOString(),
+            },
+          },
+        ],
         1,
       ])
       .mockResolvedValueOnce([]);

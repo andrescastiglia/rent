@@ -13,10 +13,16 @@ import {
   PropertyVisit,
   UpdatePropertyVisitResultInput,
 } from "@/types/property";
+import { canUserAccessModule } from "@/lib/permissions";
+import { Button, StatePanel } from "@/components/ui";
 
 export default function PropertyVisitResultPage() {
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, user } = useAuth();
+  const canManage = Boolean(
+    user && canUserAccessModule(user, ["admin", "staff"], "properties"),
+  );
   const tc = useTranslations("common");
+  const t = useTranslations("properties.visitResult");
   const locale = useLocale();
   const router = useLocalizedRouter();
   const params = useParams();
@@ -29,6 +35,8 @@ export default function PropertyVisitResultPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [readFailed, setReadFailed] = useState(false);
+  const [revision, setRevision] = useState(0);
   const [form, setForm] = useState({
     result: "interested" as UpdatePropertyVisitResultInput["result"],
     reason: "",
@@ -38,31 +46,62 @@ export default function PropertyVisitResultPage() {
 
   useEffect(() => {
     if (authLoading || !propertyId || !visitId) return;
+    if (!canManage) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setReadFailed(false);
     Promise.all([
       propertiesApi.getById(propertyId),
       propertiesApi.getVisits(propertyId),
     ])
       .then(([propertyData, visits]) => {
+        if (cancelled) return;
         setProperty(propertyData);
-        setVisit(visits.find((item) => item.id === visitId) ?? null);
+        const selectedVisit =
+          visits.find((item) => item.id === visitId) ?? null;
+        setVisit(selectedVisit);
+        setForm({
+          result:
+            selectedVisit?.result && selectedVisit.result !== "pending"
+              ? selectedVisit.result
+              : "interested",
+          reason: selectedVisit?.resultReason ?? "",
+          offerAmount:
+            selectedVisit?.offerAmount == null
+              ? ""
+              : String(selectedVisit.offerAmount),
+          offerCurrency: selectedVisit?.offerCurrency ?? "ARS",
+        });
       })
       .catch((loadError) => {
+        if (cancelled) return;
         console.error("Failed to load property visit", loadError);
-        setError(tc("error"));
+        setReadFailed(true);
       })
-      .finally(() => setLoading(false));
-  }, [authLoading, propertyId, tc, visitId]);
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, propertyId, canManage, revision, visitId]);
 
   const submit = async (event: React.SyntheticEvent) => {
     event.preventDefault();
-    if (!propertyId || !visitId) return;
+    if (!propertyId || !visitId || !canManage || readFailed || saving) return;
     if (form.result === "not_interested" && !form.reason.trim()) {
-      setError("Indicá el motivo de la falta de interés.");
+      setError(t("reasonRequired"));
       return;
     }
     const offerAmount = Number(form.offerAmount);
-    if (form.result === "offer" && (!offerAmount || offerAmount <= 0)) {
-      setError("La propuesta debe tener un monto mayor a cero.");
+    if (
+      form.result === "offer" &&
+      (!Number.isFinite(offerAmount) || offerAmount <= 0)
+    ) {
+      setError(t("invalidOffer"));
       return;
     }
     setSaving(true);
@@ -92,9 +131,24 @@ export default function PropertyVisitResultPage() {
     );
   }
 
-  if (!property || !visit || !propertyId) {
-    return <div className="p-8 text-center">Visita no encontrada.</div>;
-  }
+  if (!canManage) return <StatePanel error title={tc("accessDeniedMessage")} />;
+  if (readFailed)
+    return (
+      <StatePanel
+        error
+        title={tc("error")}
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => setRevision((value) => value + 1)}
+          >
+            {tc("retry")}
+          </Button>
+        }
+      />
+    );
+  if (!property || !visit || !propertyId)
+    return <StatePanel title={t("notFound")} />;
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-8">
@@ -102,13 +156,13 @@ export default function PropertyVisitResultPage() {
         href={`/${locale}/properties/${propertyId}`}
         className="mb-6 inline-flex items-center text-gray-500 hover:text-gray-700"
       >
-        <ArrowLeft size={16} className="mr-1" /> Volver a la propiedad
+        <ArrowLeft size={16} className="mr-1" /> {t("back")}
       </Link>
       <h1 className="mb-2 text-3xl font-bold text-gray-900 dark:text-white">
-        Enviar resultado de visita
+        {t("title")}
       </h1>
       <p className="mb-8 text-sm text-gray-500">
-        {property.name} · {visit.interestedName ?? "Interesado"}
+        {property.name} · {visit.interestedName ?? t("prospect")}
       </p>
       <form
         onSubmit={submit}
@@ -116,7 +170,7 @@ export default function PropertyVisitResultPage() {
       >
         <div>
           <label htmlFor="visitResult" className="block text-sm font-medium">
-            Resultado
+            {t("result")}
           </label>
           <select
             id="visitResult"
@@ -130,18 +184,19 @@ export default function PropertyVisitResultPage() {
             }
             className="mt-1 w-full rounded-md border p-2 dark:bg-gray-700"
           >
-            <option value="interested">Mostró interés</option>
-            <option value="not_interested">Sin interés</option>
-            <option value="offer">Presentó propuesta</option>
+            <option value="interested">{t("interested")}</option>
+            <option value="not_interested">{t("notInterested")}</option>
+            <option value="offer">{t("offer")}</option>
           </select>
         </div>
         <div>
           <label htmlFor="resultReason" className="block text-sm font-medium">
-            Motivo o comentario
+            {t("reason")}
           </label>
           <textarea
             id="resultReason"
             rows={4}
+            required={form.result === "not_interested"}
             value={form.reason}
             onChange={(event) =>
               setForm((previous) => ({
@@ -155,7 +210,7 @@ export default function PropertyVisitResultPage() {
         {form.result === "offer" ? (
           <div className="grid gap-4 md:grid-cols-2">
             <input
-              aria-label="Monto de propuesta"
+              aria-label={t("offerAmount")}
               type="number"
               min="0.01"
               step="0.01"
@@ -167,10 +222,10 @@ export default function PropertyVisitResultPage() {
                 }))
               }
               className="rounded-md border p-2 dark:bg-gray-700"
-              placeholder="Monto"
+              placeholder={t("amount")}
             />
             <select
-              aria-label="Moneda de propuesta"
+              aria-label={t("offerCurrency")}
               value={form.offerCurrency}
               onChange={(event) =>
                 setForm((previous) => ({
@@ -185,7 +240,11 @@ export default function PropertyVisitResultPage() {
             </select>
           </div>
         ) : null}
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? (
+          <p role="alert" className="text-sm text-red-600">
+            {error}
+          </p>
+        ) : null}
         <div className="flex justify-end gap-3">
           <button type="button" onClick={() => router.back()}>
             {tc("cancel")}
@@ -195,7 +254,7 @@ export default function PropertyVisitResultPage() {
             disabled={saving}
             className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
           >
-            {saving ? tc("saving") : "Enviar resultado"}
+            {saving ? tc("saving") : t("submit")}
           </button>
         </div>
       </form>

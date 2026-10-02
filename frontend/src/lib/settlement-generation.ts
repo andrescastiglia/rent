@@ -23,8 +23,7 @@ export function readPendingGeneration(
   const pending = JSON.parse(stored) as PendingGeneration;
   const value = pending?.request;
   if (
-    !value ||
-    value.ownerId !== ownerId ||
+    value?.ownerId !== ownerId ||
     value.confirmed !== true ||
     !/^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(value.period) ||
     !/^[A-Z]{3}$/.test(value.currency) ||

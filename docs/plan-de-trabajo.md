@@ -1,255 +1,104 @@
-# Plan de trabajo pendiente
+# Plan de mejoras de Rent
 
-**Actualizado:** 2026-09-29
+**Actualizado:** 2026-10-02
 
-**Fuente:** [Auditoría integral](auditoria-integral-2026-08-27.md)
+**Alcance:** backend, web, aplicación móvil, batch, datos, integraciones, calidad y diseño gráfico.
 
-Este documento contiene solo trabajo pendiente. El historial Git conserva lo terminado y su evidencia.
+Objetivo: convertir la funcionalidad existente en una experiencia clara, atractiva y confiable para la operación inmobiliaria. Este documento reúne trabajo pendiente, con prioridades y criterios de aceptación; Git y los documentos técnicos conservan el historial.
 
-## 1. Cerrar bloqueantes P0
+## 1. Estado verificable y prioridades
 
-### Autorización y aislamiento
+La implementación y su evidencia se registran en la [validación del 2026-10-02](technical/validacion-plan-2026-10-02.md). Pasan tipos, lint, compilaciones necesarias, suites UT de los cuatro módulos, 511 casos HTTP/PostgreSQL y las pruebas de migraciones. La revisión web con API real tiene 102 capturas autenticadas en tres anchos y dos temas, sin errores JavaScript, desbordamiento ni incidencias axe.
 
-- [ ] Completar fixtures de dos compañías y pruebas negativas por ID ajeno para cada controlador y herramienta IA restante.
-  Avance: las herramientas de usuarios filtran por compañía y las altas toman la
-  compañía autenticada; IA y WhatsApp respetan permisos de módulo del personal y
-  roles declarados. Evidencia: `ai-authorization.e2e-spec.ts` (8 casos con dos
-  empresas) y `ai-tool-access-policy.spec.ts`. Liquidaciones valida listado, detalle,
-  resumen y comprobantes con PostgreSQL real, dos compañías y roles propietario/
-  administrador/inquilino (`settlement-reads.e2e-spec.ts`, 8 casos).
-  Corrección de lecturas incorporada a main con los 23 gates del PR #222 aprobados.
-  Facturas, recibos y notas de crédito ahora validan compañía, tipo e ID del
-  documento tanto por HTTP como IA; los enlaces temporales exigen aprobación e
-  integridad. Ver [alcance y pruebas](technical/financial-document-access.md).
-  Controles documentales incorporados a main con los 23 gates del PR #234 aprobados.
-  Pendiente: despliegue de esta corrección y los demás dominios.
+Se retiraron las tareas implementadas y comprobadas. Las condiciones de publicación y la validación nativa permanecen pendientes hasta disponer de sus resultados. La revisión con Orca/Firefox comprobó 18 pantallas y las interacciones de menú y comprador; se conserva su alcance y la limitación observada con Orca/Chrome. RAG aprobó los 62 casos con proveedor real en una base local aislada. La aplicación conserva el monolito modular, persona multirrol, contrato unificado y migración aditiva.
 
-### Consistencia financiera
+- **P0:** resolver antes de publicar el recorrido afectado; compromete compilación, permisos o consistencia.
+- **P1:** mejora necesaria de producto, diseño o calidad.
+- **P2:** consolidación posterior, sin bloquear los recorridos principales.
 
-- [ ] Asegurar que PDF, WhatsApp y proveedores se ejecuten desde outbox después del commit.
-  Avance: confirmación de pagos y conciliación bancaria usan `payment_effects_outbox`
-  (migración 111), con documentos y entregas atómicos, reintentos y dead letters.
-  Ver [operación y pruebas](technical/payments.md#efectos-recuperables-de-confirmación).
-  Ventas guarda cobro y `sale_receipt_effects_outbox` juntos (migración 112),
-  con PDF recuperable, descarga autenticada y pruebas de concurrencia/rollback.
-  Confirmación de contratos y cuenta/inmueble se guardan con una cola de PDF
-  (migración 121); snapshot inmutable, reintentos, hash, descarga autorizada y estados
-  en web/portal. Ver [operación y pruebas](technical/confirmed-contracts.md).
-  Importación de contratos vigente ahora guarda contrato, archivo original, inmueble
-  y cuenta en una transacción; hash/actor/versión y rechazo de importaciones concurrentes.
-  Confirmación incorporada a main con los 23 gates del PR #230 aprobados.
-  Importación incorporada a main con los 23 gates del PR #231 aprobados.
-  Emisión de facturas implementada con cargo, comisión y cola de PDF en una
-  transacción; snapshot de plantilla/partes, reintentos, hash y estado consultable
-  desde web. HTTP, IA y emisión mensual comparten el recorrido.
-  Ver [operación y límites](technical/invoice-documents.md). Incorporada a main
-  con los 23 gates del PR #235 aprobados. Pendiente: despliegue.
-  Generación HTTP/IA implementada con ajuste, borrador, calendario y emisión opcional
-  atómicos; numeración por compañía y rechazo de períodos duplicados concurrentes.
-  Ver [evidencia y límites](technical/invoice-generation.md). Incorporada a main
-  con los 23 gates del PR #236 aprobados. Pendiente: despliegue y adopción del flujo común.
-  Generación con clave UUID implementada para HTTP/IA (migración 123): recupera
-  la factura original, rechaza cambios de parámetros y conserva claves tras bajas.
-  Incorporada a main con los 23 gates del PR #237 aprobados.
-  Pendiente: adopción por los demás clientes y despliegue.
-  Batch de facturación migrado al backend con selección por fecha, claves estables,
-  moneda del contrato, PDF/aviso consentido en colas y validación del CLI real.
-  Migración 124 permite días 29–31 y ajuste a fin de mes. Se retiraron conversión
-  automática a ARS y retenciones sobre la deuda del inquilino; ver
-  [cambios de cálculo, pruebas y límites](technical/scheduled-billing.md).
-  Incorporado a main con los 23 gates del PR #238 aprobados.
-  Pendiente: configuración operativa y despliegue; cron suspendido.
-  Historial de índices implementado (migración 125): ICL diario, IPC nivel mensual,
-  IGP-M porcentaje mensual, revisiones inmutables y reintentos sin sobrescritura.
-  Ver [ingestión, pruebas y límites](technical/inflation-observations.md).
-  Historial incorporado a main con los 23 gates del PR #239 aprobados.
-  Cálculo común acumulado implementado: ICL diario, IPC por niveles e IGP-M
-  compuesto, rezago mensual explícito, calendario por fechas programadas,
-  centavos exactos y snapshot inmutable visible en factura. Se retiró el calculador
-  batch antiguo. Ver [operación y límites](technical/rent-adjustments.md).
-  Incorporado a main con los 23 gates del PR #240 aprobados.
-  Pendiente: revisión de calendarios/rezagos y datos reales, recuperación
-  histórica y despliegue; los crons siguen suspendidos.
-  Pendiente: recuperación histórica,
-  verificar los demás productores de documentos/proveedores y desplegar.
+## 2. Orden de cierre
 
-El resumen del propietario usa el esquema contable actual y devuelve cobros
-imputados por moneda, con mes de Argentina y errores explícitos en web. Ver
-[contrato y límites](technical/owner-summary.md). Incorporado a main con los 23
-gates del PR #232 aprobados. Pendiente: despliegue
-coordinado de este contrato de API y su frontend.
+1. Completar O02: CI Android/iOS de las correcciones nativas; la revisión accesible web está registrada.
+2. Completar O06: vincular evidencia a la release; API y Web Vitals ya se midieron, se corrigió el CLS de Inicio y RAG aprobó los umbrales por compañía/rol.
+3. Completar O04 e I01: CI del SHA exacto, release inmutable, migraciones, healthchecks y smoke; proveedores apagados y cron financieros suspendidos.
+4. I02 queda condicionado a las cuentas y habilitación futura; su checklist ya está documentado en [proveedores externos](technical/external-providers.md).
 
-El resumen de liquidaciones ahora conserva moneda, estado e importes exactos;
-listado y resumen comparten filtros de mes/moneda y alcance. La herramienta IA
-respeta los mismos roles que HTTP. Ver [contrato y pruebas](technical/settlement-summary.md).
-Incorporado a main con los 23 gates del PR #233 aprobados.
-Pendiente: despliegue de backend/clientes compatibles.
+Responsable de implementación y validación de esta entrega: Ingeniería. Operaciones registra la release y su seguimiento. O06 es requisito antes de ampliar el uso de IA.
 
-### WhatsApp seguro
+## 3. Base de desarrollo cerrada
 
-- [ ] Garantizar ejecución exactamente una vez para cada herramienta mutable aprobada, incluso si el proceso cae después del efecto de dominio y antes de persistir el resultado.
-  Avance: corregida la lectura de filas adquiridas/rechazadas en PostgreSQL;
-  pruebas HTTP con dos compañías, concurrencia, reautenticación e integridad.
-  Corrección incorporada a main con los 23 gates del PR #229 aprobados.
-  Avance adicional: generación de facturas con resultado original inmutable en
-  la misma transacción del cargo/calendario, clave estable por aprobación y
-  recuperación con reautenticación tras fallos o vencimiento del intento.
-  Las ejecuciones históricas sin garantía no se vuelven a ejecutar y las propuestas
-  de la bandeja no admiten confirmación directa. Ver
-  [alcance y pruebas](technical/approved-invoice-recovery.md).
-  Generación recuperable incorporada a main con los 23 gates del PR #241 aprobados.
-  Alta manual, emisión y anulación de facturas también guardan el resultado en
-  su transacción (migración 128), con recuperación tras baja lógica y rollback
-  de todos los efectos si falla la persistencia de la constancia.
-  Ciclo de facturas incorporado a main con los 23 gates del PR #242 aprobados.
-  Alta, edición, confirmación y anulación de cobros usan la misma constancia
-  transaccional; conceptos y pago se guardan juntos y la edición bloquea
-  confirmaciones concurrentes. Ver [contrato y pruebas](technical/approved-payment-recovery.md).
-  Ciclo de cobros incorporado a main con los 23 gates del PR #243 aprobados.
-  Renderizado/edición de texto, confirmación/activación y cierre de contratos
-  también guardan el resultado aprobado en su transacción. Los editores de texto
-  bloquean la confirmación concurrente; ver [contrato y pruebas](technical/approved-lease-recovery.md).
-  Transiciones incorporadas a main con los 23 gates del PR #249 aprobados.
-  Altas y edición general/revisiones también usan constancia transaccional, con
-  renderizado atómico, protección de confirmaciones concurrentes y PATCH sin
-  reiniciar valores omitidos. Ver [reglas y pruebas](technical/approved-lease-drafts.md).
-  Altas y revisiones incorporadas a main con los 23 gates del PR #250 aprobados.
-  La renovación ahora guarda cierre del original, inmueble, nuevo borrador y
-  constancia aprobada juntos; preserva términos omitidos y vincula la versión
-  nueva, con bloqueo contra sucesores simultáneos. Ver [reglas y pruebas](technical/approved-lease-renewals.md).
-  Renovaciones incorporadas a main con los 23 gates del PR #251 aprobados.
-  Bajas y altas/ediciones de plantillas también guardan constancia atómica;
-  la baja se serializa con confirmación/renovación y preserva sucesores y contabilidad.
-  Las ediciones parciales de plantillas conservan HTML y no pierden cambios concurrentes.
-  Ver [reglas y pruebas](technical/approved-lease-deletions-templates.md).
-  Bajas y plantillas incorporadas a main con los 23 gates del PR #252 aprobados.
-  La importación de contratos vigentes admite clave UUID y vincula términos/archivo
-  a su respuesta original. Web conserva la clave de un intento fallido para reintentar;
-  ver [contrato y pruebas](technical/recoverable-contract-imports.md).
-  Enmiendas incorporan envío, recuperación transaccional y aplicación automática
-  en la fecha de vigencia de Argentina, con auditoría, reintentos y protección de
-  facturación. Ver [reglas y pruebas](technical/automatic-lease-amendments.md).
-  Pendiente: gates y despliegue de importación/enmiendas; interfaz de enmiendas,
-  resolución administrativa de aprobaciones históricas o inválidas y worker en producción.
-  Pendiente: idempotencia transaccional de las demás herramientas mutables y despliegue.
+B01–B06 se implementaron y verificaron. Evidencia, contratos generados y pruebas: [validación de dominio](technical/validacion-plan-2026-10-02.md#dominio-y-contratos).
 
-## 2. Completar recorridos de producto
+## 4. Diseño gráfico y experiencia — P1
 
-- [ ] Personas/CRM: multirrol, deduplicación, importación, perfil de interés, matching, reservas, embudo configurable, timeline, consentimiento y métricas.
-- [ ] Cobros: conceptos variables editables antes de emitir, mora opcional auditada, período/vencimiento automáticos, recibo y nota de crédito persistentes.
-  Avance: importes/conceptos se validan en centavos exactos; edición de importes
-  exige conceptos consistentes, no permite cambiar la cuenta y valida moneda.
-  Confirmación rechaza registros incompatibles y las imputaciones fraccionarias
-  ya no dejan facturas pagadas en estado parcial. Ver
-  [alcance y límites](technical/payment-amounts.md). Incorporado a main con los
-  23 gates del PR #244 aprobados. Pendiente: despliegue y los demás requisitos de cobros.
-  Anulación de cobros implementada con saldo imputado en centavos, estado según
-  pagos remanentes/vencimiento, preservación de facturas anuladas y rechazo de
-  imputaciones incompatibles. Ver [reglas y pruebas](technical/payment-reversals.md).
-  Incorporado a main con los 23 gates del PR #245 aprobados.
-  Las nuevas bonificaciones de mora registran origen y se revierten al anular
-  otro cobro de la factura, con auditoría, bloqueo del PDF y revalidación del
-  aviso pendiente. Ver [alcance y límites](technical/conditional-late-fee-credits.md).
-  Incorporado a main con los 23 gates del PR #246 aprobados.
-  Numeración de recibos/notas implementada con contadores persistentes,
-  historial/importaciones, inmutabilidad y asignación dentro de la transacción
-  contable (migración 131). Ver [reglas y pruebas](technical/payment-document-numbers.md).
-  Numeración incorporada a main con los 23 gates del PR #247 aprobados.
-  Pendiente: despliegue.
-  Los avisos de recibos ahora revalidan cobro, documento, destinatario, adjunto
-  y consentimiento antes de cada intento; ver [reglas y pruebas](technical/payment-receipt-notices.md).
-  Control de avisos incorporado a main con los 23 gates del PR #248 aprobados.
-  Pendiente: despliegue y revisión de avisos históricos.
-  Pendientes además: política opcional de mora, notas históricas, anulación directa
-  de facturas con notas, verificación de los demás numeradores y recuperación de
-  deuda tras liquidaciones ya transferidas.
-- [ ] Propiedades: filtros útiles, interesados, visitas y aviso consentido al propietario con fecha, oferta y valor.
-- [ ] Ventas: cuotas transaccionales, atrasos, saldo a favor/crédito y original/duplicado verificables.
-- [ ] Mantenimiento: solicitud, asignación, seguimiento, cierre, adjuntos, auditoría y notificaciones idempotentes.
-- [ ] Corregir `FT-WCAG-001..010` y validar WCAG 2.2 AA, teclado, lector de pantalla, contraste y estados de error.
+### Dirección visual
 
-## 3. Completar canales e integraciones
+Conservar la identidad del logo amarillo y grafito, y desarrollar una interfaz inmobiliaria sobria, cálida y cuidada:
 
-- [ ] Validar lectura WhatsApp por capacidad y rol con evidencia, fecha, paginación, desambiguación y deep links seguros.
-- [ ] Habilitar propuestas WhatsApp por dominio solo después de cerrar inbox/outbox y la bandeja de revisión.
-- [ ] Llevar MercadoPago al flujo contable común con firma, replay, idempotencia y conciliación productiva.
-- [ ] Persistir PDFs con checksum, versión, autorización y regeneración controlada.
-  Avance: nuevos comprobantes financieros guardan SHA-256 y versión del formato
-  de integridad; las descargas rechazan alteraciones y documentos no aprobados.
-  Pendiente: gates, despliegue y recuperación/versionado de documentos históricos.
+- Fondos neutros, superficies claras, texto grafito y un color primario consistente. Amarillo como acento de marca; verde, ámbar y rojo para estados acompañados de texto.
+- Una familia sans serif legible; cuerpo de 14–16 px, títulos de 24–30 px y cifras tabulares. Menos mayúsculas y más jerarquía mediante tamaño, peso y espacio.
+- Espaciado regular de 8/16/24/32 px, radios coherentes y bordes/sombras discretos. Evitar que cada indicador sea una tarjeta de otro color.
+- Fotografías de propiedades con proporción estable, portada seleccionable y alternativa visual cuidada cuando falten imágenes. Iconografía consistente con Lucide en web y su equivalente móvil.
+- Una acción principal clara por contexto; acciones secundarias agrupadas y destructivas diferenciadas. Controles cómodos de 40–44 px y objetivos táctiles de al menos 44 px como criterio de diseño.
+- Tema claro completo y oscuro coherente; contraste, estados de foco, carga, error y deshabilitado definidos desde el comienzo.
 
-## 4. Operación, calidad y documentación
+### Entregas
 
-- [ ] Completar E2E con backend real en Android e iOS y conservar evidencia por plataforma.
-- [ ] Cerrar gates RAG: integridad, recall ≥ 0,95, errores < 1 %, respuesta p95 < 8 s y frescura p95 < 60 s; conservar evidencia por tag/compañía.
+- [ ] **D07. Aplicar el diseño a móvil, portales y pantallas restantes.** Corregir el ancho del contenido y tablas de pagos; limitar el scroll horizontal al contenedor que lo requiera. Adaptar tablas a listas resumidas en pantallas pequeñas. Mobile: Inicio, tareas principales y Más; sacar funciones operativas de Ajustes y nombrar correctamente acciones como Nuevo propietario/Nueva propiedad. Extender los patrones a mantenimiento, CRM, reportes, usuarios, ajustes, acceso y portales.
+  **Aceptación:** recorridos completos a 390/768/1440 px, sin desbordamiento de página, contenido tapado ni controles inaccesibles; en la app se respetan áreas seguras y teclado.
 
-## Integraciones a implementar, temporalmente deshabilitadas
+### Asistencia contextual permanente
 
-Firma digital, publicación en portales y transferencias externas de liquidaciones
-permanecen temporalmente deshabilitadas por instrucción del usuario (2026-09-28).
-La implementación de proveedores reales forma parte de esta entrega, por
-aclaración del usuario: BFA únicamente para sellado/verificación documental,
-Mercado Libre para publicación inmobiliaria y Mercado Pago Payouts para
-transferencias de liquidaciones. No existen cuentas ni credenciales; implementar
-sin configurar ni activar proveedores. Se conserva la consulta histórica; no
-deben ejecutarse simulaciones ni marcar transferencias como pagadas en producción.
-El cron `process-settlements` permanece suspendido.
 
-- [ ] Implementar BFA sin confundir sellado temporal con firma de las partes.
-  Avance: cliente TSA2, cola durable, API por documento y consulta administrativa
-  de constancias/versiones con alcance de compañía; interfaz bloqueada por defecto.
-  Gates del PR #215 aprobados y cambios incorporados a main.
-  Pendiente: despliegue deshabilitado.
-- [ ] Implementar publicación, actualización y estados con Mercado Libre.
-  Avance: cliente, cola durable y endpoints por compañía; creación sin reenvíos
-  inciertos, recuperación por ID y estados confirmados por el proveedor.
-  Cola incorporada a main con gates del PR #216 aprobados. OAuth persiste tokens
-  cifrados por compañía, usa PKCE/estado de un solo uso y serializa renovaciones.
-  OAuth incorporado a main con todos los gates del PR #217 aprobados.
-  Interfaz administrativa de conexión y callback implementada, con bloqueo mientras
-  esté deshabilitada, retorno sin persistir códigos y desvinculación local confirmada.
-  Interfaz de conexión incorporada a main con gates del PR #218 aprobados.
-  Revisión de incidencias implementada con auditoría y UI por propiedad: vinculación
-  verificada, ausencia declarada, reintento por ID y aceptación del estado remoto.
-  Revisión incorporada a main con gates del PR #219 aprobados.
-  Catálogo por compañía y alta validada de borradores implementados: categorías
-  inmobiliarias, atributos, unidades, tipos disponibles y ubicaciones de Argentina.
-  Catálogo incorporado a main con los 23 gates del PR #220 aprobados.
-  Editor administrativo implementado: borradores, atributos/unidades y ubicación,
-  publicación separada con confirmación, actualización, pausa, reactivación y cierre.
-  Bloquea envíos pendientes/inciertos y conserva campos inmutables de avisos existentes.
-  Editor incorporado a main con los 23 gates del PR #221 aprobados.
-  Pendiente: despliegue deshabilitado.
-- [ ] Implementar transferencias Mercado Pago con idempotencia y conciliación.
-  Avance: solicitud inmutable y cola por liquidación, deduplicación, intención antes
-  del envío, conservación de IDs, conciliación y movimientos de acreditación/reversión
-  atómicos. API administrativa con revisión auditada y bloqueo total mientras está
-  deshabilitada. Núcleo incorporado a main con los 23 gates del PR #223 aprobados.
-  UI administrativa con confirmación de importe/destino, historial,
-  bloqueo tras respuesta perdida y revisión auditada, sin reenvío de creaciones inciertas.
-  Interfaz incorporada a main con los 23 gates del PR #224 aprobados.
-  Comprobantes de acreditación/reversión y avisos en cola después del commit,
-  snapshots inmutables, hash de PDF, descarga por movimiento y reintentos/dead letters
-  implementados; conservan el consentimiento y bloquean avisos de pagos revertidos.
-  Comprobantes incorporados a main con los 23 gates del PR #225 aprobados.
-  Vista previa contable administrativa implementada sobre imputaciones reales,
-  con moneda explícita, notas de crédito, centavos exactos y snapshot consistente.
-  Vista previa incorporada a main con los 23 gates del PR #226 aprobados.
-  Generación durable implementada con confirmación/fingerprint, deduplicación,
-  reserva por factura, retenciones explícitas y snapshot inmutable. Admite cobros
-  suplementarios, anulación auditada previa al envío y validación de fuentes antes
-  de transferir; respeta la fecha programada en Argentina. El batch ya no simula
-  transferencias, tampoco en pruebas.
-  Generación incorporada a main con los 23 gates del PR #227 aprobados.
-  Interfaz de generación/anulación implementada con revisión de fuentes y neto,
-  confirmación, recuperación por clave y descarte durable de solicitudes no registradas.
-  Conserva solicitudes inciertas al recargar o fallar una lectura; sin reenvíos automáticos.
-  Interfaz incorporada a main con los 23 gates del PR #228 aprobados.
-  Pendiente: recuperación de deuda por cobros
-  anulados después de transferir, resolución de devoluciones parciales/nuevas
-  órdenes verificadas y despliegue deshabilitado.
-- [ ] Verificar que ninguna integración real se invoque mientras está deshabilitada.
+- **Cuándo intervenir:** valores iniciales propuestos de 8 segundos desde que la pantalla está lista si no se inició ninguna acción, y 12 segundos desde la última interacción relevante durante una tarea. Los tiempos serán configurables y se ajustarán con pruebas de uso.
+- **Cómo elegir el paso:** reglas explícitas por pantalla y tarea, considerando selección actual, campos pendientes, validación, estado del registro y permisos. Al avanzar, completar o cambiar de pantalla, cancelar la sugerencia anterior y reevaluar el contexto.
+- **Cómo presentarlo:** tooltip guiado junto al campo o botón correspondiente, con señalamiento visual discreto; mensaje flotante breve cuando la orientación abarque la pantalla. Explicar qué hacer y para qué, con acceso a la acción cuando corresponda. La operación se ejecuta por decisión del usuario.
+- **Cómo regular la frecuencia:** mostrar una sugerencia por vez; reiniciar el contador con escritura, clic, toque o desplazamiento. Pausar durante cargas, envíos, diálogos y resolución de errores. Permitir cerrar o pausar la ayuda, recordar esa preferencia y evitar repetir el mismo aviso durante la tarea; en visitas futuras reevaluar su utilidad.
+- **Cómo cuidar la interacción:** respetar la prioridad de errores y confirmaciones, mantener visibles los controles y conservar el foco. Permitir lectura sin desaparición prematura, cierre por teclado y anuncio accesible sin interrumpir. Diferenciar visualmente orientación, error y confirmación de una operación.
+- **Cómo redactarlo:** una o dos frases, verbo concreto y vocabulario inmobiliario: propiedad, interesado, contrato, cobro, cuota, vencimiento y liquidación. Evitar jerga técnica, mensajes genéricos y recomendaciones que no correspondan al estado real.
 
-## Criterio de cierre
+Ejemplos de mensajes, mostrados sólo cuando corresponda:
 
-Una tarea se elimina de este archivo solo cuando existe evidencia reproducible de autorización, pruebas, observabilidad, documentación y rollback proporcionales al riesgo. Una release requiere tag/SHA/artefactos coincidentes, cero PR o ramas temporales, migraciones y verificaciones de disponibilidad verdes.
+- **Propiedades, al entrar sin actuar:** “Busque un inmueble por dirección para consultar sus contratos y visitas”.
+- **Cobros, con inquilino seleccionado y contrato pendiente:** “Seleccione el contrato al que corresponde este cobro”.
+- **Contrato, con fechas pendientes:** “Complete las fechas de inicio y finalización para continuar con el contrato”.
+- **Venta en cuotas, con plan iniciado:** “Indique la cantidad de cuotas y la fecha del primer vencimiento”.
+- **Cobro listo para revisar:** “Revise el importe, la moneda y los conceptos antes de confirmar el cobro”.
+
+## 5. Funcionalidad y datos
+
+
+F02 quedó implementado y verificado con UT, HTTP/PostgreSQL y el CLI de facturación: conceptos variables, período/vencimiento, mora auditada, importación, adendas, emisión, cobro, recibo y anulación. Los datos históricos tienen inventario y [procedimiento de corrección](technical/scheduled-billing.md#revisión-de-datos-antes-de-reactivar-2026-10-02). La reactivación futura exige esas decisiones operativas; esta entrega conserva los cron financieros suspendidos. [Evidencia](technical/validacion-plan-2026-10-02.md#dominio-y-contratos).
+
+## 6. Calidad, mantenimiento y operación
+
+
+- [ ] **O02 · P1. Ampliar QA de recorridos y diseño.** Agregar E2E con API/PostgreSQL reales para roles, concurrencia, pagos, propuestas, uploads y PDFs; Android e iOS con evidencia por plataforma. Incorporar ventas, compradores, detalles y portales a accesibilidad, capturas de regresión visual y revisión manual de teclado/lector de pantalla. Revalidar hallazgos antiguos antes de declararlos pendientes.
+  Probar D08 con tiempos controlados: entrada sin acción, tarea iniciada, reinicio por interacción, cambio de paso/pantalla, permisos, pausas y cierre de la ayuda.
+  **Aceptación:** recorridos centrales sin fallas graves de accesibilidad; capturas en anchos y temas de D07; estados reales cargados, no sólo mocks o pantallas de error. La revisión completa de WCAG 2.2 AA incluye contraste y foco.
+
+
+- [ ] **O04 · P1. Actualizar documentación y verificar publicación.** Alinear README, catálogo documental, mobile y batch con lo implementado. Actualizar despliegue/rollback al flujo Kubernetes vigente y distinguirlo de PM2 histórico. Verificar migraciones, configuración y compatibilidad de clientes en una entrega coordinada.
+  **Aceptación:** instrucciones reproducibles, artefactos inmutables y tag/SHA coincidentes; CI, healthchecks y smoke tests verdes. No afirmar despliegues sin evidencia. Base: `.github/workflows/release.yml`, runbooks y scripts de publicación.
+
+
+- [ ] **O06 · P1. Medir rendimiento y exigir los objetivos de IA.** Medir consultas/N+1, API y Web Vitals con datos representativos; aplicar los [SLO operativos](deployment/operations-slo.md). Convertir objetivos RAG en gates automáticos: recall ≥ 0,95, errores < 1 %, respuesta p95 < 8 s, frescura p95 < 60 s y cero fugas entre compañías.
+  **Aceptación:** resultados RAG por tag, compañía y rol, incluido comprador; una evaluación fuera de umbral falla; mejoras de rendimiento sustentadas en mediciones. Base: `backend/scripts/run-rag-eval.js` y telemetría.
+
+## 7. Integraciones y límites de alcance
+
+BFA, Mercado Libre y Mercado Pago Payouts ya tienen implementación, colas y administración. Mantenerlos deshabilitados según la decisión registrada del 2026-09-28; no hay cuentas ni credenciales disponibles. BFA corresponde a sellado/verificación documental, separado de la firma de las partes.
+
+- [ ] **I01 · P1. Verificar y desplegar las integraciones apagadas.** Comprobar que API, IA, UI y workers respetan el bloqueo; conservar consulta histórica. Documentar estados inciertos y recuperación. No simular acreditaciones ni marcar transferencias como pagadas.
+  **Aceptación:** ninguna llamada externa mientras estén deshabilitadas; despliegue con flags apagados y pruebas del bloqueo. Referencia: [proveedores externos](technical/external-providers.md).
+
+- [ ] **I02 · P2, condicionado. Preparar validación futura de proveedores.** Documentar requisitos de cuenta, credenciales, entorno de pruebas, escenarios y procedimiento de activación/reversión; validar los flujos externos cuando existan acceso y habilitación expresa.
+  **Aceptación:** checklist y evidencia por proveedor antes de activar; el cron `process-settlements` continúa suspendido.
+
+Se conserva el monolito modular, la persona multirrol, el contrato unificado asociado a propiedad y la migración aditiva. Recuperación ante desastres y ensayos de restauración quedan fuera de esta etapa, conforme al contrato de producto.
+
+## 8. Criterio de cierre
+
+Una tarea se cierra cuando tiene resultado verificable, pruebas proporcionales al riesgo, documentación y observabilidad necesarias. Para cambios visuales se requieren capturas y revisión de interacción; para dinero, permisos y concurrencia, pruebas de invariantes y fallos.
+
+Trabajar en entregas pequeñas por recorrido. El plan debe conservar sólo pendientes: retirar tareas terminadas y enlazar su evidencia en Git o en el documento técnico correspondiente. El primer resultado esperado es una base compilable y cinco pantallas de referencia con un diseño común, antes de extender el rediseño al resto del producto.

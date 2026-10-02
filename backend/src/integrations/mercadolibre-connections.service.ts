@@ -223,7 +223,7 @@ export class MercadoLibreConnectionsService {
         'SELECT * FROM mercadolibre_connections WHERE company_id = $1::uuid FOR UPDATE',
         [companyId],
       );
-      if (!connection || connection.status !== 'active') return;
+      if (connection?.status !== 'active') return;
       const current = this.storedTokens(companyId, connection);
       // A delayed 401 for an old token must not invalidate a newer token pair.
       if (current.access_token !== accessToken) return;
@@ -384,7 +384,8 @@ export class MercadoLibreConnectionsService {
           ),
         ),
       );
-      if (tokens.user_id !== Number(connection.seller_id)) throw new Error();
+      if (tokens.user_id !== Number(connection.seller_id))
+        throw new Error('Invalid Mercado Libre credential response');
       return tokens;
     } catch {
       throw new ServiceUnavailableException(
@@ -443,7 +444,7 @@ export class MercadoLibreConnectionsService {
         url.search ||
         url.hash
       )
-        throw new Error();
+        throw new Error('Invalid Mercado Libre credential response');
       return value;
     } catch {
       throw new ServiceUnavailableException(

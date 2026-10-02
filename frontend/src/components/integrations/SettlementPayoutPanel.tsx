@@ -12,7 +12,7 @@ import {
 const inputClass =
   "block w-full rounded border p-2 bg-white text-gray-900 dark:bg-gray-900 dark:text-white";
 const buttonClass = "rounded border px-4 py-2 disabled:opacity-50";
-const statuses = [
+const statuses = new Set([
   "queued",
   "dispatching",
   "awaiting",
@@ -20,7 +20,7 @@ const statuses = [
   "failed",
   "needs_review",
   "reversed",
-];
+]);
 type Bank = NonNullable<RequestSettlementPayoutDto["bankAccount"]>;
 const emptyBank: Bank = {
   accountType: "checking",
@@ -35,6 +35,44 @@ const receiptStateLabels: Record<string, string> = {
   unavailable: "receiptUnavailable",
 };
 
+function reviewActions(
+  job: SettlementPayoutOverviewDto["job"] | undefined,
+): ReviewSettlementPayoutDto["action"][] {
+  const actions: ReviewSettlementPayoutDto["action"][] = [];
+  if (job?.status === "needs_review" && !job.payoutId) actions.push("link");
+  if (
+    job?.status === "failed" &&
+    !job.payoutId &&
+    ["provider_rejected", "configuration_error"].includes(job.errorCode ?? "")
+  )
+    actions.push("retry");
+  if (
+    job?.payoutId &&
+    ["failed", "needs_review", "completed", "reversed"].includes(job.status)
+  )
+    actions.push("refresh");
+  return actions;
+}
+function requestDestination(
+  mode: string,
+  email: string,
+  bank: Bank,
+): Partial<RequestSettlementPayoutDto> {
+  if (mode === "email") return { recipientEmail: email.trim() };
+  return {
+    bankAccount: {
+      ...bank,
+      holder: bank.holder.trim(),
+      branch: bank.branch || undefined,
+    },
+  };
+}
+function payoutStatus(
+  job: SettlementPayoutOverviewDto["job"] | undefined,
+): string {
+  if (!job) return "none";
+  return statuses.has(job.status) ? job.status : "unknown";
+}
 export function SettlementPayoutPanel({
   settlementId,
   ownerId,
@@ -103,19 +141,7 @@ export function SettlementPayoutPanel({
     !settlement.transferReference &&
     settlement.currencyCode === "ARS" &&
     validAmount;
-  const actions: ReviewSettlementPayoutDto["action"][] = [];
-  if (job?.status === "needs_review" && !job.payoutId) actions.push("link");
-  if (
-    job?.status === "failed" &&
-    !job.payoutId &&
-    ["provider_rejected", "configuration_error"].includes(job.errorCode ?? "")
-  )
-    actions.push("retry");
-  if (
-    job?.payoutId &&
-    ["failed", "needs_review", "completed", "reversed"].includes(job.status)
-  )
-    actions.push("refresh");
+  const actions = reviewActions(job);
   const validReview =
     !!action &&
     actions.includes(action) &&
@@ -124,6 +150,14 @@ export function SettlementPayoutPanel({
     (action !== "link" ||
       (/^POP[A-Za-z0-9]{1,100}$/.test(payoutId.trim()) &&
         /^TOP[A-Za-z0-9]{1,100}$/.test(transactionId.trim())));
+  const reviewPayload = (): ReviewSettlementPayoutDto => ({
+    confirmed: true,
+    action: action as ReviewSettlementPayoutDto["action"],
+    reason: reason.trim(),
+    ...(action === "link"
+      ? { payoutId: payoutId.trim(), transactionId: transactionId.trim() }
+      : {}),
+  });
   const perform = async (operation: "read" | "request" | "review") => {
     if (
       inFlight.current ||
@@ -142,25 +176,10 @@ export function SettlementPayoutPanel({
           confirmed: true,
           expectedAmount: amount,
           currency: "ARS",
-          ...(mode === "email"
-            ? { recipientEmail: email.trim() }
-            : {
-                bankAccount: {
-                  ...bank,
-                  holder: bank.holder.trim(),
-                  branch: bank.branch || undefined,
-                },
-              }),
+          ...requestDestination(mode, email, bank),
         });
       if (operation === "review")
-        await api.review(settlementId, {
-          confirmed: true,
-          action: action as ReviewSettlementPayoutDto["action"],
-          reason: reason.trim(),
-          ...(action === "link"
-            ? { payoutId: payoutId.trim(), transactionId: transactionId.trim() }
-            : {}),
-        });
+        await api.review(settlementId, reviewPayload());
       const [current, state] = await Promise.all([
         api.settlement(settlementId),
         api.overview(settlementId),
@@ -195,18 +214,14 @@ export function SettlementPayoutPanel({
       if (mounted.current) setDownloading(false);
     }
   };
-  const status = job
-    ? statuses.includes(job.status)
-      ? job.status
-      : "unknown"
-    : "none";
+  const status = payoutStatus(job);
   return (
     <section aria-busy={busy} className="space-y-5 rounded-lg border p-5">
       <h2 className="text-xl font-semibold">{t("detail")}</h2>
-      {busy && <p role="status">{t("loading")}</p>}
+      {busy && <output>{t("loading")}</output>}
       {error && <p role="alert">{t("error")}</p>}
       {downloadError && <p role="alert">{t("receiptError")}</p>}
-      {overview && !overview.enabled && <p role="status">{t("disabled")}</p>}
+      {overview && !overview.enabled && <output>{t("disabled")}</output>}
       <button
         type="button"
         className={buttonClass}
@@ -220,7 +235,7 @@ export function SettlementPayoutPanel({
           {settlement.period} · {amount} {settlement.currencyCode}
         </p>
       )}
-      {overview && <p role="status">{t(`status.${status}`)}</p>}
+      {overview && <output>{t(`status.${status}`)}</output>}
       {job?.transactionId && (
         <p className="break-all">
           {t("transactionId")}: {job.transactionId}
@@ -237,7 +252,7 @@ export function SettlementPayoutPanel({
         </p>
       )}
       {job?.errorCode === "partial_refund_requires_review" && (
-        <p role="status">{t("partialRefund")}</p>
+        <output>{t("partialRefund")}</output>
       )}
       {overview && !job && !canRequest && <p>{t("ineligible")}</p>}
       {canRequest && (
@@ -306,7 +321,7 @@ export function SettlementPayoutPanel({
                       }
                       pattern={
                         {
-                          holder: ".*\\S.*",
+                          holder: String.raw`.*\S.*`,
                           number: "[0-9]{1,34}",
                           bankId: "[0-9]{3}",
                           branch: "[0-9]{1,10}",

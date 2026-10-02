@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const { Client } = require('pg');
 const { JwtService } = require('@nestjs/jwt');
 const evaluationCases = require('../evals/rag-eval.dataset.json');
+const { evaluateQualityGates } = require('./rag-quality-gates.cjs');
+const { databaseTls } = require('../../shared/database-tls.cjs');
 
 const args = process.argv.slice(2);
 const valueOf = (name, fallback) => {
@@ -103,9 +105,10 @@ function dbConfig() {
   if (process.env.DATABASE_URL) {
     return {
       connectionString: process.env.DATABASE_URL,
-      ...(process.env.NODE_ENV === 'production'
-        ? { ssl: { rejectUnauthorized: false } }
-        : {}),
+      ...(databaseTls(process.env) ??
+        (process.env.NODE_ENV === 'production'
+          ? { ssl: { rejectUnauthorized: false } }
+          : {})),
     };
   }
   return {
@@ -117,6 +120,7 @@ function dbConfig() {
       process.env.PGPASSWORD ||
       process.env.DATABASE_PASSWORD,
     database: process.env.POSTGRES_DB || 'rent_db',
+    ...(databaseTls(process.env) ?? {}),
   };
 }
 
@@ -162,6 +166,31 @@ async function findUser(db, test) {
 }
 
 async function sourceAuthorized(db, source, test, userId) {
+  if (test.role === 'buyer') {
+    if (source.entityType === 'structured_query')
+      return source.entityId === test.companyId;
+    const receipt = source.entityType === 'sale_receipt';
+    if (!receipt && !['sale_agreement', 'lease'].includes(source.entityType))
+      return false;
+    const from = receipt
+      ? 'sale_receipts r JOIN sale_agreements sa ON sa.id=r.agreement_id JOIN leases l ON l.id=sa.contract_id'
+      : 'sale_agreements sa JOIN leases l ON l.id=sa.contract_id';
+    const identifier = receipt
+      ? 'r.id'
+      : source.entityType === 'lease'
+        ? 'l.id'
+        : 'sa.id';
+    const result = await db.query(
+      `SELECT count(*) n FROM ${from} JOIN buyers b ON b.id=sa.buyer_id
+       WHERE ${identifier}=$1::uuid AND sa.company_id=$2::uuid AND l.company_id=$2::uuid
+         AND b.company_id=$2::uuid AND b.user_id=$3::uuid AND b.deleted_at IS NULL
+         AND sa.deleted_at IS NULL AND l.deleted_at IS NULL AND l.contract_type='sale'`,
+      [source.entityId, test.companyId, userId],
+    );
+    return Number(result.rows[0].n) === 1;
+  }
+  // Unsupported roles must never inherit the company's staff/admin scope.
+  if (!['admin', 'staff', 'owner', 'tenant'].includes(test.role)) return false;
   const type = source.entityType;
   const entityId = source.entityId;
   if (type === 'structured_query' || type === 'dashboard') {
@@ -417,13 +446,15 @@ function dateVariants(value) {
   ];
 }
 
-async function exactMonetaryValues(db, sources) {
+async function exactMonetaryValues(db, sources, prompt = '') {
   const values = [];
+  const balanceRequested = /\b(saldo|deuda)\b/i.test(prompt);
   for (const source of sources) {
     let query;
     if (source.entityType === 'invoice') {
-      query =
-        'SELECT total_amount, paid_amount, balance_due FROM invoices WHERE id=$1::uuid';
+      query = balanceRequested
+        ? 'SELECT balance_due FROM invoices WHERE id=$1::uuid'
+        : 'SELECT total_amount FROM invoices WHERE id=$1::uuid';
     } else if (source.entityType === 'lease') {
       query = 'SELECT monthly_rent FROM leases WHERE id=$1::uuid';
     } else if (source.entityType === 'property') {
@@ -432,6 +463,12 @@ async function exactMonetaryValues(db, sources) {
       query = 'SELECT amount FROM payments WHERE id=$1::uuid';
     } else if (source.entityType === 'tenant_account') {
       query = 'SELECT current_balance FROM tenant_accounts WHERE id=$1::uuid';
+    } else if (source.entityType === 'sale_agreement') {
+      query = balanceRequested
+        ? 'SELECT round(total_amount-paid_amount,2) AS balance FROM sale_agreements WHERE id=$1::uuid'
+        : 'SELECT total_amount, installment_amount FROM sale_agreements WHERE id=$1::uuid';
+    } else if (source.entityType === 'sale_receipt') {
+      query = 'SELECT amount FROM sale_receipts WHERE id=$1::uuid';
     }
     if (!query) continue;
     const row = (await db.query(query, [source.entityId])).rows[0];
@@ -491,14 +528,47 @@ async function exactFinancialValueMatches(db, test, body, sources) {
   ) {
     return true;
   }
-  const values = await exactMonetaryValues(db, sources);
+  const values = await exactMonetaryValues(db, sources, test.prompt);
   if (values.length === 0) {
     return sources.some((source) => source.entityType === 'structured_query');
   }
   const output = String(body.outputText ?? body.answer ?? '');
-  return values.some((value) =>
-    numericVariants(value).some((variant) => output.includes(variant)),
+  if (/\b(saldo|deuda)\b/i.test(test.prompt)) {
+    const balances = [
+      ...output.matchAll(
+        /\b(?:saldo|deuda|debe|deb[eé]s|pendiente)\b[^\d\n;]*?(-?\d[\d.,]*)/gi,
+      ),
+    ].map((match) => match[1].replace(/[.,]$/, ''));
+    return values.some((value) =>
+      numericVariants(value).some((variant) => balances.includes(variant)),
+    );
+  }
+  const amounts = [...output.matchAll(/-?\d[\d.,]*/g)].map((match) =>
+    match[0].replace(/[.,]+$/, ''),
   );
+  return values.some((value) =>
+    numericVariants(value).some((variant) => amounts.includes(variant)),
+  );
+}
+
+async function retrievedVectorSources(db, body, test, userId) {
+  if (!body.conversationId) return [];
+  // Recall measures retrieved evidence, independently of which sources the
+  // generator cites. Audit scope is bound to this exact authenticated exchange.
+  const run = await db.query(
+    `SELECT retrieved_chunk_ids FROM ai_rag_runs
+     WHERE conversation_id=$1::uuid AND company_id=$2::uuid AND user_id=$3::uuid
+     ORDER BY created_at DESC,id DESC LIMIT 1`,
+    [body.conversationId, test.companyId, userId],
+  );
+  const ids = run.rows[0]?.retrieved_chunk_ids ?? [];
+  if (!ids.length) return [];
+  const result = await db.query(
+    `SELECT id AS "sourceId",entity_type AS "entityType",entity_id AS "entityId"
+     FROM ai_knowledge_chunks WHERE id=ANY($1::uuid[])`,
+    [ids],
+  );
+  return result.rows;
 }
 
 async function exactRestrictedValueMatches(db, test, body, sources, userId) {
@@ -585,7 +655,14 @@ async function main() {
     for (const test of tests) {
       const user = await findUser(db, test);
       if (!user) {
-        results.push({ id: test.id, passed: false, error: 'no_active_user' });
+        results.push({
+          id: test.id,
+          role: test.role,
+          companyId: test.companyId,
+          category: test.category,
+          passed: false,
+          error: 'no_active_user',
+        });
         continue;
       }
       const token = await jwt.signAsync({ sub: user.id }, { expiresIn: '15m' });
@@ -601,13 +678,21 @@ async function main() {
       const latencyMs = Date.now() - started;
       const body = await response.json();
       const sources = Array.isArray(body.sources) ? body.sources : [];
+      const retrieved = await retrievedVectorSources(db, body, test, user.id);
+      const evidence = [
+        ...new Map(
+          [...sources, ...retrieved].map((source) => [source.sourceId, source]),
+        ).values(),
+      ];
       const authorization = [];
-      for (const source of sources) {
+      for (const source of evidence) {
         authorization.push(await sourceAuthorized(db, source, test, user.id));
       }
       const leaks = authorization.filter((allowed) => !allowed).length;
       const authorizedSourceCount = authorization.filter(Boolean).length;
-      const sourceEntityIds = new Set(sources.map((source) => source.entityId));
+      const sourceEntityIds = new Set(
+        evidence.map((source) => source.entityId),
+      );
       const expected = test.expectedEntityIds || [];
       const recall = expected.length
         ? expected.filter((id) => sourceEntityIds.has(id)).length /
@@ -632,6 +717,8 @@ async function main() {
             'tenant_account',
             'dashboard',
             'structured_query',
+            'sale_agreement',
+            'sale_receipt',
           ].includes(source.entityType),
         );
       const exactFinancialValueOk = await exactFinancialValueMatches(
@@ -682,6 +769,7 @@ async function main() {
       results.push({
         id: test.id,
         role: test.role,
+        companyId: test.companyId,
         category: test.category,
         passed,
         httpStatus: response.status,
@@ -689,6 +777,8 @@ async function main() {
         strategy: body.retrieval?.strategy,
         insufficientEvidence: body.insufficientEvidence,
         sourceCount: sources.length,
+        evidenceCount: evidence.length,
+        retrievedVectorCount: retrieved.length,
         authorizedSourceCount,
         leaks,
         recall,
@@ -736,7 +826,7 @@ async function main() {
       0,
     );
     const sourceCount = results.reduce(
-      (sum, result) => sum + (result.sourceCount || 0),
+      (sum, result) => sum + (result.evidenceCount || 0),
       0,
     );
     const authorizedSourceCount = results.reduce(
@@ -801,12 +891,25 @@ async function main() {
         }).length / results.length,
       recallAtK:
         results
-          .filter((result) => result.recall !== null)
+          .filter((result) => Number.isFinite(result.recall))
           .reduce((sum, result) => sum + result.recall, 0) /
-        Math.max(results.filter((result) => result.recall !== null).length, 1),
+        Math.max(
+          results.filter((result) => Number.isFinite(result.recall)).length,
+          1,
+        ),
+      recallSamples: results.filter((result) => Number.isFinite(result.recall))
+        .length,
+      coveredRoles: [
+        ...new Set(
+          results
+            .filter((result) => Number.isFinite(result.latencyMs))
+            .map((result) => result.role),
+        ),
+      ],
       latencyMs: {
         p50: percentile(latencies, 0.5),
         p95: percentile(latencies, 0.95),
+        samples: latencies.length,
       },
       tokens: {
         inputTotal: totalInputTokens,
@@ -819,17 +922,49 @@ async function main() {
         1_000_000 /
         results.length,
     };
-    const report = { summary, results };
+    const companyIds = [...new Set(tests.map((test) => test.companyId))];
+    const freshness = await db.query(
+      `SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY
+          GREATEST(0, EXTRACT(EPOCH FROM (COALESCE(processed_at, NOW()) - source_updated_at)) * 1000)) AS p95,
+          count(*)::int AS samples
+         FROM ai_embedding_outbox WHERE company_id=ANY($1::uuid[])
+          AND created_at >= NOW() - INTERVAL '24 hours'`,
+      [companyIds],
+    );
+    summary.freshnessMs = {
+      p95: freshness.rows[0]?.samples ? Number(freshness.rows[0].p95) : null,
+      samples: freshness.rows[0]?.samples ?? 0,
+    };
+    summary.releaseTag =
+      process.env.RELEASE_TAG || process.env.GITHUB_SHA || 'local';
+    summary.configuration = {
+      model: process.env.AI_RAG_MODEL || process.env.OPENAI_MODEL,
+      reasoningEffort:
+        process.env.AI_RAG_REASONING_EFFORT || 'provider-default',
+      similarityThreshold: process.env.AI_RAG_MIN_SIMILARITY,
+      externalReadEnabled: process.env.AI_RAG_EXTERNAL_READ_ENABLED === 'true',
+    };
+    summary.qualityGates = evaluateQualityGates(summary);
+    const groups = {};
+    for (const result of results) {
+      const group = `${result.companyId}/${result.role}/${result.category}`;
+      groups[group] ??= { total: 0, failed: 0, leaks: 0 };
+      groups[group].total += 1;
+      groups[group].failed += result.passed ? 0 : 1;
+      groups[group].leaks += result.leaks || 0;
+    }
+    const report = { summary, groups, results };
     const reportPath = valueOf('--report', '');
     if (reportPath)
       fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
     console.log(JSON.stringify(summary, null, 2));
     if (
-      has('--strict') &&
-      (summary.crossScopeLeaks > 0 ||
-        summary.financialViolations > 0 ||
-        summary.groundednessRate < 1 ||
-        summary.failed > 0)
+      !summary.qualityGates.passed ||
+      (has('--strict') &&
+        (summary.crossScopeLeaks > 0 ||
+          summary.financialViolations > 0 ||
+          summary.groundednessRate < 1 ||
+          summary.failed > 0))
     ) {
       process.exitCode = 1;
     }
@@ -845,4 +980,11 @@ if (require.main === module) {
   });
 }
 
-module.exports = { evaluationEndpoint, validateEvaluationDataset };
+module.exports = {
+  evaluationEndpoint,
+  validateEvaluationDataset,
+  sourceAuthorized,
+  dbConfig,
+  exactFinancialValueMatches,
+  retrievedVectorSources,
+};

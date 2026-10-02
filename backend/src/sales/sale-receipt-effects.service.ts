@@ -29,6 +29,11 @@ export class SaleReceiptEffectsService {
     companyId: string,
   ) {
     const repository = manager.getRepository(SaleReceipt);
+    const locked = await repository.findOneOrFail({
+      where: { id: receiptId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (locked.cancelledAt) return;
     const receipt = await repository.findOneOrFail({
       where: { id: receiptId },
       relations: ['agreement', 'agreement.folder'],

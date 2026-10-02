@@ -1,3 +1,4 @@
+import { DomainMutationScope } from '../common/helpers/domain-mutation-scope';
 import {
   ConflictException,
   Injectable,
@@ -19,13 +20,29 @@ import {
 
 @Injectable()
 export class BuyersService {
+  private readonly scope = new DomainMutationScope((execute) =>
+    this._buyersRepository.manager.transaction(execute),
+  );
+  private get buyersRepository(): Repository<Buyer> {
+    return this.scope.repository(Buyer, this._buyersRepository);
+  }
+  private get usersRepository(): Repository<User> {
+    return this.scope.repository(User, this._usersRepository);
+  }
+  private get interestedProfilesRepository(): Repository<InterestedProfile> {
+    return this.scope.repository(
+      InterestedProfile,
+      this._interestedProfilesRepository,
+    );
+  }
+
   constructor(
     @InjectRepository(Buyer)
-    private readonly buyersRepository: Repository<Buyer>,
+    private readonly _buyersRepository: Repository<Buyer>,
     @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
+    private readonly _usersRepository: Repository<User>,
     @InjectRepository(InterestedProfile)
-    private readonly interestedProfilesRepository: Repository<InterestedProfile>,
+    private readonly _interestedProfilesRepository: Repository<InterestedProfile>,
   ) {}
 
   async findAll(
@@ -100,25 +117,22 @@ export class BuyersService {
     return buyer;
   }
 
-  async create(dto: CreateBuyerDto, companyId: string): Promise<Buyer> {
+  async create(
+    dto: CreateBuyerDto,
+    companyId: string,
+    executionKey?: string,
+  ): Promise<Buyer> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        companyId,
+        executionKey,
+        'BuyersService.create',
+        { ...dto },
+        () => this.create(dto, companyId),
+      );
+
     const email = this.normalizeEmail(dto.email);
-    let existingUser: User | null = null;
-    if (email) {
-      existingUser = await this.usersRepository.findOne({
-        where: { email },
-      });
-      if (existingUser && existingUser.companyId !== companyId) {
-        throw new ConflictException('A user with this email already exists');
-      }
-      if (existingUser) {
-        const existingBuyer = await this.buyersRepository.findOne({
-          where: { userId: existingUser.id, companyId, deletedAt: IsNull() },
-        });
-        if (existingBuyer) {
-          throw new ConflictException('This person is already a buyer');
-        }
-      }
-    }
+    const existingUser = await this.findExistingPerson(email, companyId);
 
     const interestedProfile = dto.interestedProfileId
       ? await this.interestedProfilesRepository.findOne({
@@ -198,11 +212,46 @@ export class BuyersService {
     return this.findOne(savedBuyer.id, companyId);
   }
 
+  private async findExistingPerson(
+    email: string | null,
+    companyId: string,
+  ): Promise<User | null> {
+    let existingUser: User | null = null;
+    if (email) {
+      existingUser = await this.usersRepository.findOne({
+        where: { email },
+      });
+      if (existingUser && existingUser.companyId !== companyId) {
+        throw new ConflictException('A user with this email already exists');
+      }
+      if (existingUser) {
+        const existingBuyer = await this.buyersRepository.findOne({
+          where: { userId: existingUser.id, companyId, deletedAt: IsNull() },
+        });
+        if (existingBuyer) {
+          throw new ConflictException('This person is already a buyer');
+        }
+      }
+    }
+
+    return existingUser;
+  }
+
   async update(
     id: string,
     dto: UpdateBuyerDto,
     companyId: string,
+    executionKey?: string,
   ): Promise<Buyer> {
+    if (!this.scope.manager)
+      return this.scope.run(
+        companyId,
+        executionKey,
+        'BuyersService.update',
+        { id, ...dto },
+        () => this.update(id, dto, companyId),
+      );
+
     const buyer = await this.findOne(id, companyId);
     const nextEmail =
       dto.email === undefined ? undefined : this.normalizeEmail(dto.email);

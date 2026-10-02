@@ -26,7 +26,7 @@ export function createOperationId(
   methodKey: string,
 ): string {
   const controller = controllerKey.replace(/Controller$/, '');
-  const routeIndex = methodKey.match(/\[(\d+)]$/)?.[1];
+  const routeIndex = /\[(\d+)]$/.exec(methodKey)?.[1];
   const method = methodKey.replace(/\[\d+]$/, '');
 
   if (routeIndex === '1') {

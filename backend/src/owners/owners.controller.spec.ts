@@ -6,6 +6,7 @@ describe('OwnersController', () => {
     listSettlementPayments: jest.fn(),
     getSettlementReceipt: jest.fn(),
     findAllScoped: jest.fn(),
+    getPage: jest.fn(),
     create: jest.fn(),
     findOneScoped: jest.fn(),
     findByUserId: jest.fn(),
@@ -111,5 +112,18 @@ describe('OwnersController', () => {
       propertiesCount: 2,
     });
     expect(ownersService.getOwnerSummary).toHaveBeenCalledWith('u1', 'c1');
+  });
+
+  it('retains pagination and search metadata for the authenticated company', async () => {
+    const query = {
+      page: 3,
+      limit: 20,
+      search: 'Ana',
+      sortOrder: 'DESC' as const,
+    };
+    const result = { data: [{ id: 'owner' }], total: 45, page: 3, limit: 20 };
+    ownersService.getPage.mockResolvedValue(result);
+    await expect(controller.getPage(req, query)).resolves.toEqual(result);
+    expect(ownersService.getPage).toHaveBeenCalledWith(req.user, query);
   });
 });

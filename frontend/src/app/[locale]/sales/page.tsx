@@ -1,558 +1,321 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
-import { salesApi } from "@/lib/api/sales";
-import { buyersApi } from "@/lib/api/buyers";
-import { propertiesApi } from "@/lib/api/properties";
-import {
-  SaleFolder,
-  SaleAgreement,
-  SaleReceipt,
-  CreateSaleFolderInput,
-  CreateSaleAgreementInput,
-  CreateSaleReceiptInput,
-} from "@/types/sales";
-import type { Buyer } from "@/types/buyer";
-import type { Property } from "@/types/property";
-import { Download, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
-import { CurrencySelect } from "@/components/common/CurrencySelect";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { salesApi } from "@/lib/api/sales";
+import { formatMoneyByCode } from "@/lib/format-money";
+import {
+  Button,
+  DataTable,
+  Dialog,
+  FilterBar,
+  FormField,
+  PageHeader,
+  Pagination,
+  StatePanel,
+} from "@/components/ui";
+import SaleFormDialog from "@/components/sales/SaleFormDialog";
+import SaleDetailPanel from "@/components/sales/SaleDetailPanel";
+import type { SaleAgreement, SaleFolder } from "@/types/sales";
 
 export default function SalesPage() {
+  const { user } = useAuth();
+  return <SalesWorkspace key={`${user?.companyId}:${user?.id}`} />;
+}
+function SalesWorkspace() {
   const { loading: authLoading } = useAuth();
+  const locale = useLocale();
   const t = useTranslations("sales");
-  const tCommon = useTranslations("common");
-  const tCurrencies = useTranslations("currencies");
-
+  const tw = useTranslations("salesWorkspace");
+  const tc = useTranslations("common");
   const [folders, setFolders] = useState<SaleFolder[]>([]);
-  const [buyers, setBuyers] = useState<Buyer[]>([]);
-  const [properties, setProperties] = useState<Property[]>([]);
   const [agreements, setAgreements] = useState<SaleAgreement[]>([]);
-  const [receipts, setReceipts] = useState<Record<string, SaleReceipt[]>>({});
+  const [selected, setSelected] = useState<SaleAgreement>();
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState("");
+  const [folderId, setFolderId] = useState("");
   const [loading, setLoading] = useState(true);
-  const [downloadingReceipt, setDownloadingReceipt] = useState<string | null>(
-    null,
-  );
-  const [downloadError, setDownloadError] = useState(false);
-  const pendingAgreements = JSON.stringify(
-    Object.entries(receipts)
-      .filter(([, items]) => items.some((receipt) => !receipt.pdfUrl))
-      .map(([id]) => id),
-  );
-
-  useEffect(() => {
-    const ids = JSON.parse(pendingAgreements) as string[];
-    if (!ids.length || authLoading) return;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-    const refresh = async () => {
-      const results = await Promise.allSettled(
-        ids.map(async (id) => ({ id, items: await salesApi.getReceipts(id) })),
-      );
-      if (cancelled) return;
-      setReceipts((previous) => {
-        const next = { ...previous };
-        for (const result of results) {
-          if (result.status !== "fulfilled") continue;
-          const { id, items } = result.value;
-          // Preserve newly created receipts that were not in the poll's snapshot.
-          next[id] = (previous[id] ?? []).map(
-            (receipt) =>
-              items.find((item) => item.id === receipt.id) ?? receipt,
-          );
-        }
-        return next;
-      });
-      timer = setTimeout(refresh, 5000);
-    };
-    timer = setTimeout(refresh, 5000);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [pendingAgreements, authLoading]);
-
-  const downloadReceipt = async (receipt: SaleReceipt) => {
-    setDownloadingReceipt(receipt.id);
-    setDownloadError(false);
-    try {
-      await salesApi.downloadReceiptPdf(receipt.id, receipt.receiptNumber);
-    } catch {
-      setDownloadError(true);
-    } finally {
-      setDownloadingReceipt(null);
-    }
-  };
-
-  const [folderForm, setFolderForm] = useState<CreateSaleFolderInput>({
-    name: "",
-    description: "",
-  });
-
-  const [agreementForm, setAgreementForm] = useState<CreateSaleAgreementInput>({
-    folderId: "",
-    propertyId: "",
-    buyerId: "",
-    totalAmount: 0,
-    currency: "ARS",
-    installmentAmount: 0,
-    installmentCount: 1,
-    startDate: new Date().toISOString().split("T")[0],
-    dueDay: 10,
-    notes: "",
-  });
-
-  const [receiptForm, setReceiptForm] = useState<
-    Record<string, CreateSaleReceiptInput>
-  >({});
-
+  const [failed, setFailed] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const [newSale, setNewSale] = useState(false);
+  const [newFolder, setNewFolder] = useState(false);
+  const [folderName, setFolderName] = useState("");
+  const [folderDescription, setFolderDescription] = useState("");
+  const [savingFolder, setSavingFolder] = useState(false);
+  const [folderError, setFolderError] = useState(false);
+  const term = useDebouncedValue(search);
   useEffect(() => {
     if (authLoading) return;
-    loadData();
-  }, [authLoading]);
-
-  const loadData = async () => {
+    let cancelled = false;
+    setLoading(true);
+    setFailed(false);
+    Promise.all([
+      salesApi.getFolders(),
+      salesApi.getAgreementPage({
+        page,
+        limit: 20,
+        search: term,
+        folderId: folderId || undefined,
+      }),
+    ])
+      .then(([groups, result]) => {
+        if (!cancelled) {
+          setFolders(groups);
+          setAgreements(result.data);
+          setTotal(result.total);
+          setSelected((previous) =>
+            previous
+              ? result.data.find((agreement) => agreement.id === previous.id)
+              : undefined,
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, page, term, folderId, revision]);
+  const saveFolder = async () => {
+    setSavingFolder(true);
+    setFolderError(false);
     try {
-      const [foldersData, buyersData, propertiesData, agreementsData] =
-        await Promise.all([
-          salesApi.getFolders(),
-          buyersApi.getAll({ limit: 100 }),
-          propertiesApi.getAll({ limit: 100 }),
-          salesApi.getAgreements(),
-        ]);
-      setFolders(foldersData);
-      setBuyers(buyersData);
-      setProperties(propertiesData);
-      setAgreements(agreementsData);
-      const receiptsMap: Record<string, SaleReceipt[]> = {};
-      await Promise.all(
-        agreementsData.map(async (agreement) => {
-          const data = await salesApi.getReceipts(agreement.id);
-          receiptsMap[agreement.id] = data;
-        }),
-      );
-      setReceipts(receiptsMap);
-    } catch (error) {
-      console.error("Failed to load sales data", error);
+      const folder = await salesApi.createFolder({
+        name: folderName.trim(),
+        description: folderDescription.trim() || undefined,
+      });
+      setFolders((previous) => [folder, ...previous]);
+      setNewFolder(false);
+      setFolderName("");
+      setFolderDescription("");
+    } catch {
+      setFolderError(true);
     } finally {
-      setLoading(false);
+      setSavingFolder(false);
     }
   };
-
-  const handleCreateFolder = async (event: React.SyntheticEvent) => {
-    event.preventDefault();
-    if (!folderForm.name.trim()) return;
-    try {
-      const created = await salesApi.createFolder({
-        name: folderForm.name.trim(),
-        description: folderForm.description?.trim() || undefined,
-      });
-      setFolders((prev) => [created, ...prev]);
-      setFolderForm({ name: "", description: "" });
-    } catch (error) {
-      console.error("Failed to create folder", error);
-    }
-  };
-
-  const handleCreateAgreement = async (event: React.SyntheticEvent) => {
-    event.preventDefault();
-    if (
-      !agreementForm.folderId ||
-      !agreementForm.propertyId ||
-      !agreementForm.buyerId
-    )
-      return;
-    try {
-      const created = await salesApi.createAgreement({
-        ...agreementForm,
-        notes: agreementForm.notes?.trim() || undefined,
-        currency: agreementForm.currency || "ARS",
-      });
-      setAgreements((prev) => [created, ...prev]);
-      setAgreementForm({
-        folderId: agreementForm.folderId,
-        propertyId: agreementForm.propertyId,
-        buyerId: "",
-        totalAmount: 0,
-        currency: "ARS",
-        installmentAmount: 0,
-        installmentCount: 1,
-        startDate: new Date().toISOString().split("T")[0],
-        dueDay: 10,
-        notes: "",
-      });
-    } catch (error) {
-      console.error("Failed to create agreement", error);
-    }
-  };
-
-  const handleCreateReceipt = async (agreementId: string) => {
-    const form = receiptForm[agreementId];
-    if (!form?.amount || !form?.paymentDate) return;
-
-    try {
-      const created = await salesApi.createReceipt(agreementId, form);
-      setReceipts((prev) => ({
-        ...prev,
-        [agreementId]: [created, ...(prev[agreementId] || [])],
-      }));
-      setReceiptForm((prev) => ({
-        ...prev,
-        [agreementId]: {
-          amount: 0,
-          paymentDate: new Date().toISOString().split("T")[0],
-        },
-      }));
-    } catch (error) {
-      console.error("Failed to create receipt", error);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
-      </div>
+  const open = (agreement: SaleAgreement) => (
+    <Button
+      variant="secondary"
+      data-guide="sale-open"
+      aria-pressed={selected?.id === agreement.id}
+      onClick={() => setSelected(agreement)}
+    >
+      {tw("detail")}
+    </Button>
+  );
+  let content;
+  if (failed)
+    content = (
+      <StatePanel
+        error
+        title={tw("error")}
+        action={
+          <Button
+            variant="secondary"
+            onClick={() => setRevision((value) => value + 1)}
+          >
+            {tc("retry")}
+          </Button>
+        }
+      />
     );
-  }
-
-  return (
-    <div className="container mx-auto px-4 py-8">
-      {downloadError && (
-        <p role="alert" className="text-red-600">
-          {t("receipts.downloadError")}
-        </p>
-      )}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          {t("title")}
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">{t("subtitle")}</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="space-y-6">
-          <form
-            onSubmit={handleCreateFolder}
-            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3"
-          >
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {t("folders.new")}
-            </h2>
-            <input
-              type="text"
-              placeholder={t("folders.name")}
-              value={folderForm.name}
-              onChange={(e) =>
-                setFolderForm((prev) => ({ ...prev, name: e.target.value }))
-              }
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-            />
-            <textarea
-              placeholder={t("folders.description")}
-              value={folderForm.description}
-              onChange={(e) =>
-                setFolderForm((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
-              rows={2}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-            />
-            <button type="submit" className="btn btn-primary w-full">
-              {tCommon("save")}
-            </button>
-          </form>
-
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-              {t("folders.list")}
-            </h2>
+  else if (loading) content = <StatePanel busy title={tc("loading")} />;
+  else
+    content = (
+      <>
+        <DataTable
+          items={agreements}
+          rowKey={(agreement) => agreement.id}
+          caption={t("title")}
+          emptyTitle={tw("empty")}
+          columns={[
+            {
+              key: "buyer",
+              title: t("agreements.buyerName"),
+              render: (agreement) => (
+                <>
+                  <p className="font-semibold">{agreement.buyerName}</p>
+                  <p className="text-xs text-muted">{agreement.buyerPhone}</p>
+                </>
+              ),
+            },
+            {
+              key: "total",
+              title: t("agreements.totalAmount"),
+              align: "right",
+              render: (agreement) =>
+                formatMoneyByCode(
+                  agreement.totalAmount,
+                  agreement.currency,
+                  locale,
+                ),
+            },
+            {
+              key: "balance",
+              title: t("agreements.balance"),
+              align: "right",
+              render: (agreement) =>
+                formatMoneyByCode(
+                  agreement.totalAmount - agreement.paidAmount,
+                  agreement.currency,
+                  locale,
+                ),
+            },
+            {
+              key: "plan",
+              title: t("agreements.installments"),
+              render: (agreement) =>
+                `${agreement.installmentCount} × ${formatMoneyByCode(agreement.installmentAmount, agreement.currency, locale)}`,
+            },
+            { key: "detail", title: tw("detail"), render: open },
+          ]}
+          renderMobileSummary={(agreement) => (
             <div className="space-y-2">
-              {folders.map((folder) => (
-                <div
-                  key={folder.id}
-                  className="rounded-md border border-gray-200 dark:border-gray-700 p-3"
-                >
-                  <p className="font-semibold text-gray-900 dark:text-white">
-                    {folder.name}
-                  </p>
-                  {folder.description && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {folder.description}
-                    </p>
-                  )}
-                </div>
-              ))}
-              {folders.length === 0 && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {t("folders.empty")}
-                </p>
-              )}
+              <p className="font-semibold">{agreement.buyerName}</p>
+              <p className="tabular-nums">
+                {t("agreements.balance")}:{" "}
+                {formatMoneyByCode(
+                  agreement.totalAmount - agreement.paidAmount,
+                  agreement.currency,
+                  locale,
+                )}
+              </p>
+              {open(agreement)}
             </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-2 space-y-6">
-          <form
-            onSubmit={handleCreateAgreement}
-            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-3"
-          >
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          )}
+        />
+        <Pagination
+          page={page}
+          pageSize={20}
+          total={total}
+          onPageChange={setPage}
+        />
+      </>
+    );
+  return (
+    <div className="min-w-0 space-y-6">
+      <PageHeader
+        title={t("title")}
+        description={t("subtitle")}
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => setNewFolder(true)}>
+              {t("folders.new")}
+            </Button>
+            <Button data-guide="sale-new" onClick={() => setNewSale(true)}>
               {t("agreements.new")}
-            </h2>
+            </Button>
+          </>
+        }
+      />
+      <FilterBar>
+        <FormField id="sales-search" label={tw("search")}>
+          {(attributes) => (
+            <input
+              {...attributes}
+              type="search"
+              data-guide="sale-search"
+              className="ui-field"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+            />
+          )}
+        </FormField>
+        <FormField id="sales-folder" label={t("folders.list")}>
+          {(attributes) => (
             <select
-              value={agreementForm.folderId}
-              onChange={(e) =>
-                setAgreementForm((prev) => ({
-                  ...prev,
-                  folderId: e.target.value,
-                }))
-              }
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
+              {...attributes}
+              className="ui-field"
+              value={folderId}
+              onChange={(event) => {
+                setFolderId(event.target.value);
+                setPage(1);
+              }}
             >
-              <option value="">{t("agreements.selectFolder")}</option>
+              <option value="">{tw("allFolders")}</option>
               {folders.map((folder) => (
                 <option key={folder.id} value={folder.id}>
                   {folder.name}
                 </option>
               ))}
             </select>
-            <select
-              value={agreementForm.propertyId}
-              onChange={(e) =>
-                setAgreementForm((prev) => ({
-                  ...prev,
-                  propertyId: e.target.value,
-                }))
-              }
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-            >
-              <option value="">{t("agreements.selectProperty")}</option>
-              {properties.map((property) => (
-                <option key={property.id} value={property.id}>
-                  {property.name}
-                </option>
-              ))}
-            </select>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <select
-                value={agreementForm.buyerId}
-                onChange={(e) =>
-                  setAgreementForm((prev) => ({
-                    ...prev,
-                    buyerId: e.target.value,
-                  }))
-                }
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-              >
-                <option value="">{t("agreements.buyerName")}</option>
-                {buyers.map((buyer) => (
-                  <option key={buyer.id} value={buyer.id}>
-                    {`${buyer.firstName ?? ""} ${buyer.lastName ?? ""}`.trim() ||
-                      buyer.email ||
-                      buyer.phone ||
-                      buyer.id}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder={t("agreements.totalAmount")}
-                value={agreementForm.totalAmount}
-                onChange={(e) =>
-                  setAgreementForm((prev) => ({
-                    ...prev,
-                    totalAmount: Number(e.target.value),
-                  }))
-                }
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-              />
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder={t("agreements.installmentAmount")}
-                value={agreementForm.installmentAmount}
-                onChange={(e) =>
-                  setAgreementForm((prev) => ({
-                    ...prev,
-                    installmentAmount: Number(e.target.value),
-                  }))
-                }
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-              />
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">
-                  {tCurrencies("title")}
-                </label>
-                <CurrencySelect
-                  id="agreementCurrency"
-                  name="agreementCurrency"
-                  value={agreementForm.currency || ""}
-                  onChange={(value) =>
-                    setAgreementForm((prev) => ({ ...prev, currency: value }))
-                  }
+          )}
+        </FormField>
+      </FilterBar>
+      {content}
+      {selected && (
+        <SaleDetailPanel
+          key={selected.id}
+          agreement={selected}
+          onChanged={() => setRevision((value) => value + 1)}
+        />
+      )}
+      {newSale && (
+        <SaleFormDialog
+          folders={folders}
+          onClose={() => setNewSale(false)}
+          onCreated={(agreement) => {
+            setNewSale(false);
+            setSelected(agreement);
+            setRevision((value) => value + 1);
+          }}
+        />
+      )}
+      {newFolder && (
+        <Dialog
+          open
+          onClose={() => setNewFolder(false)}
+          title={t("folders.new")}
+          busy={savingFolder}
+        >
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void saveFolder();
+            }}
+          >
+            <FormField id="folder-name" label={t("folders.name")}>
+              {(attributes) => (
+                <input
+                  {...attributes}
+                  className="ui-field"
+                  required
+                  disabled={savingFolder}
+                  value={folderName}
+                  onChange={(event) => setFolderName(event.target.value)}
                 />
-              </div>
-              <input
-                type="number"
-                min="1"
-                placeholder={t("agreements.installmentCount")}
-                value={agreementForm.installmentCount}
-                onChange={(e) =>
-                  setAgreementForm((prev) => ({
-                    ...prev,
-                    installmentCount: Number(e.target.value),
-                  }))
-                }
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-              />
-              <input
-                type="date"
-                value={agreementForm.startDate}
-                onChange={(e) =>
-                  setAgreementForm((prev) => ({
-                    ...prev,
-                    startDate: e.target.value,
-                  }))
-                }
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-              />
-            </div>
-            <button type="submit" className="btn btn-primary w-full">
-              {tCommon("save")}
-            </button>
+              )}
+            </FormField>
+            <FormField id="folder-description" label={t("folders.description")}>
+              {(attributes) => (
+                <textarea
+                  {...attributes}
+                  className="ui-field"
+                  disabled={savingFolder}
+                  value={folderDescription}
+                  onChange={(event) => setFolderDescription(event.target.value)}
+                />
+              )}
+            </FormField>
+            {folderError && <p role="alert">{tc("error")}</p>}
+            <Button type="submit" busy={savingFolder}>
+              {tc("save")}
+            </Button>
           </form>
-
-          <div className="space-y-4">
-            {agreements.map((agreement) => {
-              const agreementReceipts = receipts[agreement.id] || [];
-              const balance =
-                Number(agreement.totalAmount) - Number(agreement.paidAmount);
-              return (
-                <div
-                  key={agreement.id}
-                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
-                >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {agreement.buyerName}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {agreement.buyerPhone}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {t("agreements.balance")}: {balance.toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {t("agreements.installments")}:{" "}
-                      {agreement.installmentAmount.toLocaleString()} x{" "}
-                      {agreement.installmentCount}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder={t("receipts.amount")}
-                      value={receiptForm[agreement.id]?.amount ?? ""}
-                      onChange={(e) =>
-                        setReceiptForm((prev) => ({
-                          ...prev,
-                          [agreement.id]: {
-                            amount: Number(e.target.value),
-                            paymentDate:
-                              prev[agreement.id]?.paymentDate ||
-                              new Date().toISOString().split("T")[0],
-                          },
-                        }))
-                      }
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                    />
-                    <input
-                      type="date"
-                      value={
-                        receiptForm[agreement.id]?.paymentDate ||
-                        new Date().toISOString().split("T")[0]
-                      }
-                      onChange={(e) =>
-                        setReceiptForm((prev) => ({
-                          ...prev,
-                          [agreement.id]: {
-                            amount: prev[agreement.id]?.amount || 0,
-                            paymentDate: e.target.value,
-                          },
-                        }))
-                      }
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 p-2 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleCreateReceipt(agreement.id)}
-                      className="btn btn-success"
-                    >
-                      {t("receipts.create")}
-                    </button>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {t("receipts.duplicate")}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 space-y-2">
-                    {agreementReceipts.map((receipt) => (
-                      <div
-                        key={receipt.id}
-                        className="flex flex-col md:flex-row md:items-center justify-between text-sm text-gray-600 dark:text-gray-300 border-t border-gray-200 dark:border-gray-700 pt-2"
-                      >
-                        <span>{receipt.receiptNumber}</span>
-                        <span>
-                          {new Date(receipt.paymentDate).toLocaleDateString()}
-                        </span>
-                        <span>
-                          {t("receipts.overdue")}:{" "}
-                          {receipt.overdueAmount.toLocaleString()}
-                        </span>
-                        <span>
-                          {t("receipts.balanceAfter")}:{" "}
-                          {receipt.balanceAfter.toLocaleString()}
-                        </span>
-                        {receipt.pdfUrl ? (
-                          <button
-                            type="button"
-                            onClick={() => downloadReceipt(receipt)}
-                            disabled={downloadingReceipt !== null}
-                            aria-busy={downloadingReceipt === receipt.id}
-                            className="action-link action-link-primary disabled:opacity-50"
-                          >
-                            <Download size={14} />
-                            {t("receipts.download")}
-                          </button>
-                        ) : (
-                          <span>{t("receipts.preparingPdf")}</span>
-                        )}
-                      </div>
-                    ))}
-                    {agreementReceipts.length === 0 && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {t("receipts.empty")}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+        </Dialog>
+      )}
     </div>
   );
 }

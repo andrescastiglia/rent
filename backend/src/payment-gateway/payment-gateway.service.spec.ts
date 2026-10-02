@@ -13,6 +13,8 @@ import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { of } from 'rxjs';
 import { AxiosResponse } from 'axios';
+import { PaymentsService } from '../payments/payments.service';
+import { throwError } from 'rxjs';
 import { PaymentGatewayService } from './payment-gateway.service';
 import {
   PaymentGatewayTransaction,
@@ -41,7 +43,13 @@ describe('PaymentGatewayService', () => {
   let txRepo: MockRepository<PaymentGatewayTransaction>;
   let invoiceRepo: MockRepository<Invoice>;
   let tenantRepo: MockRepository<Tenant>;
-  let dataSource: { query: jest.Mock };
+  let dataSource: { query: jest.Mock; transaction: jest.Mock };
+  let canonical: {
+    createWithManager: jest.Mock;
+    confirmWithManager: jest.Mock;
+    refundWithManager: jest.Mock;
+  };
+  let canonicalRepository: { update: jest.Mock };
   let configService: { get: jest.Mock };
   let httpService: { post: jest.Mock; get: jest.Mock };
 
@@ -50,6 +58,9 @@ describe('PaymentGatewayService', () => {
     companyId: 'company-uuid-1234',
     invoiceNumber: 'FAC-001',
     total: 50000,
+    amountPaid: 0,
+    status: InvoiceStatus.PENDING,
+    tenantAccountId: 'account-1',
     currencyCode: 'ARS',
     tenantAccount: { tenantId: 'tenant-uuid-1234' },
   } as unknown as Invoice;
@@ -74,7 +85,28 @@ describe('PaymentGatewayService', () => {
     txRepo = createMockRepository();
     invoiceRepo = createMockRepository();
     tenantRepo = createMockRepository();
-    dataSource = { query: jest.fn().mockResolvedValue([]) };
+    const manager = {
+      getRepository: jest.fn((entity) =>
+        entity === PaymentGatewayTransaction
+          ? txRepo
+          : entity === Invoice
+            ? invoiceRepo
+            : canonicalRepository,
+      ),
+      query: jest.fn().mockResolvedValue([]),
+    };
+    canonicalRepository = { update: jest.fn() };
+    canonical = {
+      createWithManager: jest
+        .fn()
+        .mockResolvedValue({ id: 'canonical-payment' }),
+      confirmWithManager: jest.fn(),
+      refundWithManager: jest.fn(),
+    };
+    dataSource = {
+      query: jest.fn().mockResolvedValue([]),
+      transaction: jest.fn(async (work) => work(manager)),
+    };
     configService = { get: jest.fn() };
     httpService = { post: jest.fn(), get: jest.fn() };
 
@@ -90,6 +122,7 @@ describe('PaymentGatewayService', () => {
         { provide: DataSource, useValue: dataSource },
         { provide: ConfigService, useValue: configService },
         { provide: HttpService, useValue: httpService },
+        { provide: PaymentsService, useValue: canonical },
       ],
     }).compile();
 
@@ -159,6 +192,72 @@ describe('PaymentGatewayService', () => {
         }),
       );
       expect(txRepo.save).toHaveBeenCalled();
+    });
+
+    it('persists the outstanding amount before contacting the provider', async () => {
+      invoiceRepo.findOne!.mockResolvedValue({
+        ...mockInvoice,
+        amountPaid: 12500,
+        status: InvoiceStatus.PARTIAL,
+      });
+      txRepo.create!.mockImplementation((value) => value);
+      txRepo.save!.mockImplementation(async (value) => value);
+      configService.get.mockReturnValue('configured');
+      httpService.post.mockImplementation(() => {
+        expect(txRepo.save).toHaveBeenCalled();
+        return of({
+          data: {
+            id: 'pref',
+            init_point: 'https://mp/pay',
+            sandbox_init_point: 'https://mp/test',
+          },
+        } as AxiosResponse);
+      });
+      await service.createPreference(companyId, userId, dto);
+      expect(httpService.post.mock.calls[0][1].items[0].unit_price).toBe(37500);
+    });
+
+    it('preserves the intention on a lost provider response and refuses another submission', async () => {
+      invoiceRepo.findOne!.mockResolvedValue(mockInvoice);
+      txRepo.create!.mockImplementation((value) => value);
+      txRepo.save!.mockImplementation(async (value) => value);
+      configService.get.mockReturnValue('configured');
+      httpService.post.mockReturnValue(
+        throwError(() => new Error('lost response')),
+      );
+      const key = '5a84029c-5728-4d1f-8c17-b2ea0d49771c';
+      await expect(
+        service.createPreference(companyId, userId, dto, undefined, key),
+      ).rejects.toThrow('uncertain provider result');
+      const intent = txRepo.save!.mock.calls[0][0];
+      txRepo.findOne!.mockResolvedValue(intent);
+      await expect(
+        service.createPreference(companyId, userId, dto, undefined, key),
+      ).rejects.toThrow('requires provider reconciliation');
+      expect(httpService.post).toHaveBeenCalledTimes(1);
+    });
+
+    it('recovers a ready checkout by the same request key without contacting the provider', async () => {
+      invoiceRepo.findOne!.mockResolvedValue(mockInvoice);
+      configService.get.mockReturnValue('configured');
+      txRepo.findOne!.mockResolvedValue({
+        ...mockTransaction,
+        metadata: {
+          requestedBy: userId,
+          successUrl: 'configured/payment/success',
+          failureUrl: 'configured/payment/failure',
+          pendingUrl: 'configured/payment/pending',
+        },
+      });
+      const result = await service.createPreference(
+        companyId,
+        userId,
+        dto,
+        undefined,
+        '5a84029c-5728-4d1f-8c17-b2ea0d49771c',
+      );
+      expect(result.transactionId).toBe(mockTransaction.id);
+      expect(httpService.post).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when invoice not found', async () => {
@@ -248,21 +347,38 @@ describe('PaymentGatewayService', () => {
 
       httpService.get.mockReturnValue(of({ data: mpPayment } as AxiosResponse));
       txRepo.findOne!.mockResolvedValue(mockTransaction);
+      invoiceRepo.findOne!.mockResolvedValue(mockInvoice);
 
       await service.processWebhook(baseNotification);
 
-      expect(dataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('WITH transitioned AS'),
-        [
-          PaymentGatewayTransactionStatus.APPROVED,
-          mpPayment.id,
-          mpPayment.payment_method_id,
-          mpPayment.installments,
-          mockTransaction.id,
-          mockTransaction.companyId,
-          InvoiceStatus.PAID,
-          mockTransaction.invoiceId,
-        ],
+      expect(canonical.createWithManager).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          amount: 50000,
+          currencyCode: 'ARS',
+          tenantAccountId: 'account-1',
+        }),
+        undefined,
+        mockTransaction.companyId,
+      );
+      expect(canonicalRepository.update).toHaveBeenCalledWith(
+        'canonical-payment',
+        expect.objectContaining({
+          invoiceId: mockTransaction.invoiceId,
+          externalTransactionId: mpPayment.id,
+        }),
+      );
+      expect(canonical.confirmWithManager).toHaveBeenCalledWith(
+        expect.anything(),
+        'canonical-payment',
+        mockTransaction.companyId,
+      );
+      expect(txRepo.update).toHaveBeenCalledWith(
+        mockTransaction.id,
+        expect.objectContaining({
+          status: PaymentGatewayTransactionStatus.APPROVED,
+          paymentId: 'canonical-payment',
+        }),
       );
     });
 
@@ -277,17 +393,14 @@ describe('PaymentGatewayService', () => {
 
       httpService.get.mockReturnValue(of({ data: mpPayment } as AxiosResponse));
       txRepo.findOne!.mockResolvedValue(mockTransaction);
+      invoiceRepo.findOne!.mockResolvedValue(mockInvoice);
 
       await service.processWebhook(baseNotification);
 
-      expect(dataSource.query).toHaveBeenCalledWith(
-        expect.stringContaining('WITH transitioned AS'),
-        expect.arrayContaining([
-          PaymentGatewayTransactionStatus.REJECTED,
-          mockTransaction.id,
-          mockTransaction.companyId,
-        ]),
-      );
+      expect(txRepo.update).toHaveBeenCalledWith(mockTransaction.id, {
+        status: PaymentGatewayTransactionStatus.REJECTED,
+      });
+      expect(canonical.confirmWithManager).not.toHaveBeenCalled();
     });
 
     it('should finish safely when no matching transaction is found', async () => {
@@ -307,6 +420,146 @@ describe('PaymentGatewayService', () => {
         expect.stringContaining("SET status = 'processed'"),
         expect.any(Array),
       );
+    });
+
+    it('does not duplicate accounting on approval replay with another event id', async () => {
+      txRepo.findOne!.mockResolvedValue({
+        ...mockTransaction,
+        status: PaymentGatewayTransactionStatus.APPROVED,
+        paymentId: 'canonical-payment',
+        externalPaymentId: 'payment-456',
+        refundedAmount: 0,
+      });
+      httpService.get.mockReturnValue(
+        of({
+          data: {
+            id: 'payment-456',
+            status: 'approved',
+            external_reference: mockTransaction.id,
+            transaction_amount: 50000,
+            currency_id: 'ARS',
+          },
+        } as AxiosResponse),
+      );
+      await service.processWebhook(baseNotification);
+      expect(canonical.createWithManager).not.toHaveBeenCalled();
+      expect(canonical.confirmWithManager).not.toHaveBeenCalled();
+    });
+
+    it('applies only the cumulative partial refund delta', async () => {
+      txRepo.findOne!.mockResolvedValue({
+        ...mockTransaction,
+        status: PaymentGatewayTransactionStatus.APPROVED,
+        paymentId: 'canonical-payment',
+        externalPaymentId: 'payment-456',
+        refundedAmount: 5000,
+      });
+      httpService.get.mockReturnValue(
+        of({
+          data: {
+            id: 'payment-456',
+            status: 'approved',
+            external_reference: mockTransaction.id,
+            transaction_amount: 50000,
+            transaction_amount_refunded: 15000,
+            currency_id: 'ARS',
+          },
+        } as AxiosResponse),
+      );
+      await service.processWebhook(baseNotification);
+      expect(canonical.refundWithManager).toHaveBeenCalledWith(
+        expect.anything(),
+        'canonical-payment',
+        mockTransaction.companyId,
+        expect.objectContaining({
+          amount: 10000,
+          reference: 'mercadopago:payment-456:1500000',
+        }),
+      );
+      expect(txRepo.update).toHaveBeenCalledWith(
+        mockTransaction.id,
+        expect.objectContaining({
+          refundedAmount: 15000,
+          status: PaymentGatewayTransactionStatus.APPROVED,
+        }),
+      );
+    });
+
+    it('records approval and refund even when refund arrives before approval', async () => {
+      txRepo.findOne!.mockResolvedValue(mockTransaction);
+      invoiceRepo.findOne!.mockResolvedValue(mockInvoice);
+      httpService.get.mockReturnValue(
+        of({
+          data: {
+            id: 'payment-456',
+            status: 'refunded',
+            external_reference: mockTransaction.id,
+            transaction_amount: 50000,
+            currency_id: 'ARS',
+          },
+        } as AxiosResponse),
+      );
+      await service.processWebhook(baseNotification);
+      expect(canonical.confirmWithManager).toHaveBeenCalled();
+      expect(canonical.refundWithManager).toHaveBeenCalledWith(
+        expect.anything(),
+        'canonical-payment',
+        mockTransaction.companyId,
+        expect.objectContaining({ amount: 50000 }),
+      );
+      expect(txRepo.update).toHaveBeenCalledWith(
+        mockTransaction.id,
+        expect.objectContaining({
+          status: PaymentGatewayTransactionStatus.REFUNDED,
+        }),
+      );
+    });
+
+    it('does not persist the gateway status if the common ledger fails', async () => {
+      txRepo.findOne!.mockResolvedValue(mockTransaction);
+      invoiceRepo.findOne!.mockResolvedValue(mockInvoice);
+      canonical.confirmWithManager.mockRejectedValue(
+        new Error('ledger failed'),
+      );
+      httpService.get.mockReturnValue(
+        of({
+          data: {
+            id: 'payment-456',
+            status: 'approved',
+            external_reference: mockTransaction.id,
+            transaction_amount: 50000,
+            currency_id: 'ARS',
+          },
+        } as AxiosResponse),
+      );
+      await expect(service.processWebhook(baseNotification)).rejects.toThrow(
+        'ledger failed',
+      );
+      expect(txRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a second provider collection for one checkout', async () => {
+      txRepo.findOne!.mockResolvedValue({
+        ...mockTransaction,
+        status: PaymentGatewayTransactionStatus.APPROVED,
+        paymentId: 'canonical-payment',
+        externalPaymentId: 'another-payment',
+      });
+      httpService.get.mockReturnValue(
+        of({
+          data: {
+            id: 'payment-456',
+            status: 'approved',
+            external_reference: mockTransaction.id,
+            transaction_amount: 50000,
+            currency_id: 'ARS',
+          },
+        } as AxiosResponse),
+      );
+      await expect(service.processWebhook(baseNotification)).rejects.toThrow(
+        'another approved payment',
+      );
+      expect(canonical.createWithManager).not.toHaveBeenCalled();
     });
 
     it('should accept a valid signed notification with numeric ids', async () => {
@@ -416,6 +669,7 @@ describe('PaymentGatewayService', () => {
         } as AxiosResponse),
       );
       txRepo.findOne!.mockResolvedValue(mockTransaction);
+      invoiceRepo.findOne!.mockResolvedValue(mockInvoice);
       await expect(service.processWebhook(baseNotification)).rejects.toThrow(
         'amount or currency does not match',
       );
@@ -510,6 +764,7 @@ describe('PaymentGatewayService', () => {
   describe('findOne', () => {
     it('should return a transaction when found', async () => {
       txRepo.findOne!.mockResolvedValue(mockTransaction);
+      invoiceRepo.findOne!.mockResolvedValue(mockInvoice);
 
       const result = await service.findOne('tx-uuid-1234', 'company-uuid-1234');
 
@@ -542,6 +797,7 @@ describe('PaymentGatewayService', () => {
 
     it('should deny a tenant when the transaction belongs to another tenant', async () => {
       txRepo.findOne!.mockResolvedValue(mockTransaction);
+      invoiceRepo.findOne!.mockResolvedValue(mockInvoice);
       tenantRepo.findOne!.mockResolvedValue({ id: 'another-tenant' });
 
       await expect(

@@ -12,6 +12,7 @@ import {
 } from "@/types/property";
 import { apiClient } from "../api";
 import { getToken, getUser } from "../auth";
+import { collectPages } from "../pagination";
 
 type PaginatedResponse<T> = {
   data: T[];
@@ -699,6 +700,33 @@ const applyMockPropertyFilters = (
   if (filters?.ownerId) {
     predicates.push((property) => property.ownerId === filters.ownerId);
   }
+  if (filters?.search?.trim()) {
+    const search = filters.search.trim().toLocaleLowerCase();
+    predicates.push((property) =>
+      `${property.name} ${property.address.street} ${property.address.number} ${property.address.city}`
+        .toLocaleLowerCase()
+        .includes(search),
+    );
+  }
+  if (filters?.operation) {
+    const operation = filters.operation;
+    predicates.push((property) =>
+      operation === "both"
+        ? (property.operations ?? []).includes("rent") &&
+          (property.operations ?? []).includes("sale")
+        : (property.operations ?? []).includes(operation),
+    );
+  }
+  if (filters?.operationState)
+    predicates.push(
+      (property) => property.operationState === filters.operationState,
+    );
+  if (filters?.addressCity)
+    predicates.push((property) =>
+      property.address.city
+        .toLocaleLowerCase()
+        .includes(filters.addressCity!.toLocaleLowerCase()),
+    );
   addMinPricePredicate(predicates, filters?.minSalePrice, "salePrice");
   addMaxPricePredicate(predicates, filters?.maxSalePrice, "salePrice");
   addMinPricePredicate(predicates, filters?.minRent, "rentPrice");
@@ -754,6 +782,10 @@ const buildPropertiesQueryParams = (
   };
 
   appendStringParam("ownerId", filters.ownerId);
+  appendStringParam("search", filters.search?.trim());
+  appendStringParam("operation", filters.operation);
+  appendStringParam("operationState", filters.operationState);
+  appendStringParam("order", filters.order);
   appendStringParam("addressCity", filters.addressCity);
   appendStringParam("addressState", filters.addressState);
   if (filters.propertyType) {
@@ -783,9 +815,34 @@ const buildPropertiesQueryParams = (
 
 export const propertiesApi = {
   getAll: async (filters?: PropertyFilters): Promise<Property[]> => {
+    if (filters?.page) return (await propertiesApi.getPage(filters)).data;
+    return collectPages((page) =>
+      propertiesApi.getPage({ ...filters, page, limit: filters?.limit ?? 50 }),
+    );
+  },
+
+  getPage: async (
+    filters?: PropertyFilters,
+  ): Promise<PaginatedResponse<Property>> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);
-      return applyMockPropertyFilters(MOCK_PROPERTIES, filters);
+      const data = applyMockPropertyFilters(MOCK_PROPERTIES, filters);
+      const page = filters?.page ?? 1,
+        limit = filters?.limit ?? 20;
+      if (filters?.order === "address")
+        data.sort((left, right) =>
+          left.address.street.localeCompare(right.address.street),
+        );
+      else
+        data.sort((left, right) =>
+          right.createdAt.localeCompare(left.createdAt),
+        );
+      return {
+        data: data.slice((page - 1) * limit, page * limit),
+        total: data.length,
+        page,
+        limit,
+      };
     }
 
     const token = getToken();
@@ -800,11 +857,16 @@ export const propertiesApi = {
     >(endpoint, token ?? undefined);
 
     if (Array.isArray(result)) {
-      return result.map(mapBackendPropertyToProperty);
+      return {
+        data: result.map(mapBackendPropertyToProperty),
+        total: result.length,
+        page: 1,
+        limit: Math.max(result.length, 1),
+      };
     }
 
     if (isPaginatedResponse<BackendProperty>(result)) {
-      return result.data.map(mapBackendPropertyToProperty);
+      return { ...result, data: result.data.map(mapBackendPropertyToProperty) };
     }
 
     throw new Error("Unexpected response shape from /properties");

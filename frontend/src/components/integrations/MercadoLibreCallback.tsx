@@ -28,18 +28,18 @@ export function MercadoLibreCallback() {
     );
     setCallback(data);
   }, []);
+  let content = <p role="alert">{t("sessionRequired")}</p>;
+  if (loading) content = <output>{t("loading")}</output>;
+  else if (user && hasUserRole(user, "admin"))
+    content = (
+      <MercadoLibreConnection
+        key={`${user.companyId}:${user.id}`}
+        callback={callback}
+      />
+    );
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-6">
-      {loading ? (
-        <p role="status">{t("loading")}</p>
-      ) : user && hasUserRole(user, "admin") ? (
-        <MercadoLibreConnection
-          key={`${user.companyId}:${user.id}`}
-          callback={callback}
-        />
-      ) : (
-        <p role="alert">{t("sessionRequired")}</p>
-      )}
+      {content}
       <Link
         href={`/${locale}/${user ? "settings/mercadolibre" : "login"}`}
         className="underline"

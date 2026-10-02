@@ -1,8 +1,16 @@
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  MaxLength,
+} from 'class-validator';
 import { z } from 'zod';
 
 const userListQueryZodSchema = z
   .object({
+    search: z.string().trim().max(200).optional(),
     page: z.coerce.number().int().min(1).optional().default(1),
     limit: z.coerce.number().int().min(1).max(100).optional().default(10),
   })
@@ -10,6 +18,11 @@ const userListQueryZodSchema = z
 
 export class UserListQueryDto {
   static readonly zodSchema = userListQueryZodSchema;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
 
   @IsOptional()
   @IsInt()

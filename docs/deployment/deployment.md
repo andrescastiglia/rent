@@ -1,17 +1,23 @@
-# Despliegue productivo por artefacto inmutable
+# Despliegue productivo por imágenes inmutables
 
 **Estado:** operativo
 
-**Última actualización:** 2026-09-03
+**Última actualización:** 2026-10-02
 
-**Autoridad:** `.github/workflows/release.yml`, `.github/workflows/eas.yml` y `ansible/deploy.yml`
+**Autoridad vigente:** `.github/workflows/release.yml`, `.github/workflows/eas.yml`, `ansible/deploy-kubernetes.yml` y [runbook Kubernetes](kubernetes.md).
 
 Rent se publica desde un tag SemVer anotado que apunta exactamente al `HEAD` de
-`main`. GitHub Actions compila una vez, genera SBOM y checksums, despliega ese
-mismo artefacto y lo adjunta a la GitHub Release. Backend, batch y web se
-compilan fuera de producción; Oracle recibe ese artefacto ya cerrado. Android
-se compila en un runner ARM64 aislado dentro de Oracle, sin ejecutar pruebas ni
-iniciar la aplicación contra servicios productivos.
+`main`. El flujo vigente construye imágenes ARM64, publica sus digests en GHCR,
+despliega web/API con `ansible/deploy-kubernetes.yml` en el
+namespace `rent`. El tag, SHA, inventario de imágenes y evidencia CI deben coincidir.
+La verificación y reversión de aplicaciones siguen el [runbook Kubernetes](kubernetes.md).
+El despliegue no compila aplicaciones ni ejecuta pruebas contra datos productivos.
+
+Los apartados PM2 y `/var/www/rent` de este documento describen el esquema
+histórico y el archivo de recuperación adjunto al release. No deben usarse para
+operar o revertir los Deployments vigentes. Una reversión de aplicación conserva
+la base de datos y las migraciones aditivas; una restauración de datos requiere
+su procedimiento separado.
 
 ## Condiciones de entrada
 
@@ -19,7 +25,7 @@ Antes de crear el tag deben cumplirse todas estas condiciones:
 
 - `main` está sincronizada y es la única rama remota.
 - No hay pull requests abiertos.
-- CI está verde en el SHA que se va a etiquetar.
+- `CI Pipeline` está verde en el SHA que se va a etiquetar; los recorridos nativos se verifican por separado en `Mobile native validation`.
 - El tag anotado cumple `vMAJOR.MINOR.PATCH`.
 - El secreto protegido `PRODUCTION_ENV_FILE` contiene el runtime completo.
 - La migración legada de imágenes fue ejecutada y verificada cuando aplique.
@@ -29,11 +35,20 @@ y exige un run exitoso de `CI Pipeline` disparado por `push` a `main` para el
 SHA exacto. El release reutiliza esa evidencia y no repite la matriz ni ejecuta
 Sonar sobre una referencia de tag. Después de construir el artefacto del
 servidor, valida `PRODUCTION_ENV_FILE` con el mismo código compilado que se
-desplegará y recién entonces inicia Android. Así un secreto incompleto o
+desplegará y recién entonces inicia, en paralelo, el despliegue del servidor y Android. Así un secreto incompleto o
 incompatible falla antes del paso más lento y antes de cualquier cambio en
 producción. No se debe relajar esa comprobación para destrabar un release.
 
-## Estructura del servidor
+Por autorización del 2026-10-02, los fallos nativos Android/iOS no bloquean el
+merge ni el despliegue web/API. Conservan sus expectativas, logs y capturas en
+un workflow independiente. Lint, tipos y UT móviles continúan en `CI Pipeline`.
+`Deploy server` y `Publish GitHub Release` no dependen de `Deploy Android`;
+la publicación Android exige `Mobile native validation` exitoso para el mismo SHA y sus artefactos se adjuntan únicamente después de publicarse.
+Un fallo Android puede dejar el workflow de release fallido aunque el servidor
+ya esté desplegado: comprobar los jobs del servidor y sus digests. No se publica
+un binario móvil fallido ni se presenta su validación como aprobada.
+
+## Archivo histórico: estructura del servidor PM2
 
 ```text
 /var/www/rent/
@@ -264,23 +279,29 @@ git push origin vX.Y.Z
 
 El workflow realiza:
 
-1. validación del run exitoso de CI de `main` para el SHA exacto;
-2. build único de backend, batch y Next standalone;
-3. SBOM CycloneDX de backend, batch, frontend y mobile;
-4. empaquetado y checksum `rent-server-<sha>.tar.gz`;
-5. build local y firmado del AAB en el runner ARM64, verificación, checksum,
-   envío a Play Internal y publicación EAS Update;
-6. migraciones forward-compatible antes del cambio de enlace;
-7. cambio atómico de `current` y `pm2 startOrReload`;
-8. verificaciones de disponibilidad de backend y frontend mediante `/health`;
-9. publicación de ambos artefactos y SBOM en la GitHub Release.
+1. valida CI exitoso de `main`, tag anotado, SHA, ramas y PR;
+2. construye el archivo de recuperación y las imágenes ARM64 inmutables;
+3. verifica módulos nativos, SBOM y checksums y publica los digests en GHCR;
+4. valida el entorno protegido con el código de esa release;
+5. construye, verifica y publica Android antes de modificar el servidor;
+6. ejecuta `ansible/deploy-kubernetes.yml` con el inventario de digests;
+7. aplica migraciones transaccionales aditivas, verifica los Deployments y
+   sus healthchecks y conserva el digest PostgreSQL ya validado;
+8. registra `images.json` y `deployed-images.json` junto a los artefactos en
+   GitHub Release. El segundo archivo refleja las imágenes realmente activas.
 
-Primero se construye el artefacto del servidor y su código valida el entorno
-protegido. Recién entonces comienza Android; el servidor sólo se despliega
-después de que el AAB haya sido construido, enviado y publicado correctamente.
-Si Android falla, las migraciones y el cambio de versión del servidor no
-comienzan.
+El despliegue utiliza imágenes previamente construidas: no recompila en oracle.
+El archivo `rent-server-<sha>.tar.gz` es recuperación histórica; su presencia no
+significa que PM2 opere la versión activa. El cron `billing`, `sync-indices` y
+`process-settlements` permanece suspendido. BFA, Mercado Libre y Mercado Pago
+Payouts están fijados en `false` por `rent-runtime`; activarlos requiere otra
+entrega con evidencia de datos/proveedor y autorización expresa.
 
+Si Android, los checksums o la validación de entorno fallan, el despliegue del
+servidor no comienza. Ante un fallo de disponibilidad se restituyen las
+configuraciones Kubernetes y los Secrets anteriores, conservando los datos.
+La verificación, operación y reversión vigentes están en
+[el runbook Kubernetes](kubernetes.md).
 ## Migraciones expand/contract
 
 Un release solo puede contener cambios compatibles con la versión anterior:
@@ -296,7 +317,7 @@ cuando sea posible y estar envuelta en transacción. No se publican cambios
 destructivos en esta etapa; disaster recovery y los ensayos de restore quedan
 diferidos explícitamente.
 
-## Verificación y rollback
+## Archivo histórico: verificación y rollback PM2
 
 Durante el despliegue, Ansible verifica `SHA256SUMS` y que `RELEASE_SHA`
 coincida con el SHA solicitado. Si falla una verificación de disponibilidad restaura el enlace previo

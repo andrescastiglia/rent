@@ -20,7 +20,7 @@ type JobSummary = {
 type OutboxOutcome =
   "processed" | "compacted" | "retried" | "failed" | "recovered";
 
-class BatchMetrics {
+export class BatchMetrics {
   private readonly registry = new Registry();
   private readonly pushGatewayUrl =
     process.env.PROMETHEUS_PUSHGATEWAY_URL?.trim() || "";
@@ -139,7 +139,8 @@ class BatchMetrics {
     summary?: JobSummary;
   }): Promise<void> {
     const job = input.job;
-    const status = input.status;
+    const status =
+      (input.summary?.recordsFailed ?? 0) > 0 ? "failed" : input.status;
     const elapsedNs = process.hrtime.bigint() - input.startedAtNs;
     const durationSeconds = Number(elapsedNs) / 1_000_000_000;
 
@@ -161,6 +162,10 @@ class BatchMetrics {
     }
 
     await this.push(job);
+  }
+
+  snapshot(): Promise<string> {
+    return this.registry.metrics();
   }
 
   recordEmbeddingRequest(input: {

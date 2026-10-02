@@ -20,11 +20,18 @@ export const createTenantActivityZodSchema = z
       .describe('call|task|note|email|whatsapp|visit'),
     subject: z.string().max(200),
     body: z.string().optional(),
-    dueAt: z.iso.date().optional().describe('Scheduled date (YYYY-MM-DD)'),
-    completedAt: z.iso
-      .date()
+    dueAt: z
+      .union([z.iso.date(), z.iso.datetime({ offset: true })])
       .optional()
-      .describe('Completion date (YYYY-MM-DD)'),
+      .describe(
+        'Civil scheduled date (YYYY-MM-DD) or ISO datetime with timezone',
+      ),
+    completedAt: z
+      .union([z.iso.date(), z.iso.datetime({ offset: true })])
+      .optional()
+      .describe(
+        'Civil completion date (YYYY-MM-DD) or ISO datetime with timezone',
+      ),
     status: z
       .enum(TenantActivityStatus)
       .optional()

@@ -45,14 +45,12 @@ export function canUserAccessModule(
 ): boolean {
   const roles = getUserRoles(user);
   if (roles.includes("admin") && allowedRoles.includes("admin")) return true;
-  if (roles.some((role) => role !== "staff" && allowedRoles.includes(role))) {
-    return true;
-  }
-  return (
-    roles.includes("staff") &&
-    allowedRoles.includes("staff") &&
-    hasModuleAccess("staff", user.permissions, moduleKey)
-  );
+  if (roles.includes("staff"))
+    return (
+      allowedRoles.includes("staff") &&
+      hasModuleAccess("staff", user.permissions, moduleKey)
+    );
+  return roles.some((role) => allowedRoles.includes(role));
 }
 
 export function canManageLeases(role: User["role"] | undefined): boolean {
@@ -60,19 +58,33 @@ export function canManageLeases(role: User["role"] | undefined): boolean {
 }
 
 export function canManageLeasesForUser(
-  user: Pick<User, "role" | "roles"> | null | undefined,
+  user: RoleAwareUser | null | undefined,
 ): boolean {
-  return isInternalUser(user);
+  return Boolean(
+    user && canUserAccessModule(user, ["admin", "staff"], "leases"),
+  );
 }
 
 export function canManageTenants(role: User["role"] | undefined): boolean {
   return role === "admin" || role === "staff";
 }
 
-export const canManageTenantsForUser = canManageLeasesForUser;
+export function canManageTenantsForUser(
+  user: RoleAwareUser | null | undefined,
+): boolean {
+  return Boolean(
+    user && canUserAccessModule(user, ["admin", "staff"], "tenants"),
+  );
+}
 
 export function canManageOwners(role: User["role"] | undefined): boolean {
   return role === "admin" || role === "staff";
 }
 
-export const canManageOwnersForUser = canManageLeasesForUser;
+export function canManageOwnersForUser(
+  user: RoleAwareUser | null | undefined,
+): boolean {
+  return Boolean(
+    user && canUserAccessModule(user, ["admin", "staff"], "owners"),
+  );
+}

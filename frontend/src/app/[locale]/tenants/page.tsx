@@ -9,6 +9,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { useAuth } from "@/contexts/auth-context";
 import { encodeRouteSegment } from "@/lib/safe-url";
 import { canManageTenantsForUser } from "@/lib/permissions";
+import { Button, Pagination, StatePanel } from "@/components/ui";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 function TenantsList({
   tenants,
@@ -60,6 +62,7 @@ function TenantsList({
             <div className="flex flex-col md:flex-row md:items-center gap-3">
               <div className="min-w-0">
                 <Link
+                  data-guide="person-open"
                   href={`/${locale}/tenants/${tenantId}`}
                   data-testid="tenant-detail-link"
                   className="font-semibold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-300"
@@ -98,13 +101,15 @@ function TenantsList({
                     </Link>
                   </>
                 ) : null}
-                <Link
-                  href={`/${locale}/tenants/${tenantId}/activities/new`}
-                  className="action-link action-link-primary"
-                >
-                  <Plus size={14} />
-                  {t("activities.add")}
-                </Link>
+                {canManage && (
+                  <Link
+                    href={`/${locale}/tenants/${tenantId}/activities/new`}
+                    className="action-link action-link-primary"
+                  >
+                    <Plus size={14} />
+                    {t("activities.add")}
+                  </Link>
+                )}
               </div>
             </div>
           </div>
@@ -123,30 +128,34 @@ export default function TenantsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [error, setError] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const term = useDebouncedValue(searchTerm);
   useEffect(() => {
     if (authLoading) return;
-    loadTenants();
-  }, [authLoading]);
-
-  useEffect(() => {
-    if (authLoading) return;
-    const handle = setTimeout(() => {
-      setLoading(true);
-      loadTenants(searchTerm.trim() ? { name: searchTerm.trim() } : undefined);
-    }, 300);
-    return () => clearTimeout(handle);
-  }, [searchTerm, authLoading]);
-
-  const loadTenants = async (filters?: { name?: string }) => {
-    try {
-      const data = await tenantsApi.getAll(filters);
-      setTenants(data);
-    } catch (error) {
-      console.error("Failed to load tenants", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+    tenantsApi
+      .getPage({ page, limit: 20, name: term.trim() || undefined })
+      .then((result) => {
+        if (!cancelled) {
+          setTenants(result.data);
+          setTotal(result.total);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, page, term, revision]);
 
   const filteredTenants = tenants;
 
@@ -172,20 +181,42 @@ export default function TenantsPage() {
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <Search className="h-5 w-5 text-gray-400" />
         </div>
+        <label htmlFor="tenant-list-search" className="sr-only">
+          {t("searchPlaceholder")}
+        </label>
         <input
-          type="text"
+          id="tenant-list-search"
+          type="search"
           placeholder={t("searchPlaceholder")}
           className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white focus:outline-hidden focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setPage(1);
+          }}
         />
       </div>
 
-      {loading ? (
+      {error && (
+        <StatePanel
+          error
+          title={tc("error")}
+          action={
+            <Button
+              variant="secondary"
+              onClick={() => setRevision((value) => value + 1)}
+            >
+              {tc("retry")}
+            </Button>
+          }
+        />
+      )}
+      {!error && loading && (
         <div className="flex justify-center items-center h-64">
           <Loader2 className="animate-spin h-8 w-8 text-blue-500" />
         </div>
-      ) : (
+      )}
+      {!error && !loading && (
         <TenantsList
           tenants={filteredTenants}
           locale={locale}
@@ -193,6 +224,14 @@ export default function TenantsPage() {
           tc={tc}
           getStatusLabel={getStatusLabel}
           canManage={canManageTenantsForUser(user)}
+        />
+      )}
+      {!loading && !error && (
+        <Pagination
+          page={page}
+          pageSize={20}
+          total={total}
+          onPageChange={setPage}
         />
       )}
     </div>

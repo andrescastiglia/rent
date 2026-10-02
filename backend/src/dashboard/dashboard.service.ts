@@ -870,10 +870,9 @@ export class DashboardService {
       return dueA - dueB;
     });
 
+    newItems.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     return {
-      new: newItems
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-        .slice(0, effectiveLimit),
+      new: newItems.slice(0, effectiveLimit),
       overdue: overdue.slice(0, effectiveLimit),
       today: today.slice(0, effectiveLimit),
       total: newItems.length + overdue.length + today.length,

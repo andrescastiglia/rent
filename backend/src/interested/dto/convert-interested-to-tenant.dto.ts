@@ -10,7 +10,7 @@ import { USER_EMAIL_MAX_LENGTH } from '../../users/entities/user.entity';
 
 const convertInterestedToTenantZodSchema = z
   .object({
-    email: z.string().email().max(USER_EMAIL_MAX_LENGTH).optional(),
+    email: z.email().max(USER_EMAIL_MAX_LENGTH).optional(),
     password: z.string().min(8).optional(),
     dni: z
       .string()

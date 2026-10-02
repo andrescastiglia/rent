@@ -9,6 +9,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { UserModulePermissions, UserRole } from '../users/entities/user.entity';
 import { AuthService } from '../auth/auth.service';
 import { AiToolExecutorService } from './ai-tool-executor.service';
+import { MutationReview } from '../common/helpers/mutation-review';
 
 type PendingActionRow = {
   id: string;
@@ -20,6 +21,7 @@ type PendingActionRow = {
   payload_hash: string;
   execution_key: string;
   claim_token: string;
+  review: MutationReview | null;
 };
 
 @Injectable()
@@ -34,7 +36,7 @@ export class PendingActionsService {
     return this.dataSource.query(
       `SELECT pa.id, pa.tool_name AS "toolName", pa.action_type AS "actionType",
               pa.entity_type AS "entityType", pa.summary, pa.payload, pa.status,
-              pa.result, pa.error_message AS "errorMessage",
+              pa.result, pa.review, pa.expires_at AS "expiresAt", pa.error_message AS "errorMessage",
               (pa.retry_safe AND pa.tool_name=ANY($2::text[]) AND
                 (pa.status='failed' OR (pa.status='executing' AND pa.lease_expires_at<=NOW()))) AS "canRetry",
               pa.created_at AS "createdAt", pa.reviewed_at AS "reviewedAt",
@@ -103,6 +105,10 @@ export class PendingActionsService {
       throw new BadRequestException('Pending action integrity check failed');
     }
     try {
+      if (!action.review)
+        throw new BadRequestException(
+          'La propuesta requiere una nueva revisión antes de aprobarse',
+        );
       const result = await this.executor.executeApproved(
         action.tool_name,
         action.payload,
@@ -113,6 +119,7 @@ export class PendingActionsService {
           roles: reviewer.roles,
           permissions: reviewer.permissions,
           idempotencyKey: action.execution_key,
+          mutationReview: action.review ?? undefined,
         },
       );
       await this.dataSource.query(
@@ -147,10 +154,7 @@ export class PendingActionsService {
     return this.findOne(id, reviewer.companyId);
   }
 
-  private async findOne(
-    id: string,
-    companyId: string,
-  ): Promise<PendingActionRow> {
+  async findOne(id: string, companyId: string): Promise<PendingActionRow> {
     const rows = (await this.dataSource.query(
       `SELECT * FROM pending_actions WHERE id = $1::uuid AND company_id = $2::uuid`,
       [id, companyId],

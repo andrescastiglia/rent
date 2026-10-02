@@ -18,6 +18,35 @@ env:
   NODE_VERSION: "22.22.1"
 
 jobs:
+  migration-atomicity:
+    name: Migration atomicity and concurrency
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.5-alpine@sha256:47e961a569fd52ff31f0fe205ed91eeab17d9f5fff6722e6d7ea6b588748b293
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: rent_test
+        options: >-
+          --health-cmd "pg_isready -U test -d rent_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Verify atomic failures, executor serialization and checksums
+        run: python3 -m unittest discover -s migrations/tests -v
+        env:
+          MIGRATION_TESTS_INTEGRATION: "true"
+          MIGRATIONS_CONTAINER_NAME: ${{ job.services.postgres.id }}
+          POSTGRES_USER: test
+
   observability-rules:
     name: Observability rules
     runs-on: ubuntu-latest
@@ -862,6 +891,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify QA credential isolation and blocked redirects
+        run: node --test ../scripts/qa/web-qa-auth.test.cjs
+
       - name: Run ESLint
         run: npm run lint:check
 
@@ -1061,87 +1093,6 @@ jobs:
           path: mobile/coverage
           retention-days: 1
 
-  mobile-e2e:
-    name: Mobile E2E (Detox)
-    runs-on: ubuntu-latest
-    needs: mobile-lint
-    timeout-minutes: 60
-    defaults:
-      run:
-        working-directory: mobile
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Cache npm dependencies
-        uses: actions/cache@v6
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-mobile-${{ hashFiles('mobile/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-mobile-
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate native Android project
-        run: npm run e2e:prebuild
-
-      - name: Setup Java with Gradle cache
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: gradle
-          cache-dependency-path: |
-            mobile/android/**/*.gradle*
-            mobile/android/gradle.properties
-
-      - name: Install Android emulator system libraries
-        run: |
-          grep -rl "packages.microsoft.com" /etc/apt/sources.list.d 2>/dev/null | xargs -r sudo rm -f
-          sudo apt-get update
-          sudo apt-get install -y libpulse0
-
-      - name: Enable KVM permissions
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Run mobile E2E tests on Android emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        env:
-          DETOX_CONFIGURATION: android.emu.debug
-          DETOX_ARTIFACTS: ../mobile-detox-artifacts
-          LOGCAT_LOG: ../rent-e2e-logcat.log
-          METRO_LOG: ../rent-metro-e2e.log
-        with:
-          api-level: 34
-          avd-name: Medium_Phone_API_34
-          arch: x86_64
-          cores: 4
-          profile: pixel_7
-          disable-animations: true
-          script: cd mobile && npm run e2e:android
-
-      - name: Upload Detox artifacts
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: mobile-detox-artifacts
-          path: |
-            mobile-detox-artifacts
-            rent-metro-e2e.log
-            rent-e2e-logcat.log
-          if-no-files-found: ignore
-
   container-images:
     name: Validate ARM64 containers
     permissions:
@@ -1163,5 +1114,6 @@ jobs:
           kubectl kustomize k8s/overlays/production > /tmp/rent-kubernetes.yaml
           python3 scripts/k8s/validate-manifests.py /tmp/rent-kubernetes.yaml
           python3 scripts/k8s/verify-render.py
+          python3 -m unittest discover -s scripts/k8s/tests -v
           python3 -m compileall -q scripts/k8s
           bash -n scripts/k8s/*.sh

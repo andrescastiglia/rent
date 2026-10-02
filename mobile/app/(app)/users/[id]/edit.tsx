@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, Text } from 'react-native';
+import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { usersApi } from '@/api/users';
 import { Screen } from '@/components/screen';
+import { QueryStatus } from '@/components/query-status';
 import { H1 } from '@/components/ui';
 import { UserForm } from '@/screens/user-form';
 import type { UpdateManagedUserInput } from '@/api/users';
@@ -38,12 +39,19 @@ export default function EditUserScreen() {
   });
 
   return (
-    <Screen scrollViewTestID="userEdit.scroll">
+    <Screen
+      scrollViewTestID="userEdit.scroll"
+      guidanceReady={!query.isLoading}
+      guidanceBlocked={
+        Boolean(query.error) || mutation.isPending || mutation.isError
+      }
+    >
       <H1>{t('common.edit')}</H1>
-      {query.isLoading ? <Text>{t('common.loading')}</Text> : null}
-      {!query.isLoading && !query.data ? (
-        <Text>{t('users.noUsers')}</Text>
-      ) : null}
+      <QueryStatus
+        query={query}
+        empty={!query.data}
+        emptyLabel={t('users.noUsers')}
+      />
 
       {query.data ? (
         <UserForm

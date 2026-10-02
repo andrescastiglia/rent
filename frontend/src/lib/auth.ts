@@ -71,6 +71,7 @@ function getMockUserFromToken(
   return {
     ...sanitizeUserForStorage({
       id: role === "admin" ? "1" : `role-${role}-1`,
+      companyId: "10000000-0000-0000-0000-000000000001",
       email: null,
       firstName: role.charAt(0).toUpperCase() + role.slice(1),
       lastName: "User",

@@ -90,6 +90,15 @@ export class CommissionInvoice {
   })
   taxAmount: number;
 
+  @Column({
+    name: 'tax_rate',
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+  })
+  taxRate: number | null;
+
   @Column({ name: 'total_amount', type: 'decimal', precision: 14, scale: 2 })
   totalAmount: number;
 

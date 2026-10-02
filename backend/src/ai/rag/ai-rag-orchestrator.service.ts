@@ -25,6 +25,22 @@ export class AiRagOrchestratorService {
     private readonly metrics: MetricsService,
   ) {}
 
+  private async retrieveSources(
+    strategy: string,
+    prompt: string,
+    context: AiRagContext,
+  ): Promise<AiRagSource[]> {
+    if (strategy === 'structured')
+      return this.structured.retrieve(prompt, context);
+    if (strategy === 'semantic') return this.vector.retrieve(prompt, context);
+    if (strategy !== 'hybrid') return [];
+    const [structured, vector] = await Promise.all([
+      this.structured.retrieve(prompt, context),
+      this.vector.retrieve(prompt, context),
+    ]);
+    return this.unique([...structured, ...vector]);
+  }
+
   async respond(params: {
     prompt: string;
     conversationId?: string;
@@ -75,18 +91,11 @@ export class AiRagOrchestratorService {
         };
       }
 
-      let sources: AiRagSource[] = [];
-      if (strategy === 'structured') {
-        sources = await this.structured.retrieve(params.prompt, context);
-      } else if (strategy === 'semantic') {
-        sources = await this.vector.retrieve(params.prompt, context);
-      } else if (strategy === 'hybrid') {
-        const [structured, vector] = await Promise.all([
-          this.structured.retrieve(params.prompt, context),
-          this.vector.retrieve(params.prompt, context),
-        ]);
-        sources = this.unique([...structured, ...vector]);
-      }
+      let sources = await this.retrieveSources(
+        strategy,
+        params.prompt,
+        context,
+      );
 
       const freshSources = await this.validator.filterFreshVectorSources(
         sources,

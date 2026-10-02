@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { usersApi } from "@/lib/api/users";
 import { canUserAccessModule } from "@/lib/permissions";
 import type { User } from "@/types/auth";
+import FinancialSettingsPanel from "@/components/payments/FinancialSettingsPanel";
 
 type ProfileFormState = {
   email: string;
@@ -246,6 +247,9 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {user && canUserAccessModule(user, ["admin"]) && (
+          <FinancialSettingsPanel />
+        )}
+        {user && canUserAccessModule(user, ["admin"]) && (
           <Link
             href={`/${locale}/settings/mercadolibre`}
             className="xl:col-span-2 rounded-lg border p-5 hover:underline"
@@ -409,9 +413,10 @@ export default function SettingsPage() {
             </span>
           </div>
 
-          <label className="flex items-start gap-3 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-950 dark:border-green-800 dark:bg-green-950/30 dark:text-green-100">
+          <div className="flex items-start gap-3 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-950 dark:border-green-800 dark:bg-green-950/30 dark:text-green-100">
             <input
               type="checkbox"
+              aria-label={t("whatsappOptIn")}
               checked={profileForm.whatsappEnabled}
               disabled={!profileForm.phone.trim()}
               onChange={(event) =>
@@ -426,7 +431,7 @@ export default function SettingsPage() {
               <span className="block font-semibold">{t("whatsappOptIn")}</span>
               <span className="block opacity-80">{t("whatsappOptInHint")}</span>
             </span>
-          </label>
+          </div>
 
           <button
             type="submit"

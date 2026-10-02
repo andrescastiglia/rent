@@ -1,0 +1,1441 @@
+{
+  "at": "2026-10-02T13:42:52.197Z",
+  "backend": "http://127.0.0.1:3301",
+  "frontend": "http://127.0.0.1:3300",
+  "mockMode": false,
+  "results": [
+    {
+      "screen": "dashboard",
+      "route": "/es/dashboard",
+      "width": 390,
+      "theme": "light",
+      "file": "dashboard-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Inicio"
+      },
+      "violations": []
+    },
+    {
+      "screen": "dashboard",
+      "route": "/es/dashboard",
+      "width": 768,
+      "theme": "light",
+      "file": "dashboard-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Inicio"
+      },
+      "violations": []
+    },
+    {
+      "screen": "dashboard",
+      "route": "/es/dashboard",
+      "width": 1440,
+      "theme": "light",
+      "file": "dashboard-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Inicio"
+      },
+      "violations": []
+    },
+    {
+      "screen": "dashboard",
+      "route": "/es/dashboard",
+      "width": 390,
+      "theme": "dark",
+      "file": "dashboard-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Inicio"
+      },
+      "violations": []
+    },
+    {
+      "screen": "dashboard",
+      "route": "/es/dashboard",
+      "width": 768,
+      "theme": "dark",
+      "file": "dashboard-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Inicio"
+      },
+      "violations": []
+    },
+    {
+      "screen": "dashboard",
+      "route": "/es/dashboard",
+      "width": 1440,
+      "theme": "dark",
+      "file": "dashboard-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Inicio"
+      },
+      "violations": []
+    },
+    {
+      "screen": "properties",
+      "route": "/es/properties",
+      "width": 390,
+      "theme": "light",
+      "file": "properties-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Propiedades"
+      },
+      "violations": []
+    },
+    {
+      "screen": "properties",
+      "route": "/es/properties",
+      "width": 768,
+      "theme": "light",
+      "file": "properties-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Propiedades"
+      },
+      "violations": []
+    },
+    {
+      "screen": "properties",
+      "route": "/es/properties",
+      "width": 1440,
+      "theme": "light",
+      "file": "properties-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Propiedades"
+      },
+      "violations": []
+    },
+    {
+      "screen": "properties",
+      "route": "/es/properties",
+      "width": 390,
+      "theme": "dark",
+      "file": "properties-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Propiedades"
+      },
+      "violations": []
+    },
+    {
+      "screen": "properties",
+      "route": "/es/properties",
+      "width": 768,
+      "theme": "dark",
+      "file": "properties-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Propiedades"
+      },
+      "violations": []
+    },
+    {
+      "screen": "properties",
+      "route": "/es/properties",
+      "width": 1440,
+      "theme": "dark",
+      "file": "properties-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Propiedades"
+      },
+      "violations": []
+    },
+    {
+      "screen": "payments",
+      "route": "/es/payments",
+      "width": 390,
+      "theme": "light",
+      "file": "payments-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Cobros"
+      },
+      "violations": []
+    },
+    {
+      "screen": "payments",
+      "route": "/es/payments",
+      "width": 768,
+      "theme": "light",
+      "file": "payments-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Cobros"
+      },
+      "violations": []
+    },
+    {
+      "screen": "payments",
+      "route": "/es/payments",
+      "width": 1440,
+      "theme": "light",
+      "file": "payments-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Cobros"
+      },
+      "violations": []
+    },
+    {
+      "screen": "payments",
+      "route": "/es/payments",
+      "width": 390,
+      "theme": "dark",
+      "file": "payments-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Cobros"
+      },
+      "violations": []
+    },
+    {
+      "screen": "payments",
+      "route": "/es/payments",
+      "width": 768,
+      "theme": "dark",
+      "file": "payments-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Cobros"
+      },
+      "violations": []
+    },
+    {
+      "screen": "payments",
+      "route": "/es/payments",
+      "width": 1440,
+      "theme": "dark",
+      "file": "payments-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Cobros"
+      },
+      "violations": []
+    },
+    {
+      "screen": "contract",
+      "route": "/es/leases/8d6e09ab-251f-4f0c-a8a6-9dce4b214f2a",
+      "width": 390,
+      "theme": "light",
+      "file": "contract-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Contrato de Alquiler"
+      },
+      "violations": []
+    },
+    {
+      "screen": "contract",
+      "route": "/es/leases/8d6e09ab-251f-4f0c-a8a6-9dce4b214f2a",
+      "width": 768,
+      "theme": "light",
+      "file": "contract-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Contrato de Alquiler"
+      },
+      "violations": []
+    },
+    {
+      "screen": "contract",
+      "route": "/es/leases/8d6e09ab-251f-4f0c-a8a6-9dce4b214f2a",
+      "width": 1440,
+      "theme": "light",
+      "file": "contract-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Contrato de Alquiler"
+      },
+      "violations": []
+    },
+    {
+      "screen": "contract",
+      "route": "/es/leases/8d6e09ab-251f-4f0c-a8a6-9dce4b214f2a",
+      "width": 390,
+      "theme": "dark",
+      "file": "contract-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Contrato de Alquiler"
+      },
+      "violations": []
+    },
+    {
+      "screen": "contract",
+      "route": "/es/leases/8d6e09ab-251f-4f0c-a8a6-9dce4b214f2a",
+      "width": 768,
+      "theme": "dark",
+      "file": "contract-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Contrato de Alquiler"
+      },
+      "violations": []
+    },
+    {
+      "screen": "contract",
+      "route": "/es/leases/8d6e09ab-251f-4f0c-a8a6-9dce4b214f2a",
+      "width": 1440,
+      "theme": "dark",
+      "file": "contract-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Contrato de Alquiler"
+      },
+      "violations": []
+    },
+    {
+      "screen": "sales",
+      "route": "/es/sales",
+      "width": 390,
+      "theme": "light",
+      "file": "sales-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Ventas en cuotas"
+      },
+      "violations": []
+    },
+    {
+      "screen": "sales",
+      "route": "/es/sales",
+      "width": 768,
+      "theme": "light",
+      "file": "sales-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Ventas en cuotas"
+      },
+      "violations": []
+    },
+    {
+      "screen": "sales",
+      "route": "/es/sales",
+      "width": 1440,
+      "theme": "light",
+      "file": "sales-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Ventas en cuotas"
+      },
+      "violations": []
+    },
+    {
+      "screen": "sales",
+      "route": "/es/sales",
+      "width": 390,
+      "theme": "dark",
+      "file": "sales-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Ventas en cuotas"
+      },
+      "violations": []
+    },
+    {
+      "screen": "sales",
+      "route": "/es/sales",
+      "width": 768,
+      "theme": "dark",
+      "file": "sales-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Ventas en cuotas"
+      },
+      "violations": []
+    },
+    {
+      "screen": "sales",
+      "route": "/es/sales",
+      "width": 1440,
+      "theme": "dark",
+      "file": "sales-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Ventas en cuotas"
+      },
+      "violations": []
+    },
+    {
+      "screen": "buyers",
+      "route": "/es/buyers",
+      "width": 390,
+      "theme": "light",
+      "file": "buyers-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Compradores"
+      },
+      "violations": []
+    },
+    {
+      "screen": "buyers",
+      "route": "/es/buyers",
+      "width": 768,
+      "theme": "light",
+      "file": "buyers-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Compradores"
+      },
+      "violations": []
+    },
+    {
+      "screen": "buyers",
+      "route": "/es/buyers",
+      "width": 1440,
+      "theme": "light",
+      "file": "buyers-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Compradores"
+      },
+      "violations": []
+    },
+    {
+      "screen": "buyers",
+      "route": "/es/buyers",
+      "width": 390,
+      "theme": "dark",
+      "file": "buyers-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Compradores"
+      },
+      "violations": []
+    },
+    {
+      "screen": "buyers",
+      "route": "/es/buyers",
+      "width": 768,
+      "theme": "dark",
+      "file": "buyers-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Compradores"
+      },
+      "violations": []
+    },
+    {
+      "screen": "buyers",
+      "route": "/es/buyers",
+      "width": 1440,
+      "theme": "dark",
+      "file": "buyers-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Compradores"
+      },
+      "violations": []
+    },
+    {
+      "screen": "owners",
+      "route": "/es/owners",
+      "width": 390,
+      "theme": "light",
+      "file": "owners-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Propietarios"
+      },
+      "violations": []
+    },
+    {
+      "screen": "owners",
+      "route": "/es/owners",
+      "width": 768,
+      "theme": "light",
+      "file": "owners-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Propietarios"
+      },
+      "violations": []
+    },
+    {
+      "screen": "owners",
+      "route": "/es/owners",
+      "width": 1440,
+      "theme": "light",
+      "file": "owners-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Propietarios"
+      },
+      "violations": []
+    },
+    {
+      "screen": "owners",
+      "route": "/es/owners",
+      "width": 390,
+      "theme": "dark",
+      "file": "owners-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Propietarios"
+      },
+      "violations": []
+    },
+    {
+      "screen": "owners",
+      "route": "/es/owners",
+      "width": 768,
+      "theme": "dark",
+      "file": "owners-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Propietarios"
+      },
+      "violations": []
+    },
+    {
+      "screen": "owners",
+      "route": "/es/owners",
+      "width": 1440,
+      "theme": "dark",
+      "file": "owners-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Propietarios"
+      },
+      "violations": []
+    },
+    {
+      "screen": "property-detail",
+      "route": "/es/properties/02633ed8-8af3-4655-9531-b58c40550293",
+      "width": 390,
+      "theme": "light",
+      "file": "property-detail-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "San Martin 100"
+      },
+      "violations": []
+    },
+    {
+      "screen": "property-detail",
+      "route": "/es/properties/02633ed8-8af3-4655-9531-b58c40550293",
+      "width": 768,
+      "theme": "light",
+      "file": "property-detail-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "San Martin 100"
+      },
+      "violations": []
+    },
+    {
+      "screen": "property-detail",
+      "route": "/es/properties/02633ed8-8af3-4655-9531-b58c40550293",
+      "width": 1440,
+      "theme": "light",
+      "file": "property-detail-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "San Martin 100"
+      },
+      "violations": []
+    },
+    {
+      "screen": "property-detail",
+      "route": "/es/properties/02633ed8-8af3-4655-9531-b58c40550293",
+      "width": 390,
+      "theme": "dark",
+      "file": "property-detail-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "San Martin 100"
+      },
+      "violations": []
+    },
+    {
+      "screen": "property-detail",
+      "route": "/es/properties/02633ed8-8af3-4655-9531-b58c40550293",
+      "width": 768,
+      "theme": "dark",
+      "file": "property-detail-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "San Martin 100"
+      },
+      "violations": []
+    },
+    {
+      "screen": "property-detail",
+      "route": "/es/properties/02633ed8-8af3-4655-9531-b58c40550293",
+      "width": 1440,
+      "theme": "dark",
+      "file": "property-detail-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "San Martin 100"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-detail",
+      "route": "/es/tenants/e4d95c2b-c6ab-486a-b9e0-8c77fd1aeeaf",
+      "width": 390,
+      "theme": "light",
+      "file": "tenant-detail-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Tenant QA"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-detail",
+      "route": "/es/tenants/e4d95c2b-c6ab-486a-b9e0-8c77fd1aeeaf",
+      "width": 768,
+      "theme": "light",
+      "file": "tenant-detail-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Tenant QA"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-detail",
+      "route": "/es/tenants/e4d95c2b-c6ab-486a-b9e0-8c77fd1aeeaf",
+      "width": 1440,
+      "theme": "light",
+      "file": "tenant-detail-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Tenant QA"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-detail",
+      "route": "/es/tenants/e4d95c2b-c6ab-486a-b9e0-8c77fd1aeeaf",
+      "width": 390,
+      "theme": "dark",
+      "file": "tenant-detail-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Tenant QA"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-detail",
+      "route": "/es/tenants/e4d95c2b-c6ab-486a-b9e0-8c77fd1aeeaf",
+      "width": 768,
+      "theme": "dark",
+      "file": "tenant-detail-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Tenant QA"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-detail",
+      "route": "/es/tenants/e4d95c2b-c6ab-486a-b9e0-8c77fd1aeeaf",
+      "width": 1440,
+      "theme": "dark",
+      "file": "tenant-detail-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Tenant QA"
+      },
+      "violations": []
+    },
+    {
+      "screen": "maintenance",
+      "route": "/es/maintenance",
+      "width": 390,
+      "theme": "light",
+      "file": "maintenance-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Mantenimiento"
+      },
+      "violations": []
+    },
+    {
+      "screen": "maintenance",
+      "route": "/es/maintenance",
+      "width": 768,
+      "theme": "light",
+      "file": "maintenance-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Mantenimiento"
+      },
+      "violations": []
+    },
+    {
+      "screen": "maintenance",
+      "route": "/es/maintenance",
+      "width": 1440,
+      "theme": "light",
+      "file": "maintenance-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Mantenimiento"
+      },
+      "violations": []
+    },
+    {
+      "screen": "maintenance",
+      "route": "/es/maintenance",
+      "width": 390,
+      "theme": "dark",
+      "file": "maintenance-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Mantenimiento"
+      },
+      "violations": []
+    },
+    {
+      "screen": "maintenance",
+      "route": "/es/maintenance",
+      "width": 768,
+      "theme": "dark",
+      "file": "maintenance-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Mantenimiento"
+      },
+      "violations": []
+    },
+    {
+      "screen": "maintenance",
+      "route": "/es/maintenance",
+      "width": 1440,
+      "theme": "dark",
+      "file": "maintenance-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Mantenimiento"
+      },
+      "violations": []
+    },
+    {
+      "screen": "reports",
+      "route": "/es/reports",
+      "width": 390,
+      "theme": "light",
+      "file": "reports-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Reportes"
+      },
+      "violations": []
+    },
+    {
+      "screen": "reports",
+      "route": "/es/reports",
+      "width": 768,
+      "theme": "light",
+      "file": "reports-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Reportes"
+      },
+      "violations": []
+    },
+    {
+      "screen": "reports",
+      "route": "/es/reports",
+      "width": 1440,
+      "theme": "light",
+      "file": "reports-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Reportes"
+      },
+      "violations": []
+    },
+    {
+      "screen": "reports",
+      "route": "/es/reports",
+      "width": 390,
+      "theme": "dark",
+      "file": "reports-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Reportes"
+      },
+      "violations": []
+    },
+    {
+      "screen": "reports",
+      "route": "/es/reports",
+      "width": 768,
+      "theme": "dark",
+      "file": "reports-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Reportes"
+      },
+      "violations": []
+    },
+    {
+      "screen": "reports",
+      "route": "/es/reports",
+      "width": 1440,
+      "theme": "dark",
+      "file": "reports-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Reportes"
+      },
+      "violations": []
+    },
+    {
+      "screen": "communications",
+      "route": "/es/settings/communications",
+      "width": 390,
+      "theme": "light",
+      "file": "communications-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Plantillas y comunicaciones"
+      },
+      "violations": []
+    },
+    {
+      "screen": "communications",
+      "route": "/es/settings/communications",
+      "width": 768,
+      "theme": "light",
+      "file": "communications-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Plantillas y comunicaciones"
+      },
+      "violations": []
+    },
+    {
+      "screen": "communications",
+      "route": "/es/settings/communications",
+      "width": 1440,
+      "theme": "light",
+      "file": "communications-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Plantillas y comunicaciones"
+      },
+      "violations": []
+    },
+    {
+      "screen": "communications",
+      "route": "/es/settings/communications",
+      "width": 390,
+      "theme": "dark",
+      "file": "communications-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Plantillas y comunicaciones"
+      },
+      "violations": []
+    },
+    {
+      "screen": "communications",
+      "route": "/es/settings/communications",
+      "width": 768,
+      "theme": "dark",
+      "file": "communications-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Plantillas y comunicaciones"
+      },
+      "violations": []
+    },
+    {
+      "screen": "communications",
+      "route": "/es/settings/communications",
+      "width": 1440,
+      "theme": "dark",
+      "file": "communications-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Plantillas y comunicaciones"
+      },
+      "violations": []
+    },
+    {
+      "screen": "owner-portal",
+      "route": "/es/portal/owner",
+      "width": 390,
+      "theme": "light",
+      "file": "owner-portal-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Owner"
+      },
+      "violations": []
+    },
+    {
+      "screen": "owner-portal",
+      "route": "/es/portal/owner",
+      "width": 768,
+      "theme": "light",
+      "file": "owner-portal-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Owner"
+      },
+      "violations": []
+    },
+    {
+      "screen": "owner-portal",
+      "route": "/es/portal/owner",
+      "width": 1440,
+      "theme": "light",
+      "file": "owner-portal-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Owner"
+      },
+      "violations": []
+    },
+    {
+      "screen": "owner-portal",
+      "route": "/es/portal/owner",
+      "width": 390,
+      "theme": "dark",
+      "file": "owner-portal-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Owner"
+      },
+      "violations": []
+    },
+    {
+      "screen": "owner-portal",
+      "route": "/es/portal/owner",
+      "width": 768,
+      "theme": "dark",
+      "file": "owner-portal-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Owner"
+      },
+      "violations": []
+    },
+    {
+      "screen": "owner-portal",
+      "route": "/es/portal/owner",
+      "width": 1440,
+      "theme": "dark",
+      "file": "owner-portal-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Owner"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-portal",
+      "route": "/es/portal/tenant",
+      "width": 390,
+      "theme": "light",
+      "file": "tenant-portal-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Tenant QA"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-portal",
+      "route": "/es/portal/tenant",
+      "width": 768,
+      "theme": "light",
+      "file": "tenant-portal-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Tenant QA"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-portal",
+      "route": "/es/portal/tenant",
+      "width": 1440,
+      "theme": "light",
+      "file": "tenant-portal-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Tenant QA"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-portal",
+      "route": "/es/portal/tenant",
+      "width": 390,
+      "theme": "dark",
+      "file": "tenant-portal-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Tenant QA"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-portal",
+      "route": "/es/portal/tenant",
+      "width": 768,
+      "theme": "dark",
+      "file": "tenant-portal-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Tenant QA"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-portal",
+      "route": "/es/portal/tenant",
+      "width": 1440,
+      "theme": "dark",
+      "file": "tenant-portal-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Tenant QA"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-payments",
+      "route": "/es/portal/tenant/payments",
+      "width": 390,
+      "theme": "light",
+      "file": "tenant-payments-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Mis Pagos"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-payments",
+      "route": "/es/portal/tenant/payments",
+      "width": 768,
+      "theme": "light",
+      "file": "tenant-payments-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Mis Pagos"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-payments",
+      "route": "/es/portal/tenant/payments",
+      "width": 1440,
+      "theme": "light",
+      "file": "tenant-payments-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Mis Pagos"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-payments",
+      "route": "/es/portal/tenant/payments",
+      "width": 390,
+      "theme": "dark",
+      "file": "tenant-payments-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Mis Pagos"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-payments",
+      "route": "/es/portal/tenant/payments",
+      "width": 768,
+      "theme": "dark",
+      "file": "tenant-payments-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Mis Pagos"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-payments",
+      "route": "/es/portal/tenant/payments",
+      "width": 1440,
+      "theme": "dark",
+      "file": "tenant-payments-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Mis Pagos"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-maintenance",
+      "route": "/es/portal/tenant/maintenance",
+      "width": 390,
+      "theme": "light",
+      "file": "tenant-maintenance-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Mantenimiento de mi propiedad"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-maintenance",
+      "route": "/es/portal/tenant/maintenance",
+      "width": 768,
+      "theme": "light",
+      "file": "tenant-maintenance-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Mantenimiento de mi propiedad"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-maintenance",
+      "route": "/es/portal/tenant/maintenance",
+      "width": 1440,
+      "theme": "light",
+      "file": "tenant-maintenance-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Mantenimiento de mi propiedad"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-maintenance",
+      "route": "/es/portal/tenant/maintenance",
+      "width": 390,
+      "theme": "dark",
+      "file": "tenant-maintenance-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Mantenimiento de mi propiedad"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-maintenance",
+      "route": "/es/portal/tenant/maintenance",
+      "width": 768,
+      "theme": "dark",
+      "file": "tenant-maintenance-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Mantenimiento de mi propiedad"
+      },
+      "violations": []
+    },
+    {
+      "screen": "tenant-maintenance",
+      "route": "/es/portal/tenant/maintenance",
+      "width": 1440,
+      "theme": "dark",
+      "file": "tenant-maintenance-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Mantenimiento de mi propiedad"
+      },
+      "violations": []
+    },
+    {
+      "screen": "buyer-portal",
+      "route": "/es/portal/buyer",
+      "width": 390,
+      "theme": "light",
+      "file": "buyer-portal-390-light.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Mis compras"
+      },
+      "violations": []
+    },
+    {
+      "screen": "buyer-portal",
+      "route": "/es/portal/buyer",
+      "width": 768,
+      "theme": "light",
+      "file": "buyer-portal-768-light.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Mis compras"
+      },
+      "violations": []
+    },
+    {
+      "screen": "buyer-portal",
+      "route": "/es/portal/buyer",
+      "width": 1440,
+      "theme": "light",
+      "file": "buyer-portal-1440-light.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Mis compras"
+      },
+      "violations": []
+    },
+    {
+      "screen": "buyer-portal",
+      "route": "/es/portal/buyer",
+      "width": 390,
+      "theme": "dark",
+      "file": "buyer-portal-390-dark.png",
+      "dimensions": {
+        "viewport": 390,
+        "root": 390,
+        "body": 390,
+        "title": "Mis compras"
+      },
+      "violations": []
+    },
+    {
+      "screen": "buyer-portal",
+      "route": "/es/portal/buyer",
+      "width": 768,
+      "theme": "dark",
+      "file": "buyer-portal-768-dark.png",
+      "dimensions": {
+        "viewport": 768,
+        "root": 768,
+        "body": 768,
+        "title": "Mis compras"
+      },
+      "violations": []
+    },
+    {
+      "screen": "buyer-portal",
+      "route": "/es/portal/buyer",
+      "width": 1440,
+      "theme": "dark",
+      "file": "buyer-portal-1440-dark.png",
+      "dimensions": {
+        "viewport": 1440,
+        "root": 1440,
+        "body": 1440,
+        "title": "Mis compras"
+      },
+      "violations": []
+    }
+  ],
+  "errors": [],
+  "interactions": [
+    "Skip link and mobile sidebar Escape/focus return",
+    "Buyer later page and own read-only installment detail"
+  ]
+}

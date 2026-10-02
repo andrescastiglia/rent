@@ -1,14 +1,17 @@
+import { Pressable, Text, View } from '@/components/themed-native';
+import { useGuidanceBlocker } from '@/components/guidance';
+import { randomUUID } from 'expo-crypto';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
-import { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Image, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 
 import { currenciesApi } from '@/api/currencies';
 import { ownersApi } from '@/api/owners';
-import { pickAndUploadImages } from '@/api/uploads';
+import { discardUploadedAssets, pickAndUploadImages } from '@/api/uploads';
 import { AppButton, ChoiceGroup, Field } from '@/components/ui';
 import type {
   CreatePropertyInput,
@@ -76,7 +79,7 @@ type FeatureRow = {
 };
 
 const createFeatureRow = (row?: Partial<FeatureRow>): FeatureRow => ({
-  id: row?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`, // NOSONAR
+  id: row?.id ?? randomUUID(),
   name: row?.name ?? '',
   value: row?.value ?? '',
 });
@@ -177,6 +180,21 @@ export function PropertyForm({
 }: Readonly<PropertyFormProps>) {
   const { t } = useTranslation();
   const [uploadingImages, setUploadingImages] = useState(false);
+  const stagedImages = useRef(new Set<string>());
+  const mounted = useRef(true);
+  const saving = useRef(false);
+  const discardStaged = () => {
+    const urls = [...stagedImages.current];
+    stagedImages.current.clear();
+    void discardUploadedAssets(urls).catch(() => undefined);
+  };
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (!saving.current) discardStaged();
+    };
+  }, []);
   const [showCurrencyOptions, setShowCurrencyOptions] = useState(false);
   const isOwnerLocked = mode === 'edit' || Boolean(defaultOwnerId);
   const initialFeatureRows = useMemo(
@@ -327,6 +345,17 @@ export function PropertyForm({
     });
   };
 
+  useGuidanceBlocker(
+    `${testIDPrefix}.validation`,
+    Object.keys(formState.errors).length > 0 ||
+      uploadingImages ||
+      showCurrencyOptions ||
+      ownersQuery.isLoading ||
+      ownersQuery.isError ||
+      currenciesQuery.isLoading ||
+      currenciesQuery.isError,
+  );
+
   const submit = handleSubmit(async (values) => {
     const operations = parseOperations(values.operationsCsv);
     if (operations.length === 0) {
@@ -380,15 +409,18 @@ export function PropertyForm({
       saleCurrency: values.saleCurrency || undefined,
     } satisfies CreatePropertyInput;
 
-    if (mode === 'edit') {
-      await onSubmit({
-        ...payloadBase,
-        status: values.status,
-      } satisfies UpdatePropertyInput);
-      return;
+    saving.current = true;
+    try {
+      await onSubmit(
+        mode === 'edit'
+          ? { ...payloadBase, status: values.status }
+          : payloadBase,
+      );
+      stagedImages.current.clear();
+    } finally {
+      saving.current = false;
+      if (!mounted.current) discardStaged();
     }
-
-    await onSubmit(payloadBase);
   });
 
   return (
@@ -743,6 +775,14 @@ export function PropertyForm({
             setUploadingImages(true);
             void pickAndUploadImages()
               .then((uploaded) => {
+                if (!mounted.current) {
+                  void discardUploadedAssets(
+                    uploaded.map((asset) => asset.url),
+                  ).catch(() => undefined);
+                  return;
+                }
+                for (const asset of uploaded)
+                  stagedImages.current.add(asset.url);
                 if (uploaded.length === 0) return;
                 setImageUrls((current) =>
                   mergeUploadedImageUrls(current, uploaded),
@@ -756,7 +796,9 @@ export function PropertyForm({
                     : t('messages.saveError'),
                 );
               })
-              .finally(() => setUploadingImages(false));
+              .finally(() => {
+                if (mounted.current) setUploadingImages(false);
+              });
           }}
         />
         {imageUrls.length === 0 ? (
@@ -767,9 +809,12 @@ export function PropertyForm({
             <View key={`${uri}-${index}`} style={styles.imageCard}>
               <Image source={{ uri }} style={styles.imagePreview} />
               <Pressable
-                onPress={() =>
-                  setImageUrls((current) => removeAtIndex(current, index))
-                }
+                onPress={() => {
+                  setImageUrls((current) => removeAtIndex(current, index));
+                  if (stagedImages.current.delete(uri)) {
+                    void discardUploadedAssets([uri]).catch(() => undefined);
+                  }
+                }}
                 style={styles.removeImageButton}
                 testID={`${testIDPrefix}.image.${index}.remove`}
               >
@@ -866,14 +911,14 @@ export function PropertyForm({
         )}
       />
 
-      {Object.values(formState.errors).map((item) => {
+      {Object.entries(formState.errors).map(([fieldName, item]) => {
         if (!item?.message) return null;
         const message =
           item.message === 'property.operations.required'
             ? t('validation.required')
             : item.message;
         return (
-          <Text key={`${item.message}-${message}`} style={styles.error}>
+          <Text key={fieldName} style={styles.error}>
             {message}
           </Text>
         );
@@ -881,7 +926,9 @@ export function PropertyForm({
 
       <AppButton
         title={submitLabel}
-        onPress={submit}
+        onPress={() => {
+          void submit().catch(() => undefined);
+        }}
         loading={submitting}
         disabled={submitting}
         testID={`${testIDPrefix}.submit`}

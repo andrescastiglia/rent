@@ -137,9 +137,12 @@ const confirm = async (action: string) => {
   fireEvent.click(screen.getByRole("button", { name: action }));
   expect(screen.getByRole("button", { name: "confirmAction" })).toBeDisabled();
   fireEvent.click(screen.getByRole("checkbox"));
-  await act(async () => {
-    fireEvent.click(screen.getByRole("button", { name: "confirmAction" }));
-  });
+  fireEvent.click(screen.getByRole("button", { name: "confirmAction" }));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("button", { name: "confirmAction" }),
+    ).not.toBeInTheDocument(),
+  );
 };
 it.each([
   { enabled: false, status: "active", message: "disabled" },

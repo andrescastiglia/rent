@@ -1,5 +1,6 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import OpenAI from 'openai';
+import { z } from 'zod';
 import { zodTextFormat } from 'openai/helpers/zod';
 import {
   AiEvidenceValidatorService,
@@ -44,13 +45,10 @@ export class AiAnswerGeneratorService {
     );
     let remainingContext = maxContextChars;
     const evidence = [...params.sources]
-      .sort((left, right) =>
-        left.origin === right.origin
-          ? 0
-          : left.origin === 'structured'
-            ? -1
-            : 1,
-      )
+      .sort((left, right) => {
+        if (left.origin === right.origin) return 0;
+        return left.origin === 'structured' ? -1 : 1;
+      })
       .map((source) => {
         const content = source.content.slice(0, Math.max(remainingContext, 0));
         remainingContext -= content.length;
@@ -68,8 +66,14 @@ export class AiAnswerGeneratorService {
       Math.max(Number(process.env.AI_RAG_MAX_OUTPUT_TOKENS ?? 1200), 128),
       4000,
     );
+    // Compatibility is model-dependent; omit the parameter unless configured.
+    const reasoningEffort = z
+      .enum(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
+      .optional()
+      .parse(process.env.AI_RAG_REASONING_EFFORT?.trim() || undefined);
     const response = await client.responses.parse({
       model,
+      ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
       max_output_tokens: maxOutputTokens,
       input: [
         {

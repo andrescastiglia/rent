@@ -91,6 +91,9 @@ if [ "$APP_BUILD_TYPE" = "debug" ]; then
 fi
 
 adb wait-for-device
+# Real typing can trigger LatinIME's first-use contacts dialog. Configure the
+# keyboard on the disposable AOSP emulator before exercising application UI.
+adb shell pm grant com.android.inputmethod.latin android.permission.READ_CONTACTS
 if [ "$APP_BUILD_TYPE" = "debug" ]; then
   adb reverse tcp:8081 tcp:8081
   if ! adb reverse --list | grep -q "tcp:8081 tcp:8081"; then

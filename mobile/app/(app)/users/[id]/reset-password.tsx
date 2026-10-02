@@ -1,7 +1,9 @@
+import { Text, View } from '@/components/themed-native';
+import { useConfirmationDialog } from '@/components/use-confirmation-dialog';
 import { useMutation } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { usersApi } from '@/api/users';
@@ -9,6 +11,7 @@ import { Screen } from '@/components/screen';
 import { AppButton, Field, H1 } from '@/components/ui';
 
 export default function ResetUserPasswordScreen() {
+  const dialog = useConfirmationDialog();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useTranslation();
@@ -22,7 +25,7 @@ export default function ResetUserPasswordScreen() {
       const message = result.temporaryPassword
         ? `${result.message}\n${t('users.newPasswordPrompt')} ${result.temporaryPassword}`
         : result.message;
-      Alert.alert(t('users.messages.passwordReset'), message, [
+      dialog.confirm(t('users.messages.passwordReset'), message, [
         { text: 'OK', onPress: () => router.back() },
       ]);
     },
@@ -47,7 +50,7 @@ export default function ResetUserPasswordScreen() {
   };
 
   return (
-    <Screen>
+    <Screen guidanceBlocked={dialog.open}>
       <H1>{t('users.resetPasswordDialog.title')}</H1>
       <View style={styles.card}>
         <Field

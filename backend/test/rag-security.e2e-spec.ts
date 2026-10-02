@@ -7,6 +7,8 @@ import { AiToolExecutorService } from '../src/ai/ai-tool-executor.service';
 import { AiEvidenceValidatorService } from '../src/ai/rag/ai-evidence-validator.service';
 import { AiVectorRetrieverService } from '../src/ai/rag/ai-vector-retriever.service';
 import { AiRagSource } from '../src/ai/rag/ai-rag.types';
+import { withDomainOperationReceipt } from '../src/common/helpers/domain-operation-receipt';
+import { AiExecutionContext } from '../src/ai/types/ai-tool.types';
 
 describe('RAG freshness and authorization (e2e)', () => {
   let client: Client;
@@ -144,6 +146,13 @@ describe('RAG freshness and authorization (e2e)', () => {
   afterAll(async () => {
     if (client) {
       try {
+        await client.query('BEGIN');
+        await client.query("SET LOCAL session_replication_role='replica'");
+        await client.query(
+          `DELETE FROM domain_operation_receipts WHERE operation='rag.e2e.fixture' AND execution_key IN (SELECT id FROM ai_tool_mutation_confirmations WHERE conversation_id=$1::uuid)`,
+          [conversationId],
+        );
+        await client.query('COMMIT');
         await client.query(`DELETE FROM ai_conversations WHERE id=$1::uuid`, [
           conversationId,
         ]);
@@ -316,9 +325,27 @@ describe('RAG freshness and authorization (e2e)', () => {
       name: 'rag_e2e_mutation',
       description: 'RAG E2E mutation',
       mutability: 'mutable' as const,
+      supportsIdempotentRecovery: true,
       allowedRoles: [UserRole.OWNER, UserRole.ADMIN],
       parameters: z.object({ value: z.string() }).strict(),
-      execute: executeMutation,
+      execute: async (payload: unknown, context: AiExecutionContext) => {
+        await client.query('BEGIN');
+        try {
+          const result = await withDomainOperationReceipt(
+            { query, queryRunner: { isTransactionActive: true } } as never,
+            context.companyId!,
+            context.idempotencyKey,
+            'rag.e2e.fixture',
+            payload as Record<string, unknown>,
+            executeMutation,
+          );
+          await client.query('COMMIT');
+          return result;
+        } catch (error) {
+          await client.query('ROLLBACK');
+          throw error;
+        }
+      },
     };
     const executor = new AiToolExecutorService(
       {
@@ -390,7 +417,7 @@ describe('RAG freshness and authorization (e2e)', () => {
           confirmMutation: true,
         },
       ),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    ).resolves.toEqual({ changed: true });
     expect(executeMutation).toHaveBeenCalledTimes(1);
 
     const audit = await client.query<{

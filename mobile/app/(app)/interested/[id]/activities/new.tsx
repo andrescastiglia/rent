@@ -1,14 +1,15 @@
+import { Text, TextInput, View } from '@/components/themed-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Alert, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { interestedApi } from '@/api/interested';
 import { whatsappApi } from '@/api/whatsapp';
 import * as Crypto from 'expo-crypto';
 import { Screen } from '@/components/screen';
-import { AppButton, ChoiceGroup, DateField, H1 } from '@/components/ui';
+import { AppButton, ChoiceGroup, DateField, Field, H1 } from '@/components/ui';
 import type {
   InterestedActivityStatus,
   InterestedActivityType,
@@ -41,6 +42,7 @@ export default function NewInterestedActivityScreen() {
     { label: t('interested.activityStatus.cancelled'), value: 'cancelled' },
   ];
 
+  const whatsappRequestId = useRef<string | null>(null);
   const [type, setType] = useState<InterestedActivityType>('task');
   const [status, setStatus] = useState<InterestedActivityStatus>('pending');
   const [subject, setSubject] = useState('');
@@ -57,8 +59,9 @@ export default function NewInterestedActivityScreen() {
       }
 
       if (type === 'whatsapp') {
+        whatsappRequestId.current ??= Crypto.randomUUID();
         return whatsappApi.createActivity({
-          requestId: Crypto.randomUUID(),
+          requestId: whatsappRequestId.current,
           personType: 'interested',
           personId: id,
           subject: subject.trim(),
@@ -76,6 +79,7 @@ export default function NewInterestedActivityScreen() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['interested'] });
+      whatsappRequestId.current = null;
       Alert.alert(t('common.success'));
       router.back();
     },
@@ -88,7 +92,7 @@ export default function NewInterestedActivityScreen() {
   });
 
   return (
-    <Screen>
+    <Screen guidanceBlocked={mutation.isPending || mutation.isError}>
       <H1>{t('interested.activities.add')}</H1>
 
       <ChoiceGroup
@@ -107,15 +111,12 @@ export default function NewInterestedActivityScreen() {
         testID="interestedActivityCreate.status"
       />
 
-      <View style={styles.fieldContainer}>
-        <Text style={styles.label}>{t('interested.activities.subject')}</Text>
-        <TextInput
-          value={subject}
-          onChangeText={setSubject}
-          style={styles.input}
-          testID="interestedActivityCreate.subject"
-        />
-      </View>
+      <Field
+        label={t('interested.activities.subject')}
+        value={subject}
+        onChangeText={setSubject}
+        testID="interestedActivityCreate.subject"
+      />
 
       <View style={styles.fieldContainer}>
         <Text style={styles.label}>{t('interested.activities.body')}</Text>

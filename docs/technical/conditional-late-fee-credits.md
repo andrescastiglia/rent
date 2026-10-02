@@ -45,9 +45,9 @@ anulaciones concurrentes, unicidad, historial ambiguo, rollback, preservación d
 notas independientes, PDF concurrente, nota revocada antes del PDF y elegibilidad
 del aviso con proveedor simulado. No envían mensajes reales.
 
-Quedan pendientes la política opcional y auditable de mora, la revisión de
-liquidaciones ya transferidas, la anulación directa de facturas con notas vigentes
-y la revisión de avisos históricos. Los nuevos intentos de envío de recibos
+La [política opcional de mora y las correcciones financieras](financial-corrections.md)
+registran evidencia y resuelven liquidaciones transferidas y anulación directa
+de facturas con notas vigentes. Los avisos históricos requieren revisión. Los nuevos intentos de envío de recibos
 [revalidan cobro, destinatario y consentimiento](payment-receipt-notices.md).
 La migración 131 reemplaza la numeración
 de recibos/notas por [contadores persistentes](payment-document-numbers.md),

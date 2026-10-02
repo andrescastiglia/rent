@@ -81,14 +81,14 @@ export class SettlementCalculationService {
          LEFT JOIN leases l ON l.id=i.lease_id AND l.company_id=$1
          LEFT JOIN LATERAL (
            SELECT jsonb_agg(jsonb_build_object(
-             'id', pa.id, 'paymentId', pa.payment_id, 'amount', pa.amount::text,
+             'id', pa.id, 'paymentId', pa.payment_id, 'amount', (pa.amount-pa.refunded_amount)::text,
              'paymentDate', p.payment_date::text,
              'valid', COALESCE(p.status='completed' AND p.allocations_recorded
                AND p.deleted_at IS NULL AND p.currency=i.currency
                AND p.tenant_id=ta.tenant_id
                AND COALESCE(p.tenant_account_id, pi.tenant_account_id)=i.tenant_account_id
-               AND (SELECT SUM(allocation.amount) FROM payment_allocations allocation
-                    WHERE allocation.payment_id=p.id AND allocation.reversed_at IS NULL)<=p.amount, false)
+               AND (SELECT SUM(allocation.amount-allocation.refunded_amount) FROM payment_allocations allocation
+                    WHERE allocation.payment_id=p.id AND allocation.reversed_at IS NULL)<=p.amount-p.refunded_amount, false)
            ) ORDER BY pa.id) AS items
            FROM payment_allocations pa
            LEFT JOIN payments p ON p.id=pa.payment_id AND p.company_id=$1

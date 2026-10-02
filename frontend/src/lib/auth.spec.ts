@@ -85,7 +85,7 @@ describe("auth helpers", () => {
 
     expect(getUser()).toEqual({
       id: "1",
-      companyId: undefined,
+      companyId: "10000000-0000-0000-0000-000000000001",
       email: "e2e.admin@example.com",
       firstName: "Admin",
       lastName: "User",
@@ -103,7 +103,7 @@ describe("auth helpers", () => {
 
     expect(getUser()).toEqual({
       id: "role-owner-1",
-      companyId: undefined,
+      companyId: "10000000-0000-0000-0000-000000000001",
       email: "e2e.owner@example.com",
       firstName: "Owner",
       lastName: "User",

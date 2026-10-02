@@ -6,8 +6,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
+import { withDomainOperationReceipt } from '../common/helpers/domain-operation-receipt';
 import * as bcrypt from 'bcrypt';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomBytes } from 'node:crypto';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import {
@@ -98,31 +100,143 @@ interface TimelineItem {
 
 @Injectable()
 export class InterestedService {
+  private readonly transactionContext = new AsyncLocalStorage<EntityManager>();
+  /** Used by the assisted workflow to keep profile, history and notifications in one commit. */
+  withTransaction<T>(
+    manager: EntityManager,
+    execute: () => Promise<T>,
+  ): Promise<T> {
+    return this.transactionContext.run(manager, execute);
+  }
+  private get transactionManager(): EntityManager | undefined {
+    return this.transactionContext.getStore();
+  }
+
+  private inTransaction<T>(
+    execute: (manager: EntityManager) => Promise<T>,
+  ): Promise<T> {
+    return this.transactionManager
+      ? execute(this.transactionManager)
+      : this.dataSource.transaction(execute);
+  }
+
+  private atomic<T>(
+    operation: string,
+    request: Record<string, unknown>,
+    user: UserContext,
+    executionKey: string | undefined,
+    execute: (scoped: InterestedService) => Promise<T>,
+  ): Promise<T> {
+    if (!user.companyId) throw new ForbiddenException('Company scope required');
+    return this.dataSource.transaction((manager) =>
+      withDomainOperationReceipt(
+        manager,
+        user.companyId!,
+        executionKey,
+        operation,
+        { ...request, actorId: user.id },
+        async () => {
+          return this.transactionContext.run(manager, () => execute(this));
+        },
+      ),
+    );
+  }
+
+  private get interestedRepository(): Repository<InterestedProfile> {
+    return (
+      this.transactionManager?.getRepository(InterestedProfile) ??
+      this._interestedRepository
+    );
+  }
+  private get propertiesRepository(): Repository<Property> {
+    return (
+      this.transactionManager?.getRepository(Property) ??
+      this._propertiesRepository
+    );
+  }
+  private get stageHistoryRepository(): Repository<InterestedStageHistory> {
+    return (
+      this.transactionManager?.getRepository(InterestedStageHistory) ??
+      this._stageHistoryRepository
+    );
+  }
+  private get activityRepository(): Repository<InterestedActivity> {
+    return (
+      this.transactionManager?.getRepository(InterestedActivity) ??
+      this._activityRepository
+    );
+  }
+  private get matchRepository(): Repository<InterestedPropertyMatch> {
+    return (
+      this.transactionManager?.getRepository(InterestedPropertyMatch) ??
+      this._matchRepository
+    );
+  }
+  private get reservationRepository(): Repository<PropertyReservation> {
+    return (
+      this.transactionManager?.getRepository(PropertyReservation) ??
+      this._reservationRepository
+    );
+  }
+  private get propertyVisitsRepository(): Repository<PropertyVisit> {
+    return (
+      this.transactionManager?.getRepository(PropertyVisit) ??
+      this._propertyVisitsRepository
+    );
+  }
+  private get usersRepository(): Repository<User> {
+    return (
+      this.transactionManager?.getRepository(User) ?? this._usersRepository
+    );
+  }
+  private get tenantsRepository(): Repository<Tenant> {
+    return (
+      this.transactionManager?.getRepository(Tenant) ?? this._tenantsRepository
+    );
+  }
+  private get buyersRepository(): Repository<Buyer> {
+    return (
+      this.transactionManager?.getRepository(Buyer) ?? this._buyersRepository
+    );
+  }
+  private get saleAgreementsRepository(): Repository<SaleAgreement> {
+    return (
+      this.transactionManager?.getRepository(SaleAgreement) ??
+      this._saleAgreementsRepository
+    );
+  }
+  private get saleFoldersRepository(): Repository<SaleFolder> {
+    return (
+      this.transactionManager?.getRepository(SaleFolder) ??
+      this._saleFoldersRepository
+    );
+  }
+
   constructor(
     @InjectRepository(InterestedProfile)
-    private readonly interestedRepository: Repository<InterestedProfile>,
+    private readonly _interestedRepository: Repository<InterestedProfile>,
     @InjectRepository(Property)
-    private readonly propertiesRepository: Repository<Property>,
+    private readonly _propertiesRepository: Repository<Property>,
     @InjectRepository(InterestedStageHistory)
-    private readonly stageHistoryRepository: Repository<InterestedStageHistory>,
+    private readonly _stageHistoryRepository: Repository<InterestedStageHistory>,
     @InjectRepository(InterestedActivity)
-    private readonly activityRepository: Repository<InterestedActivity>,
+    private readonly _activityRepository: Repository<InterestedActivity>,
     @InjectRepository(InterestedPropertyMatch)
-    private readonly matchRepository: Repository<InterestedPropertyMatch>,
+    private readonly _matchRepository: Repository<InterestedPropertyMatch>,
     @InjectRepository(PropertyReservation)
-    private readonly reservationRepository: Repository<PropertyReservation>,
+    private readonly _reservationRepository: Repository<PropertyReservation>,
     @InjectRepository(PropertyVisit)
-    private readonly propertyVisitsRepository: Repository<PropertyVisit>,
+    private readonly _propertyVisitsRepository: Repository<PropertyVisit>,
     @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
+    private readonly _usersRepository: Repository<User>,
     @InjectRepository(Tenant)
-    private readonly tenantsRepository: Repository<Tenant>,
+    private readonly _tenantsRepository: Repository<Tenant>,
     @InjectRepository(Buyer)
-    private readonly buyersRepository: Repository<Buyer>,
+    private readonly _buyersRepository: Repository<Buyer>,
     @InjectRepository(SaleAgreement)
-    private readonly saleAgreementsRepository: Repository<SaleAgreement>,
+    private readonly _saleAgreementsRepository: Repository<SaleAgreement>,
     @InjectRepository(SaleFolder)
-    private readonly saleFoldersRepository: Repository<SaleFolder>,
+    private readonly _saleFoldersRepository: Repository<SaleFolder>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly i18n: I18nService,
@@ -132,7 +246,17 @@ export class InterestedService {
   async create(
     dto: CreateInterestedProfileDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<InterestedProfile> {
+    if (!this.transactionManager)
+      return this.atomic(
+        'crm.create',
+        { ...dto },
+        user,
+        executionKey,
+        (scoped) => scoped.create(dto, user),
+      );
+
     if (!user.companyId) {
       throw new ForbiddenException('Company scope required');
     }
@@ -212,30 +336,33 @@ export class InterestedService {
       );
     }
 
-    const delivery = await this.communicationsService.dispatchEvent({
-      companyId: profile.companyId,
-      event,
-      recipientRole: CommunicationRecipientRole.INTERESTED,
-      recipientId: profile.id,
-      channel,
-      recipient,
-      variables: {
-        nombre: name,
-        telefono: profile.phone,
-        email: profile.email,
-        interes_operacion: operation,
-        agente: user.id,
-        link_perfil: `${(process.env.FRONTEND_URL ?? '').split(',')[0]}/es/interested`,
+    const delivery = await this.communicationsService.dispatchEvent(
+      {
+        companyId: profile.companyId,
+        event,
+        recipientRole: CommunicationRecipientRole.INTERESTED,
+        recipientId: profile.id,
+        channel,
+        recipient,
+        variables: {
+          nombre: name,
+          telefono: profile.phone,
+          email: profile.email,
+          interes_operacion: operation,
+          agente: user.id,
+          link_perfil: `${(process.env.FRONTEND_URL ?? '').split(',')[0]}/es/interested`,
+        },
+        fallbackSubject: 'Confirmación de registro en oficina',
+        fallbackBody:
+          'Hola {{nombre}}, registramos tu interés en {{interes_operacion}}. Nuestro equipo continuará el seguimiento por este medio.',
+        consented: profile.consentContact,
+        relatedEntityType: 'interested',
+        relatedEntityId: profile.id,
+        forceSend,
+        metadata: { registeredInOffice: true },
       },
-      fallbackSubject: 'Confirmación de registro en oficina',
-      fallbackBody:
-        'Hola {{nombre}}, registramos tu interés en {{interes_operacion}}. Nuestro equipo continuará el seguimiento por este medio.',
-      consented: profile.consentContact,
-      relatedEntityType: 'interested',
-      relatedEntityId: profile.id,
-      forceSend,
-      metadata: { registeredInOffice: true },
-    });
+      this.transactionManager,
+    );
 
     const sent = delivery.status === CommunicationDeliveryStatus.SENT;
     let activityType = InterestedActivityType.TASK;
@@ -306,9 +433,11 @@ export class InterestedService {
     if (name) {
       query.andWhere(
         `unaccent(lower(
-          coalesce(interested.first_name, '') || ' ' || coalesce(interested.last_name, '')
+          coalesce(interested.first_name, '') || ' ' || coalesce(interested.last_name, '') || ' ' || coalesce(interested.email, '') || ' ' || coalesce(interested.phone, '')
         )) LIKE unaccent(lower(:name))`,
-        { name: `%${name}%` },
+        {
+          name: '%' + name.trim().replaceAll(/[\\%_]/g, String.raw`\$&`) + '%',
+        },
       );
     }
 
@@ -382,7 +511,17 @@ export class InterestedService {
     id: string,
     dto: UpdateInterestedProfileDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<InterestedProfile> {
+    if (!this.transactionManager)
+      return this.atomic(
+        'crm.update',
+        { id, ...dto },
+        user,
+        executionKey,
+        (scoped) => scoped.update(id, dto, user),
+      );
+
     const profile = await this.findOne(id, user);
 
     if (dto.phone && dto.phone !== profile.phone) {
@@ -436,7 +575,16 @@ export class InterestedService {
     return updated;
   }
 
-  async remove(id: string, user: UserContext): Promise<void> {
+  async remove(
+    id: string,
+    user: UserContext,
+    executionKey?: string,
+  ): Promise<void> {
+    if (!this.transactionManager)
+      return this.atomic('crm.remove', { id }, user, executionKey, (scoped) =>
+        scoped.remove(id, user),
+      );
+
     const profile = await this.findOne(id, user);
     await this.interestedRepository.softDelete(profile.id);
   }
@@ -482,7 +630,17 @@ export class InterestedService {
   async refreshMatches(
     id: string,
     user: UserContext,
+    executionKey?: string,
   ): Promise<InterestedPropertyMatch[]> {
+    if (!this.transactionManager)
+      return this.atomic(
+        'crm.refreshMatches',
+        { id },
+        user,
+        executionKey,
+        (scoped) => scoped.refreshMatches(id, user),
+      );
+
     const profile = await this.findOne(id, user);
     const properties = await this.findMatches(id, user);
 
@@ -560,7 +718,17 @@ export class InterestedService {
     matchId: string,
     dto: UpdateInterestedMatchDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<InterestedPropertyMatch> {
+    if (!this.transactionManager)
+      return this.atomic(
+        'crm.updateMatch',
+        { id, matchId, ...dto },
+        user,
+        executionKey,
+        (scoped) => scoped.updateMatch(id, matchId, dto, user),
+      );
+
     const profile = await this.findOne(id, user);
 
     const match = await this.matchRepository.findOne({
@@ -604,7 +772,17 @@ export class InterestedService {
     id: string,
     dto: ChangeInterestedStageDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<InterestedProfile> {
+    if (!this.transactionManager)
+      return this.atomic(
+        'crm.changeStage',
+        { id, ...dto },
+        user,
+        executionKey,
+        (scoped) => scoped.changeStage(id, dto, user),
+      );
+
     const profile = await this.findOne(id, user);
 
     const fromStatus = profile.status;
@@ -678,7 +856,17 @@ export class InterestedService {
     id: string,
     dto: CreateInterestedActivityDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<InterestedActivity> {
+    if (!this.transactionManager)
+      return this.atomic(
+        'crm.createActivity',
+        { id, ...dto },
+        user,
+        executionKey,
+        (scoped) => scoped.createActivity(id, dto, user),
+      );
+
     const profile = await this.findOne(id, user);
 
     const activity = new InterestedActivity();
@@ -746,7 +934,17 @@ export class InterestedService {
     activityId: string,
     dto: UpdateInterestedActivityDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<InterestedActivity> {
+    if (!this.transactionManager)
+      return this.atomic(
+        'crm.updateActivity',
+        { id, activityId, ...dto },
+        user,
+        executionKey,
+        (scoped) => scoped.updateActivity(id, activityId, dto, user),
+      );
+
     await this.findOne(id, user);
 
     const activity = await this.activityRepository.findOne({
@@ -782,7 +980,17 @@ export class InterestedService {
     id: string,
     dto: CreatePropertyReservationDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<PropertyReservation> {
+    if (!this.transactionManager)
+      return this.atomic(
+        'crm.createReservation',
+        { id, ...dto },
+        user,
+        executionKey,
+        (scoped) => scoped.createReservation(id, dto, user),
+      );
+
     const profile = await this.findOne(id, user);
 
     const property = await this.propertiesRepository.findOne({
@@ -791,6 +999,7 @@ export class InterestedService {
         companyId: profile.companyId,
         deletedAt: IsNull(),
       },
+      lock: { mode: 'pessimistic_write' },
     });
     if (!property) {
       throw new NotFoundException('Property not found');
@@ -800,14 +1009,25 @@ export class InterestedService {
       where: {
         companyId: profile.companyId,
         propertyId: property.id,
-        interestedProfileId: profile.id,
         status: PropertyReservationStatus.ACTIVE,
         deletedAt: IsNull(),
       },
     });
     if (existing) {
+      if (existing.interestedProfileId !== profile.id)
+        throw new ConflictException(
+          'La propiedad ya está reservada por otra persona',
+        );
       return existing;
     }
+    if (
+      [PropertyOperationState.RENTED, PropertyOperationState.SOLD].includes(
+        property.operationState,
+      )
+    )
+      throw new ConflictException(
+        'La propiedad no está disponible para reservar',
+      );
 
     const reservation = this.reservationRepository.create({
       companyId: profile.companyId,
@@ -1017,7 +1237,17 @@ export class InterestedService {
     id: string,
     dto: ConvertInterestedToTenantDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<{ profile: InterestedProfile; tenant: Tenant; user: User }> {
+    if (!this.transactionManager)
+      return this.atomic(
+        'crm.convertToTenant',
+        { id, ...dto },
+        user,
+        executionKey,
+        (scoped) => scoped.convertToTenant(id, dto, user),
+      );
+
     const profile = await this.findOne(id, user);
 
     if (profile.convertedToTenantId) {
@@ -1047,7 +1277,7 @@ export class InterestedService {
     const lastName = fullName.lastName;
 
     const previousStatus = profile.status;
-    const created = await this.dataSource.transaction(async (manager) => {
+    const created = await this.inTransaction(async (manager) => {
       const userRepository = manager.getRepository(User);
       const createdUser = existingUser
         ? await userRepository.save({
@@ -1085,24 +1315,21 @@ export class InterestedService {
           deletedAt: IsNull(),
         },
       });
-      if (!createdTenant) {
-        createdTenant = await tenantRepository.save(
-          tenantRepository.create({
-            userId: createdUser.id,
-            companyId: profile.companyId,
-            dni: dto.dni,
-            emergencyContactName: dto.emergencyContactName,
-            emergencyContactPhone: dto.emergencyContactPhone,
-            monthlyIncome: profile.verifiedMonthlyIncome ?? undefined,
-            notes: profile.notes,
-          }),
-        );
-      }
+      createdTenant ??= await tenantRepository.save(
+        tenantRepository.create({
+          userId: createdUser.id,
+          companyId: profile.companyId,
+          dni: dto.dni,
+          emergencyContactName: dto.emergencyContactName,
+          emergencyContactPhone: dto.emergencyContactPhone,
+          monthlyIncome: profile.verifiedMonthlyIncome ?? undefined,
+          notes: profile.notes,
+        }),
+      );
 
       profile.convertedToTenantId = createdTenant.id;
       profile.status = InterestedStatus.TENANT;
-      profile.qualificationLevel =
-        profile.qualificationLevel ?? InterestedQualificationLevel.SQL;
+      profile.qualificationLevel ??= InterestedQualificationLevel.SQL;
       await manager.getRepository(InterestedProfile).save(profile);
 
       await manager.getRepository(InterestedStageHistory).save(
@@ -1144,12 +1371,22 @@ export class InterestedService {
     id: string,
     dto: ConvertInterestedToBuyerDto,
     user: UserContext,
+    executionKey?: string,
   ): Promise<{
     profile: InterestedProfile;
     buyer: Buyer;
     user: User;
     agreement: SaleAgreement | null;
   }> {
+    if (!this.transactionManager)
+      return this.atomic(
+        'crm.convertToBuyer',
+        { id, ...dto },
+        user,
+        executionKey,
+        (scoped) => scoped.convertToBuyer(id, dto, user),
+      );
+
     const profile = await this.findOne(id, user);
 
     if (profile.convertedToBuyerId || profile.convertedToSaleAgreementId) {
@@ -1185,7 +1422,7 @@ export class InterestedService {
     const passwordHash = await bcrypt.hash(password, salt);
     const fullName = this.resolveName(profile);
     const previousStatus = profile.status;
-    const created = await this.dataSource.transaction(async (manager) => {
+    const created = await this.inTransaction(async (manager) => {
       const userRepository = manager.getRepository(User);
       const createdUser = existingUser
         ? await userRepository.save({
@@ -1475,6 +1712,20 @@ export class InterestedService {
   ): Promise<void> {
     if (!phone && !email) {
       return;
+    }
+
+    if (this.transactionManager) {
+      const identities = [
+        phone && `phone:${phone.trim()}`,
+        email && `email:${email.trim().toLowerCase()}`,
+      ]
+        .filter((identity): identity is string => Boolean(identity))
+        .sort((left, right) => left.localeCompare(right));
+      for (const identity of identities)
+        await this.transactionManager.query(
+          'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+          [`person:${companyId}:${identity}`],
+        );
     }
 
     const query = this.interestedRepository

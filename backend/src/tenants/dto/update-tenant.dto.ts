@@ -3,11 +3,10 @@ import { CreateTenantDto, createTenantZodSchema } from './create-tenant.dto';
 
 export class UpdateTenantDto extends PartialType(CreateTenantDto) {
   static readonly zodSchema = createTenantZodSchema
-    .omit({ email: true, password: true })
+    .omit({ password: true })
     .partial()
     .strict();
 
-  // Cannot update email or password via this DTO
-  email?: never;
+  // Password changes remain in the authenticated access workflow.
   password?: never;
 }
