@@ -167,6 +167,7 @@ export function useScreenGuidance({
     target,
     register,
     paused,
+    keyboardOpen,
     dismiss: () => setVisible(null),
     togglePause: () => {
       const next = !paused;
@@ -211,18 +212,33 @@ export function GuidanceMessage({
           </Pressable>
         </View>
       ) : null}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t(
-          guidance.paused ? 'guidance.resume' : 'guidance.pause',
-        )}
-        onPress={guidance.togglePause}
-        style={styles.preference}
-      >
-        <Text style={styles.preferenceText}>
-          {t(guidance.paused ? 'guidance.resume' : 'guidance.pause')}
-        </Text>
-      </Pressable>
+      <View style={styles.controls}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t(
+            guidance.paused ? 'guidance.resume' : 'guidance.pause',
+          )}
+          onPress={guidance.togglePause}
+          style={styles.preference}
+        >
+          <Text style={styles.preferenceText}>
+            {t(guidance.paused ? 'guidance.resume' : 'guidance.pause')}
+          </Text>
+        </Pressable>
+        {guidance.keyboardOpen ? (
+          <Pressable
+            testID="screen.dismissKeyboard"
+            accessibilityRole="button"
+            accessibilityLabel={t('common.dismissKeyboard')}
+            onPress={Keyboard.dismiss}
+            style={styles.preference}
+          >
+            <Text style={styles.preferenceText}>
+              {t('common.dismissKeyboard')}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -235,6 +251,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   container: { paddingTop: 8 },
+  controls: { flexDirection: 'row', justifyContent: 'space-between' },
   message: {
     padding: tokens.space.sm,
     backgroundColor: tokens.colors.help,

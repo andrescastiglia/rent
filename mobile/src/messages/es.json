@@ -1,5 +1,6 @@
 {
   "common": {
+    "dismissKeyboard": "Cerrar teclado",
     "loading": "Cargando...",
     "save": "Guardar",
     "cancel": "Cancelar",

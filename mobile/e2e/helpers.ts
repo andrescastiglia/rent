@@ -130,6 +130,14 @@ export async function waitForFormControl(
   testId: string,
   scrollViewTestId: string,
 ): Promise<void> {
+  // Numeric iOS keyboards have no return key. Close the keyboard explicitly
+  // and wait for the final layout before locating the next form action.
+  if (await isVisible('screen.dismissKeyboard', 500)) {
+    await element(by.id('screen.dismissKeyboard')).tap();
+    await waitFor(element(by.id('screen.dismissKeyboard')))
+      .not.toExist()
+      .withTimeout(5000);
+  }
   const target = waitFor(element(by.id(testId)));
   const visible =
     device.getPlatform() === 'ios'

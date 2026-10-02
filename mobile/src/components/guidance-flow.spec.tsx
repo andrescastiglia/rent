@@ -279,3 +279,37 @@ it('clears asynchronous initialization safely after unmount', async () => {
   });
   expect(AccessibilityInfo.announceForAccessibility).not.toHaveBeenCalled();
 });
+
+it('provides an accessible keyboard dismissal action without submitting the form', async () => {
+  const submit = jest.fn();
+  await mount(
+    <Screen>
+      <AppButton title="Submit" onPress={submit} />
+    </Screen>,
+  );
+  const dismissal = () =>
+    app.root.findAll(
+      (node) =>
+        (node.type as unknown) === 'Pressable' &&
+        node.props.testID === 'screen.dismissKeyboard',
+    );
+  expect(dismissal()).toHaveLength(0);
+  const listener = (event: string) =>
+    jest
+      .mocked(Keyboard.addListener)
+      .mock.calls.find(([name]) => name === event)?.[1];
+  await act(async () => {
+    listener('keyboardDidShow')?.({} as never);
+  });
+  expect(dismissal()).toHaveLength(1);
+  expect(dismissal()[0].props.accessibilityRole).toBe('button');
+  await act(async () => {
+    dismissal()[0].props.onPress();
+  });
+  expect(Keyboard.dismiss).toHaveBeenCalledTimes(1);
+  expect(submit).not.toHaveBeenCalled();
+  await act(async () => {
+    listener('keyboardDidHide')?.({} as never);
+  });
+  expect(dismissal()).toHaveLength(0);
+});

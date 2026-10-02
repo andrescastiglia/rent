@@ -1,5 +1,6 @@
 {
   "common": {
+    "dismissKeyboard": "Dismiss keyboard",
     "loading": "Loading...",
     "save": "Save",
     "cancel": "Cancel",
