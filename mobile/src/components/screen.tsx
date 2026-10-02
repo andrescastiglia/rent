@@ -11,7 +11,8 @@ import {
 } from '@/components/guidance';
 import { designTokens as tokens } from '@/config/design-tokens';
 import { useTheme } from '@/contexts/theme-context';
-import { PropsWithChildren, useMemo } from 'react';
+import { HeaderHeightContext } from 'expo-router/react-navigation';
+import { PropsWithChildren, useContext, useMemo } from 'react';
 import { Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -32,6 +33,7 @@ export function Screen({
   scrollViewTestID,
 }: ScreenProps) {
   const { colors } = useTheme();
+  const headerHeight = useContext(HeaderHeightContext) ?? 0;
   const guidance = useScreenGuidance({
     ready: guidanceReady,
     blocked: guidanceBlocked,
@@ -70,6 +72,7 @@ export function Screen({
       <KeyboardAvoidingView
         style={styles.fill}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
       >
         {scrollable ? (
           <ScrollView

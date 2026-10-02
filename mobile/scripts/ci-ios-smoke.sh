@@ -9,6 +9,7 @@ scheme="$(xcodebuild -list -json -workspace "$workspace" | node -e 'let value=""
 xcodebuild -workspace "$workspace" -scheme "$scheme" -configuration Debug \
   -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath artifacts/ios/DerivedData \
+  ARCHS="$(uname -m)" ONLY_ACTIVE_ARCH=YES \
   CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- \
   build > artifacts/ios/build.log 2>&1
 

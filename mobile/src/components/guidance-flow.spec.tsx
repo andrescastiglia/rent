@@ -2,6 +2,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { AccessibilityInfo, Keyboard, Platform, Text } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { usePathname } from 'expo-router';
+import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { GuidanceMessage, useScreenGuidance } from './guidance';
 import { Screen } from './screen';
 import { Field } from './ui';
@@ -199,14 +200,20 @@ it('supports fixed content and iOS keyboard avoidance', async () => {
   Platform.OS = 'ios';
   try {
     await mount(
-      <Screen padded={false} scrollable={false}>
-        <Text>Content</Text>
-      </Screen>,
+      <HeaderHeightContext.Provider value={104}>
+        <Screen padded={false} scrollable={false}>
+          <Text>Content</Text>
+        </Screen>
+      </HeaderHeightContext.Provider>,
     );
     expect(app.root.findAllByType('ScrollView' as never)).toHaveLength(0);
     expect(
       app.root.findByType('KeyboardAvoidingView' as never).props.behavior,
     ).toBe('padding');
+    expect(
+      app.root.findByType('KeyboardAvoidingView' as never).props
+        .keyboardVerticalOffset,
+    ).toBe(104);
   } finally {
     Platform.OS = original;
   }

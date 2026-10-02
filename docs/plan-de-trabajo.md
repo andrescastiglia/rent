@@ -68,8 +68,7 @@ Ejemplos de mensajes, mostrados sólo cuando corresponda:
 ## 5. Funcionalidad y datos
 
 
-- [ ] **F02 · P1. Terminar el recorrido de cobros y contratos.** Cerrar conceptos variables, período/vencimiento automáticos y política opcional de mora auditada. Validar alta, importación, renovación, adendas, emisión, cobro, recibo y anulación como un recorrido completo. Revisar calendarios, rezagos e índices históricos antes de reactivar facturación programada.
-  **Aceptación:** cálculos reproducibles por moneda y fecha de Argentina, reintento con clave conservada y documentos verificables; datos históricos incompatibles tienen inventario y procedimiento de corrección. Base: [facturación programada](technical/scheduled-billing.md) y [ajustes](technical/rent-adjustments.md).
+F02 quedó implementado y verificado con UT, HTTP/PostgreSQL y el CLI de facturación: conceptos variables, período/vencimiento, mora auditada, importación, adendas, emisión, cobro, recibo y anulación. Los datos históricos tienen inventario y [procedimiento de corrección](technical/scheduled-billing.md#revisión-de-datos-antes-de-reactivar-2026-10-02). La reactivación futura exige esas decisiones operativas; esta entrega conserva los cron financieros suspendidos. [Evidencia](technical/validacion-plan-2026-10-02.md#dominio-y-contratos).
 
 ## 6. Calidad, mantenimiento y operación
 

@@ -1,4 +1,4 @@
-import { openModule } from './helpers';
+import { openModule, waitForFormControl } from './helpers';
 import {
   loginAsAdmin,
   relaunchFreshApp,
@@ -32,10 +32,7 @@ describe('Tenants CRUD', () => {
     await element(by.id('tenantCreate.dni')).replaceText(
       uniqueBase.slice(0, 8),
     );
-    await waitFor(element(by.id('tenantCreate.submit')))
-      .toBeVisible()
-      .whileElement(by.id('tenantCreate.scroll'))
-      .scroll(220, 'down');
+    await waitForFormControl('tenantCreate.submit', 'tenantCreate.scroll');
     await element(by.id('tenantCreate.submit')).tap();
 
     await waitFor(element(by.id('tenantDetail.edit')))
@@ -47,10 +44,7 @@ describe('Tenants CRUD', () => {
       .toBeVisible()
       .withTimeout(10000);
     await element(by.id('tenantEdit.email')).replaceText(updatedEmail);
-    await waitFor(element(by.id('tenantEdit.submit')))
-      .toBeVisible()
-      .whileElement(by.id('tenantEdit.scroll'))
-      .scroll(220, 'down');
+    await waitForFormControl('tenantEdit.submit', 'tenantEdit.scroll');
     await element(by.id('tenantEdit.submit')).tap();
 
     await waitFor(element(by.text(updatedEmail)))

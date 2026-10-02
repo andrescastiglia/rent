@@ -147,6 +147,16 @@ la firma antes de instalar. Detox fija español/Argentina para las confirmacione
 el nuevo resultado iOS sigue pendiente. No se sustituye SecureStore por otro
 almacenamiento ni se declara aprobado el recorrido por el arranque.
 
+El [CI de `58f160f`](https://github.com/andrescastiglia/rent/actions/runs/37043130893)
+verificó la firma, la persistencia segura de sesión y el login/navegación de iOS.
+Los otros 22 jobs aprobaron, incluido Android. Seis casos iOS fallaron después
+por controles tapados por el teclado o una selección antes de actualizarse el
+formulario. Las capturas sustentan la corrección del desplazamiento del
+teclado respecto al encabezado, gestos desde el área visible y espera de
+controles. Pasan 408 UT móviles, tipos y lint; el nuevo CI nativo verificará
+los recorridos completos. El build usa únicamente la arquitectura del
+simulador ejecutado, evitando compilar una segunda arquitectura sin uso.
+
 El PR #255 se cerró como duplicado: su SHA `5cd9b8f` es antecesor de `abb45b6`
 y todo su trabajo de adendas permanece incluido en el PR #256.
 
@@ -157,6 +167,14 @@ usuarios; exactitud financiera, abstención y respuestas fundamentadas: 100%.
 Recall: 98,77%; latencia p50/p95: 2778/5491 ms; frescura p95: 54,35 segundos.
 Los umbrales se aprobaron completos.
 [Resultado reproducible](evidence/2026-10-02-validation/rag-evaluation.json).
+
+La segunda evaluación para la candidata `v0.1.19` volvió a aprobar los 62 casos:
+p50/p95 de 3000/5701 ms, recall 98,77%, frescura p95 de 54,35 segundos y cero
+fugas. El tag todavía no se publicó. El [reporte](evidence/2026-10-02-validation/rag-release-candidate.json)
+y su [procedencia](evidence/2026-10-02-validation/rag-release-candidate-provenance.json)
+identifican el árbol de backend comprobado; las correcciones posteriores de
+interfaz móvil no modifican ese árbol. La frescura corresponde al índice del
+fixture aislado, no a una medición de producción.
 
 La medición usa `gpt-5.6-terra`, `text-embedding-3-small` y esfuerzo `none`,
 configurado explícitamente para este modelo en el overlay de producción.

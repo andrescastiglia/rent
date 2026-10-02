@@ -1,5 +1,6 @@
 import {
   dismissNativeAlertIfVisible,
+  waitForFormControl,
   loginAsAdmin,
   relaunchFreshApp,
   openModule,
@@ -31,12 +32,10 @@ describe('Users and templates critical flows', () => {
     await element(by.id('userCreate.firstName')).replaceText('E2E');
     await element(by.id('userCreate.lastName')).replaceText('User');
     await element(by.id('userCreate.phone')).replaceText('+5491100000000');
+    await waitForFormControl('userCreate.role.owner', 'userCreate.scroll');
     await element(by.id('userCreate.role.owner')).tap();
 
-    await waitFor(element(by.id('userCreate.submit')))
-      .toBeVisible()
-      .whileElement(by.id('userCreate.scroll'))
-      .scroll(240, 'down');
+    await waitForFormControl('userCreate.submit', 'userCreate.scroll');
     await element(by.id('userCreate.submit')).tap();
 
     await waitFor(element(by.id('userDetail.edit')))
@@ -61,10 +60,7 @@ describe('Users and templates critical flows', () => {
       .withTimeout(10000);
     await element(by.id('userEdit.firstName')).replaceText('E2EUpdated');
 
-    await waitFor(element(by.id('userEdit.submit')))
-      .toBeVisible()
-      .whileElement(by.id('userEdit.scroll'))
-      .scroll(220, 'down');
+    await waitForFormControl('userEdit.submit', 'userEdit.scroll');
     await element(by.id('userEdit.submit')).tap();
 
     await waitFor(element(by.text('E2EUpdated User')))
@@ -88,17 +84,21 @@ describe('Users and templates critical flows', () => {
       .toBeVisible()
       .withTimeout(15000);
     await element(by.id('templateCreate.kind.payment')).tap();
+    await waitFor(element(by.id('templateCreate.paymentType.receipt')))
+      .toBeVisible()
+      .withTimeout(15000);
     await element(by.id('templateCreate.paymentType.receipt')).tap();
     await element(by.id('templateCreate.name')).replaceText(templateName);
     await element(by.id('templateCreate.templateBody')).replaceText(
       'Contenido base E2E {{receipt.number}}',
     );
+    await waitForFormControl(
+      'templateCreate.isDefault.yes',
+      'templateCreate.scroll',
+    );
     await element(by.id('templateCreate.isDefault.yes')).tap();
 
-    await waitFor(element(by.id('templateCreate.submit')))
-      .toBeVisible()
-      .whileElement(by.id('templateCreate.scroll'))
-      .scroll(220, 'down');
+    await waitForFormControl('templateCreate.submit', 'templateCreate.scroll');
     await element(by.id('templateCreate.submit')).tap();
 
     await waitFor(element(by.id('templateDetail.edit')))
@@ -110,12 +110,10 @@ describe('Users and templates critical flows', () => {
       .toBeVisible()
       .withTimeout(10000);
     await element(by.id('templateEdit.name')).replaceText(updatedTemplateName);
+    await waitForFormControl('templateEdit.isActive.no', 'templateEdit.scroll');
     await element(by.id('templateEdit.isActive.no')).tap();
 
-    await waitFor(element(by.id('templateEdit.submit')))
-      .toBeVisible()
-      .whileElement(by.id('templateEdit.scroll'))
-      .scroll(220, 'down');
+    await waitForFormControl('templateEdit.submit', 'templateEdit.scroll');
     await element(by.id('templateEdit.submit')).tap();
 
     await waitFor(element(by.text(updatedTemplateName)))

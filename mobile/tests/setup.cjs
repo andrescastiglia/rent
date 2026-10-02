@@ -110,6 +110,9 @@ jest.mock('expo-router', () => {
     Link: 'Link',
   };
 });
+jest.mock('expo-router/react-navigation', () => ({
+  HeaderHeightContext: require('react').createContext(undefined),
+}));
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(async () => null),
   setItemAsync: jest.fn(async () => undefined),

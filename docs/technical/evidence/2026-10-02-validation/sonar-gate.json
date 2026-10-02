@@ -14,7 +14,7 @@
         "metricKey": "new_duplicated_lines_density",
         "comparator": "GT",
         "errorThreshold": "3",
-        "actualValue": "0.21"
+        "actualValue": "0.20997"
       },
       {
         "status": "OK",

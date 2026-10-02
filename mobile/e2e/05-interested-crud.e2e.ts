@@ -1,4 +1,4 @@
-import { openModule } from './helpers';
+import { openModule, waitForFormControl } from './helpers';
 import {
   loginAsAdmin,
   relaunchFreshApp,
@@ -32,12 +32,16 @@ describe('Interested CRUD', () => {
       '+5491111111111',
     );
     await element(by.id('interestedCreate.email')).replaceText(email);
+    await waitForFormControl(
+      'interestedCreate.operation.sale',
+      'interestedCreate.scroll',
+    );
     await element(by.id('interestedCreate.operation.sale')).tap();
 
-    await waitFor(element(by.id('interestedCreate.submit')))
-      .toBeVisible()
-      .whileElement(by.id('interestedCreate.scroll'))
-      .scroll(240, 'down');
+    await waitForFormControl(
+      'interestedCreate.submit',
+      'interestedCreate.scroll',
+    );
     await element(by.id('interestedCreate.submit')).tap();
 
     await waitFor(element(by.id('interestedDetail.edit')))
@@ -50,10 +54,7 @@ describe('Interested CRUD', () => {
       .withTimeout(10000);
     await element(by.id('interestedEdit.email')).replaceText(updatedEmail);
 
-    await waitFor(element(by.id('interestedEdit.submit')))
-      .toBeVisible()
-      .whileElement(by.id('interestedEdit.scroll'))
-      .scroll(240, 'down');
+    await waitForFormControl('interestedEdit.submit', 'interestedEdit.scroll');
     await element(by.id('interestedEdit.submit')).tap();
 
     await waitFor(element(by.text(updatedEmail)))

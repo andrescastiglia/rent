@@ -114,3 +114,18 @@ export async function openModule(module: string): Promise<void> {
     .scroll(240, 'down');
   await element(by.id(`more.${module}`)).tap();
 }
+
+/** Scroll from the visible middle of the form, above the iOS keyboard. */
+export async function waitForFormControl(
+  testId: string,
+  scrollViewTestId: string,
+): Promise<void> {
+  const target = waitFor(element(by.id(testId)));
+  const visible =
+    device.getPlatform() === 'ios'
+      ? target.toBeVisible(100)
+      : target.toBeVisible();
+  await visible
+    .whileElement(by.id(scrollViewTestId))
+    .scroll(120, 'down', 0.5, 0.5);
+}
