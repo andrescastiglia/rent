@@ -7,7 +7,7 @@ import {
 } from "./fixtures/auth";
 
 test.describe("Property Creation Flow", () => {
-  const propertyDetailLinkSelector = '[data-testid^="property-view-link-"]';
+  const propertyDetailLinkSelector = '[data-guide="property-open"]:visible';
 
   test.beforeEach(async ({ page }) => {
     await login(page);
@@ -121,7 +121,7 @@ test.describe("Property Creation Flow", () => {
     await gotoWithRetry(page, localePath("/properties"));
 
     // Type in search box (it's a text input with a search icon)
-    const searchInput = page.locator('input[type="text"]').first();
+    const searchInput = page.getByRole("searchbox").first();
     await searchInput.fill("Test");
 
     // Results should filter (this assumes client-side filtering is instant)

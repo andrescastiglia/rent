@@ -891,6 +891,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify QA credential isolation and blocked redirects
+        run: node --test ../scripts/qa/web-qa-auth.test.cjs
+
       - name: Run ESLint
         run: npm run lint:check
 

@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
 
 type LeaseTemplatesLegacyPageProps = {
-  params: {
+  params: Promise<{
     locale: string;
-  };
+  }>;
 };
 
-export default function LeaseTemplatesLegacyPage({
+export default async function LeaseTemplatesLegacyPage({
   params,
 }: LeaseTemplatesLegacyPageProps) {
-  redirect(`/${params.locale}/templates`);
+  const { locale } = await params;
+  redirect(`/${locale}/templates`);
 }

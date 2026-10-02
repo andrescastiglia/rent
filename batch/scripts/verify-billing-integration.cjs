@@ -45,11 +45,15 @@ async function main() {
       },
     );
   try {
-    await db.query("INSERT INTO companies(id,name,tax_id) VALUES($1,$2,$3)", [
-      company,
-      "Billing CLI fixture",
-      company,
-    ]);
+    await db.query(
+      "INSERT INTO companies(id,name,tax_id,settings) VALUES($1,$2,$3,$4::jsonb)",
+      [
+        company,
+        "Billing CLI fixture",
+        company,
+        JSON.stringify({ financial: { commissionTaxRate: 21 } }),
+      ],
+    );
     await db.query(
       "INSERT INTO users(id,company_id,email,password_hash,role,roles,first_name,last_name) VALUES($1,$2,$3,'disabled-test-password','admin',ARRAY['admin','owner','tenant']::user_role[],'Billing','Fixture')",
       [user, company, `${user}@billing.test`],
@@ -191,5 +195,7 @@ async function main() {
 }
 main().catch((error) => {
   console.error(error.message);
+  if (error.stdout) process.stderr.write(error.stdout);
+  if (error.stderr) process.stderr.write(error.stderr);
   process.exitCode = 1;
 });

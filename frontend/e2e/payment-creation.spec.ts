@@ -36,13 +36,13 @@ test.describe("Payment Creation Flow", () => {
 
     // Wait for payments to load
     await page.waitForSelector(
-      'a[href*="/payments/"]:not([href*="/payments/new"])',
+      'a[href*="/payments/"]:not([href*="/payments/new"]):visible',
       { timeout: 5000 },
     );
 
     // Click on first payment link
     const firstPaymentLink = page
-      .locator('a[href*="/payments/"]:not([href*="/payments/new"])')
+      .locator('a[href*="/payments/"]:not([href*="/payments/new"]):visible')
       .first();
     await firstPaymentLink.click({ force: true });
 
@@ -55,11 +55,11 @@ test.describe("Payment Creation Flow", () => {
 
     // Wait for and click first payment
     await page.waitForSelector(
-      'a[href*="/payments/"]:not([href*="/payments/new"])',
+      'a[href*="/payments/"]:not([href*="/payments/new"]):visible',
       { timeout: 5000 },
     );
     await page
-      .locator('a[href*="/payments/"]:not([href*="/payments/new"])')
+      .locator('a[href*="/payments/"]:not([href*="/payments/new"]):visible')
       .first()
       .click({ force: true });
 
@@ -71,7 +71,7 @@ test.describe("Payment Creation Flow", () => {
     await gotoWithRetry(page, localePath("/payments"));
 
     // Type in search box if visible
-    const searchInput = page.locator('input[type="text"]').first();
+    const searchInput = page.getByRole("searchbox").first();
     if (await searchInput.isVisible()) {
       await searchInput.fill("PAY");
 
@@ -99,13 +99,13 @@ test.describe("Payment Creation Flow", () => {
 
     // Wait for payments to load
     await page.waitForSelector(
-      'a[href*="/payments/"]:not([href*="/payments/new"])',
+      'a[href*="/payments/"]:not([href*="/payments/new"]):visible',
       { timeout: 5000 },
     );
 
     // Click on first payment
     await page
-      .locator('a[href*="/payments/"]:not([href*="/payments/new"])')
+      .locator('a[href*="/payments/"]:not([href*="/payments/new"]):visible')
       .first()
       .click({ force: true });
 

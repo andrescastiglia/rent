@@ -587,6 +587,7 @@ program
         if (result.errors.length > 0) {
           logger.warn("Some invoices failed", {
             errorCount: result.errors.length,
+            errors: result.errors,
           });
         }
 

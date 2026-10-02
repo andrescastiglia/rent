@@ -1,17 +1,17 @@
 import { act, type ReactTestRenderer } from 'react-test-renderer';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Alert } from 'react-native';
-import Properties from './(app)/(tabs)/properties';
-import Tenants from './(app)/(tabs)/tenants';
-import Users from './(app)/users';
-import Payments from './(app)/(tabs)/payments';
-import Invoices from './(app)/invoices';
-import Interested from './(app)/(tabs)/interested';
-import Leases from './(app)/(tabs)/leases';
-import Owners from './(app)/owners';
-import Reports from './(app)/reports';
-import Sales from './(app)/sales';
-import Templates from './(app)/templates';
+import Properties from '../app/(app)/(tabs)/properties';
+import Tenants from '../app/(app)/(tabs)/tenants';
+import Users from '../app/(app)/users';
+import Payments from '../app/(app)/(tabs)/payments';
+import Invoices from '../app/(app)/invoices';
+import Interested from '../app/(app)/(tabs)/interested';
+import Leases from '../app/(app)/(tabs)/leases';
+import Owners from '../app/(app)/owners';
+import Reports from '../app/(app)/reports';
+import Sales from '../app/(app)/sales';
+import Templates from '../app/(app)/templates';
 import { propertiesApi } from '@/api/properties';
 import { tenantsApi } from '@/api/tenants';
 import { usersApi } from '@/api/users';
@@ -23,7 +23,7 @@ import { ownersApi } from '@/api/owners';
 import { reportsApi } from '@/api/reports';
 import { salesApi } from '@/api/sales';
 import * as templates from '@/api/templates';
-import { admin, setAuth } from '../tests/auth-fixture';
+import { admin, setAuth } from './auth-fixture';
 import {
   cleanup,
   control,
@@ -32,7 +32,7 @@ import {
   renderApp,
   settle,
   textContent,
-} from '../tests/render';
+} from './render';
 
 jest.mock('@/contexts/auth-context', () => ({ useAuth: jest.fn() }));
 beforeEach(() => {

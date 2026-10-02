@@ -2,23 +2,23 @@ import { createElement } from 'react';
 import { act, type ReactTestRenderer } from 'react-test-renderer';
 import { Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import NewProperty from './(app)/properties/new';
-import EditProperty from './(app)/properties/[id]/edit';
-import NewTenant from './(app)/tenants/new';
-import EditTenant from './(app)/tenants/[id]/edit';
-import NewUser from './(app)/users/new';
-import EditUser from './(app)/users/[id]/edit';
-import NewInterested from './(app)/interested/new';
-import EditInterested from './(app)/interested/[id]/edit';
-import NewLease from './(app)/leases/new';
-import EditLease from './(app)/leases/[id]/edit';
-import { setAuth } from '../tests/auth-fixture';
+import NewProperty from '../app/(app)/properties/new';
+import EditProperty from '../app/(app)/properties/[id]/edit';
+import NewTenant from '../app/(app)/tenants/new';
+import EditTenant from '../app/(app)/tenants/[id]/edit';
+import NewUser from '../app/(app)/users/new';
+import EditUser from '../app/(app)/users/[id]/edit';
+import NewInterested from '../app/(app)/interested/new';
+import EditInterested from '../app/(app)/interested/[id]/edit';
+import NewLease from '../app/(app)/leases/new';
+import EditLease from '../app/(app)/leases/[id]/edit';
+import { setAuth } from './auth-fixture';
 import { propertiesApi } from '@/api/properties';
 import { tenantsApi } from '@/api/tenants';
 import { usersApi } from '@/api/users';
 import { interestedApi } from '@/api/interested';
 import { leasesApi } from '@/api/leases';
-import { cleanup, renderApp, settle, textContent } from '../tests/render';
+import { cleanup, renderApp, settle, textContent } from './render';
 
 // The form's validation and serialized values are tested against real components in src/screens.
 // Here the boundary is a validated form submission, resource selection, API failure and navigation.

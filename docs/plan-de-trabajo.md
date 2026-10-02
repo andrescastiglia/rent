@@ -10,7 +10,7 @@ Objetivo: convertir la funcionalidad existente en una experiencia clara, atracti
 
 La implementación y su evidencia se registran en la [validación del 2026-10-02](technical/validacion-plan-2026-10-02.md). Pasan tipos, lint, compilaciones necesarias, suites UT de los cuatro módulos, 511 casos HTTP/PostgreSQL y las pruebas de migraciones. La revisión web con API real tiene 102 capturas autenticadas en tres anchos y dos temas, sin errores JavaScript, desbordamiento ni incidencias axe.
 
-Se retiraron las tareas implementadas y comprobadas. Las condiciones de publicación, validación nativa, revisión con lector de pantalla y medición real de RAG permanecen pendientes hasta disponer de sus resultados. La aplicación conserva el monolito modular, persona multirrol, contrato unificado y migración aditiva.
+Se retiraron las tareas implementadas y comprobadas. Las condiciones de publicación, la validación nativa y la revisión con lector de pantalla permanecen pendientes hasta disponer de sus resultados. RAG aprobó los 62 casos con proveedor real en una base local aislada. La aplicación conserva el monolito modular, persona multirrol, contrato unificado y migración aditiva.
 
 - **P0:** resolver antes de publicar el recorrido afectado; compromete compilación, permisos o consistencia.
 - **P1:** mejora necesaria de producto, diseño o calidad.
@@ -19,7 +19,7 @@ Se retiraron las tareas implementadas y comprobadas. Las condiciones de publicac
 ## 2. Orden de cierre
 
 1. Completar O02: CI Android/iOS y revisión accesible de los recorridos.
-2. Completar O06: evaluación RAG con proveedor real, rendimiento y evidencia por compañía/rol; ningún umbral se omite.
+2. Completar O06: rendimiento de API y Web Vitals; la evaluación RAG con proveedor real aprobó los umbrales por compañía/rol.
 3. Completar O04 e I01: CI del SHA exacto, release inmutable, migraciones, healthchecks y smoke; proveedores apagados y cron financieros suspendidos.
 4. I02 queda condicionado a las cuentas y habilitación futura; su checklist ya está documentado en [proveedores externos](technical/external-providers.md).
 

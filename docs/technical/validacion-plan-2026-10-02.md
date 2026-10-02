@@ -6,7 +6,7 @@ ejecutados de gates aún pendientes; no acredita un despliegue.
 
 ## Dominio y contratos
 
-Backend: 166 suites UT y 26 suites HTTP/PostgreSQL (511 casos) verificaron
+Backend: 166 suites UT (1887 casos) y 26 suites HTTP/PostgreSQL (511 casos) verificaron
 aislamiento, roles y capacidades, adendas, importación, uploads, documentos,
 checkout, cobros parciales, devoluciones, compensaciones, CRM, mantenimiento y
 visitas. La autorización específica de compradores para evidencia de ventas
@@ -59,8 +59,8 @@ backend/batch/mobile ≥90%, web ≥85%; funciones móviles ≥90% y ramas web/m
 ≥80%. No se agregaron exclusiones para ocultar incidencias.
 
 SonarQube local analizó producción y pruebas sin excepciones por regla:
-**87,4%** de cobertura global, **91,3%** de líneas, **80,9%** de ramas y
-**2,7%** de duplicación en la medición previa a la extensión de lectura RAG.
+**87,9%** de cobertura global, **91,7%** de líneas, **81,3%** de ramas y
+**2,7%** de duplicación en la medición de esta entrega.
 Gate OK, cero incidencias abiertas y cero hotspots pendientes.
 [Resultado](evidence/2026-10-02-validation/sonar-result.json).
 
@@ -82,13 +82,27 @@ Android/iOS se ejecutan en CI sobre el mismo commit. iOS reutiliza el binario
 compilado para todos los recorridos Detox; el arranque por sí solo no cierra O02.
 Faltan sus resultados de esta entrega y la revisión con lector de pantalla.
 
-RAG se prepara con `scripts/qa/rag-local.py`: base dedicada, fixture ficticio de
-dos compañías, backfill, verificación del corpus, API/worker de loopback y
-evaluación estricta por los cinco roles. El script usa builds existentes y un
-archivo privado de acceso al proveedor fuera del repositorio. La primera
-medición confirmó latencia/frescura e aislamiento, pero falló calidad por
-capacidades incompletas y respuestas externas sin fuentes. Se está validando
-la corrección; no se promueve por disponer del script.
+RAG se verificó con `scripts/qa/rag-local.py`: base dedicada, fixture ficticio de
+dos compañías, backfill, API/worker de loopback y proveedor real. Pasaron los
+**62 casos** de los cinco roles, sin errores ni fugas entre compañías o
+usuarios; exactitud financiera, abstención y respuestas fundamentadas: 100%.
+Recall: 98,77%; latencia p50/p95: 2778/5491 ms; frescura p95: 54,35 segundos.
+Los umbrales se aprobaron completos.
+[Resultado reproducible](evidence/2026-10-02-validation/rag-evaluation.json).
+
+La medición usa `gpt-5.6-terra`, `text-embedding-3-small` y esfuerzo `none`,
+configurado explícitamente para este modelo en el overlay de producción.
+Otros modelos omiten el parámetro si no se configura; el esfuerzo admitido
+depende del modelo, según la [documentación de OpenAI](https://developers.openai.com/api/docs/guides/reasoning).
+El acceso al proveedor permanece en un archivo privado fuera del repositorio.
+El script reutiliza los builds existentes y no consulta datos productivos.
+
+Los dos comentarios CodeQL del script de QA visual se atendieron restringiendo
+API/web a loopback, aceptando sólo email/password de fixtures ficticios y
+bloqueando redirecciones HTTP. Cuatro pruebas verifican el rechazo antes de
+enviar, el login local válido y que un 307 no alcanza un segundo servidor.
+La autenticación transmite deliberadamente esas credenciales de prueba a
+`/auth/login`; no se transmiten campos adicionales del archivo.
 
 La lectura RAG de roles externos queda detrás de
 `AI_RAG_EXTERNAL_READ_ENABLED=false` hasta aprobar los gates. La evaluación

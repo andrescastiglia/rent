@@ -17,3 +17,7 @@ patches:
     kind: CronJob
     name: billing|sync-indices|process-settlements
   patch: "- op: replace\n  path: /spec/suspend\n  value: true\n"
+- target:
+    kind: ConfigMap
+    name: rent-runtime
+  patch: "- op: add\n  path: /data/AI_RAG_REASONING_EFFORT\n  value: none\n"

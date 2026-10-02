@@ -2,6 +2,8 @@
 const {
   sourceAuthorized,
   validateEvaluationDataset,
+  exactFinancialValueMatches,
+  retrievedVectorSources,
 } = require('../../scripts/run-rag-eval.js');
 const dataset = require('../../evals/rag-eval.dataset.json');
 
@@ -9,6 +11,85 @@ describe('RAG evaluation company and external-role evidence', () => {
   const companyId = '10000000-0000-0000-0000-000000000001';
   const db = { query: jest.fn().mockResolvedValue({ rows: [{ n: 1 }] }) };
   beforeEach(() => jest.clearAllMocks());
+
+  it('measures retrieval from the audited exchange rather than counting only citations', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce({ rows: [{ retrieved_chunk_ids: ['chunk-1'] }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            sourceId: 'chunk-1',
+            entityType: 'owner_portfolio_summary',
+            entityId: 'owner-1',
+          },
+        ],
+      });
+    await expect(
+      retrievedVectorSources(
+        { query },
+        { conversationId: 'conversation-1' },
+        { companyId },
+        'owner-user',
+      ),
+    ).resolves.toEqual([
+      {
+        sourceId: 'chunk-1',
+        entityType: 'owner_portfolio_summary',
+        entityId: 'owner-1',
+      },
+    ]);
+    expect(query.mock.calls[0][1]).toEqual([
+      'conversation-1',
+      companyId,
+      'owner-user',
+    ]);
+    expect(query.mock.calls[0][0]).toContain('user_id=$3::uuid');
+    expect(query.mock.calls[1][1]).toEqual([['chunk-1']]);
+  });
+
+  it.each([
+    ['Saldo pendiente: ARS 60.000.000,00.', true],
+    ['Saldo pendiente: ARS 6.000.000,00.', false],
+    ['El total es ARS 60.000.000 pero el saldo es ARS 900.', false],
+  ])(
+    'checks canonical sale balances with complete numeric tokens: %s',
+    async (outputText, expected) => {
+      const query = jest
+        .fn()
+        .mockResolvedValue({ rows: [{ balance: '60000000.00' }] });
+      await expect(
+        exactFinancialValueMatches(
+          { query },
+          { financial: true, prompt: 'Mi saldo pendiente de compraventa' },
+          { outputText, insufficientEvidence: false },
+          [{ entityType: 'sale_agreement', entityId: 'sale' }],
+        ),
+      ).resolves.toBe(expected);
+      expect(query.mock.calls[0][0]).toContain('total_amount-paid_amount');
+    },
+  );
+
+  it.each([
+    ['Importe: ARS 15000', false],
+    ['Importe: ARS 1500.', true],
+    ['Importe: ARS 1.500.', true],
+    ['Importe: ARS 1.500,00.', true],
+    ['Importe: ARS 1500,01.', false],
+  ])(
+    'checks complete monetary tokens and sentence punctuation: %s',
+    async (outputText, expected) => {
+      const query = jest.fn().mockResolvedValue({ rows: [{ amount: 1500 }] });
+      await expect(
+        exactFinancialValueMatches(
+          { query },
+          { financial: true, prompt: 'Importe del recibo' },
+          { outputText, insufficientEvidence: false },
+          [{ entityType: 'sale_receipt', entityId: 'receipt' }],
+        ),
+      ).resolves.toBe(expected);
+    },
+  );
 
   it('requires valid versioned cases, including buyer financial and adversarial coverage', () => {
     expect(() => validateEvaluationDataset(dataset)).not.toThrow();

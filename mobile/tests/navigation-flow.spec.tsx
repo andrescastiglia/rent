@@ -8,24 +8,18 @@ import {
 } from '@/contexts/theme-context';
 import * as Linking from 'expo-linking';
 import { router, usePathname } from 'expo-router';
-import Home from './(app)/(tabs)/home';
-import Tasks from './(app)/(tabs)/tasks';
-import More from './(app)/(tabs)/more';
-import Settings from './(app)/(tabs)/settings';
-import ProtectedLayout from './(app)/_layout';
-import TabsLayout from './(app)/(tabs)/_layout';
-import Index from './index';
+import Home from '../app/(app)/(tabs)/home';
+import Tasks from '../app/(app)/(tabs)/tasks';
+import More from '../app/(app)/(tabs)/more';
+import Settings from '../app/(app)/(tabs)/settings';
+import ProtectedLayout from '../app/(app)/_layout';
+import TabsLayout from '../app/(app)/(tabs)/_layout';
+import Index from '../app/index';
 import { ChannelAlternatives } from '@/components/channel-alternatives';
 import { useCanAccess } from '@/hooks/use-role-navigation';
 import { ownersApi } from '@/api/owners';
-import { admin, setAuth } from '../tests/auth-fixture';
-import {
-  cleanup,
-  press,
-  renderApp,
-  settle,
-  textContent,
-} from '../tests/render';
+import { admin, setAuth } from './auth-fixture';
+import { cleanup, press, renderApp, settle, textContent } from './render';
 
 jest.mock('@/contexts/auth-context', () => ({ useAuth: jest.fn() }));
 beforeEach(() => {

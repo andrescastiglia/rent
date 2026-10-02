@@ -6,7 +6,7 @@
     "measures": [
       {
         "metric": "coverage",
-        "value": "87.4",
+        "value": "87.9",
         "bestValue": false
       },
       {
@@ -16,7 +16,7 @@
       },
       {
         "metric": "branch_coverage",
-        "value": "80.9",
+        "value": "81.3",
         "bestValue": false
       },
       {
@@ -26,7 +26,7 @@
       },
       {
         "metric": "line_coverage",
-        "value": "91.3",
+        "value": "91.7",
         "bestValue": false
       },
       {

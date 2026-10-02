@@ -3,16 +3,16 @@ import { act } from 'react-test-renderer';
 import { Alert, LogBox, useColorScheme } from 'react-native';
 import { darkColors, lightColors } from '@/contexts/theme-context';
 import { router, useLocalSearchParams, usePathname } from 'expo-router';
-import NewTemplate from './(app)/templates/new';
-import EditTemplate from './(app)/templates/[kind]/[id]/edit';
-import TemplateDetail from './(app)/templates/[kind]/[id]/index';
-import OwnerPay from './(app)/owners/[id]/pay';
-import ProtectedLayout from './(app)/_layout';
-import RootLayout from './_layout';
+import NewTemplate from '../app/(app)/templates/new';
+import EditTemplate from '../app/(app)/templates/[kind]/[id]/edit';
+import TemplateDetail from '../app/(app)/templates/[kind]/[id]/index';
+import OwnerPay from '../app/(app)/owners/[id]/pay';
+import ProtectedLayout from '../app/(app)/_layout';
+import RootLayout from '../app/_layout';
 import * as deferred from '@/config/deferred-features';
 import * as templates from '@/api/templates';
 import { ownersApi } from '@/api/owners';
-import { setAuth } from '../tests/auth-fixture';
+import { setAuth } from './auth-fixture';
 import {
   cleanup,
   control,
@@ -21,7 +21,7 @@ import {
   renderApp,
   settle,
   textContent,
-} from '../tests/render';
+} from './render';
 jest.mock('@/contexts/auth-context', () => ({
   useAuth: jest.fn(),
   AuthProvider: (props: { children: ReactNode }) =>

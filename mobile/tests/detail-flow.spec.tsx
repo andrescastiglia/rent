@@ -1,21 +1,21 @@
 import { act } from 'react-test-renderer';
 import { Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import PropertyDetail from './(app)/properties/[id]/index';
-import TenantDetail from './(app)/tenants/[id]/index';
-import InterestedDetail from './(app)/interested/[id]/index';
-import UserDetail from './(app)/users/[id]/index';
-import ResetPassword from './(app)/users/[id]/reset-password';
-import LeaseDetail from './(app)/leases/[id]/index';
-import NewOwner from './(app)/owners/new';
-import EditOwner from './(app)/owners/[id]/edit';
+import PropertyDetail from '../app/(app)/properties/[id]/index';
+import TenantDetail from '../app/(app)/tenants/[id]/index';
+import InterestedDetail from '../app/(app)/interested/[id]/index';
+import UserDetail from '../app/(app)/users/[id]/index';
+import ResetPassword from '../app/(app)/users/[id]/reset-password';
+import LeaseDetail from '../app/(app)/leases/[id]/index';
+import NewOwner from '../app/(app)/owners/new';
+import EditOwner from '../app/(app)/owners/[id]/edit';
 import { propertiesApi } from '@/api/properties';
 import { tenantsApi } from '@/api/tenants';
 import { interestedApi } from '@/api/interested';
 import { usersApi } from '@/api/users';
 import { ownersApi } from '@/api/owners';
 import { leasesApi } from '@/api/leases';
-import { admin, setAuth } from '../tests/auth-fixture';
+import { admin, setAuth } from './auth-fixture';
 import {
   cleanup,
   input,
@@ -23,7 +23,7 @@ import {
   renderApp,
   settle,
   textContent,
-} from '../tests/render';
+} from './render';
 
 jest.mock('@/contexts/auth-context', () => ({ useAuth: jest.fn() }));
 beforeEach(() => {

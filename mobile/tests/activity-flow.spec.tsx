@@ -1,10 +1,10 @@
 import { act } from 'react-test-renderer';
 import { Alert, Platform } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import TenantActivity from './(app)/tenants/[id]/activities/new';
-import InterestedActivity from './(app)/interested/[id]/activities/new';
-import Visit from './(app)/properties/[id]/visits/new';
-import Maintenance from './(app)/properties/[id]/maintenance/new';
+import TenantActivity from '../app/(app)/tenants/[id]/activities/new';
+import InterestedActivity from '../app/(app)/interested/[id]/activities/new';
+import Visit from '../app/(app)/properties/[id]/visits/new';
+import Maintenance from '../app/(app)/properties/[id]/maintenance/new';
 import { propertiesApi } from '@/api/properties';
 import { tenantsApi } from '@/api/tenants';
 import { interestedApi } from '@/api/interested';
@@ -17,7 +17,7 @@ import {
   renderApp,
   settle,
   textContent,
-} from '../tests/render';
+} from './render';
 afterEach(async () => {
   await cleanup();
   jest.restoreAllMocks();

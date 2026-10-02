@@ -81,7 +81,7 @@
     "new": "New",
     "edit": "Edit",
     "details": "Details",
-    "ariaLabel": "Navigation",
+    "ariaLabel": "Breadcrumbs",
     "portals": "Listings",
     "editor": "Listing editor"
   },

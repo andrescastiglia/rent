@@ -7,14 +7,14 @@
         "metricKey": "new_coverage",
         "comparator": "LT",
         "errorThreshold": "80",
-        "actualValue": "92.5"
+        "actualValue": "89.7"
       },
       {
         "status": "OK",
         "metricKey": "new_duplicated_lines_density",
         "comparator": "GT",
         "errorThreshold": "3",
-        "actualValue": "0.0"
+        "actualValue": "0.21015"
       },
       {
         "status": "OK",

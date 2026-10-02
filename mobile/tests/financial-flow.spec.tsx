@@ -1,12 +1,12 @@
 import { act, type ReactTestRenderer } from 'react-test-renderer';
 import { Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import NewPayment from './(app)/payments/new';
-import NewTenantPayment from './(app)/tenants/[id]/payments/new';
-import PaymentDetail from './(app)/payments/[id]/index';
-import InvoiceDetail from './(app)/invoices/[id]/index';
-import SaleDetail from './(app)/sales/[id]/index';
-import OwnerPayment from './(app)/owners/[id]/pay';
+import NewPayment from '../app/(app)/payments/new';
+import NewTenantPayment from '../app/(app)/tenants/[id]/payments/new';
+import PaymentDetail from '../app/(app)/payments/[id]/index';
+import InvoiceDetail from '../app/(app)/invoices/[id]/index';
+import SaleDetail from '../app/(app)/sales/[id]/index';
+import OwnerPayment from '../app/(app)/owners/[id]/pay';
 import { leasesApi } from '@/api/leases';
 import { tenantsApi } from '@/api/tenants';
 import { invoicesApi, paymentsApi, tenantAccountsApi } from '@/api/payments';
@@ -20,7 +20,7 @@ import {
   renderApp,
   settle,
   textContent,
-} from '../tests/render';
+} from './render';
 
 beforeEach(() => {
   jest.mocked(useLocalSearchParams).mockReturnValue({ id: 'selected-id' });

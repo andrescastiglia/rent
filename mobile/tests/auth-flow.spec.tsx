@@ -1,9 +1,9 @@
 import { createElement } from 'react';
 import { act } from 'react-test-renderer';
-import Login from './(auth)/login';
-import Register from './(auth)/register';
-import AuthLayout from './(auth)/_layout';
-import { setAuth } from '../tests/auth-fixture';
+import Login from '../app/(auth)/login';
+import Register from '../app/(auth)/register';
+import AuthLayout from '../app/(auth)/_layout';
+import { setAuth } from './auth-fixture';
 import {
   cleanup,
   control,
@@ -11,7 +11,7 @@ import {
   press,
   renderApp,
   textContent,
-} from '../tests/render';
+} from './render';
 
 jest.mock('@/contexts/auth-context', () => ({ useAuth: jest.fn() }));
 jest.mock('@/components/turnstile-captcha', () => ({

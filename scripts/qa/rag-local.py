@@ -75,7 +75,8 @@ def main():
         parser.error("evaluate requires --provider-settings (private JSON outside the repository)")
     settings = json.loads(args.provider_settings.read_text())
     allowed = {"OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_MODEL", "AI_RAG_MODEL",
-               "AI_EMBEDDING_MODEL", "AI_EMBEDDING_DIMENSIONS", "AI_EMBEDDING_VERSION", "AI_RAG_MIN_SIMILARITY"}
+               "AI_EMBEDDING_MODEL", "AI_EMBEDDING_DIMENSIONS", "AI_EMBEDDING_VERSION", "AI_RAG_MIN_SIMILARITY",
+               "AI_RAG_REASONING_EFFORT"}
     if not settings.get("OPENAI_API_KEY") or not settings.get("AI_RAG_MIN_SIMILARITY"):
         parser.error("provider access and a calibrated similarity threshold are required")
     env.update({key: str(value) for key, value in settings.items() if key in allowed})

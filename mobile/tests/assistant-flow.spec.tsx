@@ -2,8 +2,8 @@ import { act, type ReactTestRenderer } from 'react-test-renderer';
 import { Alert } from 'react-native';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
-import Ai from './(app)/(tabs)/ai';
-import Dashboard from './(app)/(tabs)/dashboard';
+import Ai from '../app/(app)/(tabs)/ai';
+import Dashboard from '../app/(app)/(tabs)/dashboard';
 import { aiApi } from '@/api/ai';
 import { dashboardApi, type PersonActivityItem } from '@/api/dashboard';
 import {
@@ -14,7 +14,7 @@ import {
   renderApp,
   settle,
   textContent,
-} from '../tests/render';
+} from './render';
 
 afterEach(async () => {
   await cleanup();

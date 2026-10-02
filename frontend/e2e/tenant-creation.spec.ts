@@ -45,12 +45,12 @@ test.describe("Tenant Creation Flow", () => {
     await expect(submitButton).toBeEnabled({ timeout: 15000 });
     await submitButton.click();
 
-    // Should show validation errors (text-red-600 class for error messages)
-    await expect(
-      page.locator('.text-red-600, p[class*="red"]').first(),
-    ).toBeVisible({
-      timeout: 15000,
-    });
+    const invalid = page
+      .locator("form input:invalid, form select:invalid")
+      .first();
+    await expect(invalid).toBeVisible();
+    await expect(invalid).toBeFocused();
+    await expect(page).toHaveURL(/\/es\/tenants\/new$/);
   });
 
   test("should create a new tenant with valid data", async ({ page }) => {
@@ -120,7 +120,7 @@ test.describe("Tenant Creation Flow", () => {
     await gotoWithRetry(page, localePath("/tenants"));
 
     // Type in search box (it's a text input)
-    const searchInput = page.locator('input[type="text"]').first();
+    const searchInput = page.getByRole("searchbox").first();
     await searchInput.fill("John");
 
     // Search input should have the value

@@ -6,8 +6,9 @@ const assert = require('node:assert/strict');
 const { chromium } = require('../../frontend/node_modules/@playwright/test');
 const axe = require('../../frontend/node_modules/axe-core');
 const messages = require('../../frontend/messages/es.json');
-const apiUrl = process.env.RENT_QA_API_URL || 'http://127.0.0.1:3301';
-const webUrl = process.env.RENT_QA_WEB_URL || 'http://127.0.0.1:3300';
+const { localOrigin, loginFixture } = require('./web-qa-auth.cjs');
+const apiUrl = localOrigin(process.env.RENT_QA_API_URL || 'http://127.0.0.1:3301');
+const webUrl = localOrigin(process.env.RENT_QA_WEB_URL || 'http://127.0.0.1:3300');
 const output = process.env.RENT_QA_OUTPUT_DIRECTORY;
 function readInput(name) {
   assert(process.env[name], `${name} is required`);
@@ -63,9 +64,7 @@ async function contextFor(browser, auth) {
   const portals = readInput('RENT_QA_PORTAL_SESSIONS_FILE');
   const portalCredentials = process.env.RENT_QA_PORTAL_CREDENTIALS_FILE
     ? readInput('RENT_QA_PORTAL_CREDENTIALS_FILE') : null;
-  const login = await fetch(apiUrl + '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: credentials.email, password: credentials.password }) });
-  assert(login.ok, `Admin login failed (${login.status})`);
-  const auth = await login.json();
+  const auth = await loginFixture(apiUrl, credentials);
   const browser = await chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || '/usr/bin/google-chrome' });
   const errors = [];
   const results = [];
@@ -105,9 +104,7 @@ async function contextFor(browser, auth) {
     })) {
       let portalAuth = portals[role];
       if (portalCredentials) {
-        const response = await fetch(apiUrl + '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(portalCredentials[role]) });
-        assert(response.ok, `${role} login failed (${response.status})`);
-        portalAuth = await response.json();
+        portalAuth = await loginFixture(apiUrl, portalCredentials[role]);
       }
       const portalContext = await contextFor(browser, portalAuth);
       const portalPage = await portalContext.newPage();

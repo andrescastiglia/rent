@@ -1,15 +1,23 @@
-import { test, expect, gotoWithRetry, login, localePath } from './fixtures/auth';
+import {
+  test,
+  expect,
+  gotoWithRetry,
+  login,
+  localePath,
+} from "./fixtures/auth";
 
-test.describe('Property Search Filters', () => {
-    test.beforeEach(async ({ page }) => {
-        await login(page);
-        await gotoWithRetry(page, localePath('/properties'));
-    });
+test.describe("Property Search Filters", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await gotoWithRetry(page, localePath("/owners"));
+  });
 
-    test('should filter owners by search term', async ({ page }) => {
-        await page.getByPlaceholder(/propietario|owner/i).fill('Carlos');
+  test("should filter owners by search term", async ({ page }) => {
+    await page.getByRole("searchbox").fill("Carlos");
 
-        await expect(page.getByRole('button', { name: /carlos/i }).first()).toBeVisible();
-        await expect(page.getByRole('button', { name: /ana/i })).toHaveCount(0);
-    });
+    await expect(
+      page.getByRole("button", { name: /carlos/i }).first(),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /ana/i })).toHaveCount(0);
+  });
 });

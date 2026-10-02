@@ -16,6 +16,7 @@ export const IS_MOCK_MODE =
 const MOCK_USERS = [
   {
     id: "1",
+    companyId: "10000000-0000-0000-0000-000000000001",
     email: "admin@example.com",
     password: "admin123",
     firstName: "Admin",
@@ -29,6 +30,7 @@ const MOCK_USERS = [
   },
   {
     id: "2",
+    companyId: "10000000-0000-0000-0000-000000000001",
     email: "user@example.com",
     password: "user123",
     firstName: "Test",
@@ -95,6 +97,7 @@ async function handleMockAuth(endpoint: string, data: any): Promise<any> {
     }
     const newUser = {
       id: String(MOCK_USERS.length + 1),
+      companyId: "10000000-0000-0000-0000-000000000001",
       email: data.email,
       password: data.password,
       firstName: data.firstName,
