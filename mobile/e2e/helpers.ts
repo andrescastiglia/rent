@@ -138,12 +138,10 @@ export async function waitForFormControl(
       .not.toExist()
       .withTimeout(5000);
   }
-  const target = waitFor(element(by.id(testId)));
-  const visible =
-    device.getPlatform() === 'ios'
-      ? target.toBeVisible(100)
-      : target.toBeVisible();
-  await visible
+  // Use Detox's visibility predicate; tap() separately checks the activation
+  // point. A 100% pixel threshold rejects visible rounded choice controls.
+  await waitFor(element(by.id(testId)))
+    .toBeVisible()
     .whileElement(by.id(scrollViewTestId))
     .scroll(120, 'down', 0.5, 0.5);
 }
