@@ -322,12 +322,6 @@ jobs:
         if: always()
         run: rm -f /tmp/rent-production.env /tmp/rent-backup.env
 
-  deploy-android:
-    name: Deploy Android
-    needs: [preflight, validate-production-environment]
-    uses: ./.github/workflows/eas.yml
-    secrets: inherit
-
   publish-release:
     name: Publish GitHub Release
     needs: [preflight, build-server-artifact, container-images, deploy-server]
@@ -378,30 +372,3 @@ jobs:
             artifacts/release/images.json \
             artifacts/release/deployed-images.json \
             --notes "Deployed SHA: ${RELEASE_SHA}\nWorkflow: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-
-  publish-android-artifact:
-    name: Attach successful Android release
-    needs: [preflight, deploy-android, publish-release]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download immutable Android artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: rent-android-${{ needs.preflight.outputs.release_sha }}
-          path: artifacts/android
-
-      - name: Verify Android artifact checksum
-        working-directory: artifacts/android
-        run: sha256sum --check rent-android-${{ needs.preflight.outputs.release_sha }}.aab.sha256
-
-      - name: Attach Android artifacts to the deployed server release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.preflight.outputs.release_tag }}
-          RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
-        run: |
-          gh release upload "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            "artifacts/android/rent-android-${RELEASE_SHA}.aab" \
-            "artifacts/android/rent-android-${RELEASE_SHA}.aab.sha256" \
-            artifacts/android/mobile.cdx.json

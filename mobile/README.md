@@ -80,6 +80,8 @@ La ayuda contextual permanece activa en cada visita: 8 segundos al entrar y 12 d
 
 Cobros conservan `Idempotency-Key` después de un fallo de red y al reiniciar la app. Un resultado incierto bloquea cambios del mismo intento hasta revisarlo; no hay reenvío automático. Las DTO de acceso, usuarios y propietarios se importan del contrato OpenAPI generado. La cobertura UT mide todo el código propio de `src` y `app`, excepto código generado; las pruebas Android/iOS y la revisión visual real siguen siendo gates independientes.
 
+El teclado puede cerrarse explícitamente desde el pie de pantalla, también en campos numéricos sin tecla de retorno. Los formularios de administración de contraseñas ajenas no autocompletan ni guardan esas credenciales en el gestor del administrador.
+
 El workflow independiente `mobile-native.yml` ejecuta Android/iOS sin bloquear el merge o despliegue web/API (autorización del 2026-10-02). Mantiene los mismos controles nativos y evidencia. El workflow reutilizable `mobile-ios.yml` prepara iOS en macOS y compila una sola vez para simulador. Sobre ese mismo binario ejecuta el arranque y todos los recorridos Detox; conserva logs y capturas por plataforma. CI exige también UT, tipos y lint antes de ejecutar Android/iOS. Se puede ejecutar manualmente. La validación iOS usa Xcode 26.3 (Swift ≥6.2) y un simulador Apple; las pruebas nativas usan datos simulados y la autorización real se comprueba por separado con API/PostgreSQL.
 
 El build se limita a la arquitectura del simulador ejecutado. Se guarda el binario

@@ -35,18 +35,20 @@ y exige un run exitoso de `CI Pipeline` disparado por `push` a `main` para el
 SHA exacto. El release reutiliza esa evidencia y no repite la matriz ni ejecuta
 Sonar sobre una referencia de tag. Después de construir el artefacto del
 servidor, valida `PRODUCTION_ENV_FILE` con el mismo código compilado que se
-desplegará y recién entonces inicia, en paralelo, el despliegue del servidor y Android. Así un secreto incompleto o
+desplegará y recién entonces inicia el despliegue del servidor. Así un secreto incompleto o
 incompatible falla antes del paso más lento y antes de cualquier cambio en
 producción. No se debe relajar esa comprobación para destrabar un release.
 
 Por autorización del 2026-10-02, los fallos nativos Android/iOS no bloquean el
 merge ni el despliegue web/API. Conservan sus expectativas, logs y capturas en
 un workflow independiente. Lint, tipos y UT móviles continúan en `CI Pipeline`.
-`Deploy server` y `Publish GitHub Release` no dependen de `Deploy Android`;
-la publicación Android exige `Mobile native validation` exitoso para el mismo SHA y sus artefactos se adjuntan únicamente después de publicarse.
-Un fallo Android puede dejar el workflow de release fallido aunque el servidor
-ya esté desplegado: comprobar los jobs del servidor y sus digests. No se publica
-un binario móvil fallido ni se presenta su validación como aprobada.
+`eas.yml` procesa el mismo tag en un workflow separado, con su propia concurrencia;
+un build móvil en curso tampoco impide reintentar el servidor. Puede ejecutarse
+manualmente seleccionando el tag. Conserva el AAB compilado y su checksum antes
+del gate de publicación. Publicar Android exige `Mobile native validation`
+exitoso para el mismo SHA y un GitHub Release del servidor ya publicado; sus
+artefactos se adjuntan después de publicar Android. No se publica un binario
+móvil fallido ni se presenta su validación como aprobada.
 
 ## Archivo histórico: estructura del servidor PM2
 
@@ -283,11 +285,10 @@ El workflow realiza:
 2. construye el archivo de recuperación y las imágenes ARM64 inmutables;
 3. verifica módulos nativos, SBOM y checksums y publica los digests en GHCR;
 4. valida el entorno protegido con el código de esa release;
-5. construye, verifica y publica Android antes de modificar el servidor;
-6. ejecuta `ansible/deploy-kubernetes.yml` con el inventario de digests;
-7. aplica migraciones transaccionales aditivas, verifica los Deployments y
+5. ejecuta `ansible/deploy-kubernetes.yml` con el inventario de digests;
+6. aplica migraciones transaccionales aditivas, verifica los Deployments y
    sus healthchecks y conserva el digest PostgreSQL ya validado;
-8. registra `images.json` y `deployed-images.json` junto a los artefactos en
+7. registra `images.json` y `deployed-images.json` junto a los artefactos en
    GitHub Release. El segundo archivo refleja las imágenes realmente activas.
 
 El despliegue utiliza imágenes previamente construidas: no recompila en oracle.
@@ -297,9 +298,12 @@ significa que PM2 opere la versión activa. El cron `billing`, `sync-indices` y
 Payouts están fijados en `false` por `rent-runtime`; activarlos requiere otra
 entrega con evidencia de datos/proveedor y autorización expresa.
 
-Si Android, los checksums o la validación de entorno fallan, el despliegue del
+Si los checksums o la validación de entorno fallan, el despliegue del
 servidor no comienza. Ante un fallo de disponibilidad se restituyen las
 configuraciones Kubernetes y los Secrets anteriores, conservando los datos.
+Los probes locales limitan los reintentos a 60 segundos, con timeout de 15
+segundos por solicitud, ante demora de kube-proxy. El rollback mantiene suspendidos los tres cron financieros incluso
+cuando el manifiesto anterior corresponde a una versión que los habilitaba.
 La verificación, operación y reversión vigentes están en
 [el runbook Kubernetes](kubernetes.md).
 ## Migraciones expand/contract
