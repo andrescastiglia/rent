@@ -344,6 +344,7 @@ describe("batch CLI orchestration", () => {
     );
     expect(mockLogger.warn).toHaveBeenCalledWith("Some invoices failed", {
       errorCount: 1,
+      errors: ["failed"],
     });
     expect(process.exitCode).toBe(1);
     expect(mockSpan.setStatus).toHaveBeenCalledWith({ code: 2 });

@@ -395,10 +395,6 @@ export default function DashboardPage() {
         }
       />
     );
-  } else if (activityLoading) {
-    panelContent1 = (
-      <p className="text-gray-600 dark:text-gray-400">{t("loading")}</p>
-    );
   } else {
     panelContent1 = (
       <>
@@ -406,27 +402,39 @@ export default function DashboardPage() {
           <h2 className="text-md font-semibold text-red-700 dark:text-red-400 mb-3">
             {t("peopleActivity.overdueTitle")}
           </h2>
-          {renderPeopleTable(
-            peopleActivity?.overdue ?? [],
-            t("peopleActivity.noOverdue"),
+          {activityLoading ? (
+            <p className="text-muted">{t("loading")}</p>
+          ) : (
+            renderPeopleTable(
+              peopleActivity?.overdue ?? [],
+              t("peopleActivity.noOverdue"),
+            )
           )}
         </section>
         <section>
           <h2 className="text-md font-semibold text-blue-700 dark:text-blue-400 mb-3">
             {t("peopleActivity.todayTitle")}
           </h2>
-          {renderPeopleTable(
-            peopleActivity?.today ?? [],
-            t("peopleActivity.noToday"),
+          {activityLoading ? (
+            <p className="text-muted">{t("loading")}</p>
+          ) : (
+            renderPeopleTable(
+              peopleActivity?.today ?? [],
+              t("peopleActivity.noToday"),
+            )
           )}
         </section>
         <section>
           <h2 className="text-md font-semibold text-green-700 dark:text-green-400 mb-3">
             {t("peopleActivity.newTitle")}
           </h2>
-          {renderPeopleTable(
-            peopleActivity?.new ?? [],
-            t("peopleActivity.noNew"),
+          {activityLoading ? (
+            <p className="text-muted">{t("loading")}</p>
+          ) : (
+            renderPeopleTable(
+              peopleActivity?.new ?? [],
+              t("peopleActivity.noNew"),
+            )
           )}
         </section>
       </>

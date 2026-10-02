@@ -1,0 +1,103 @@
+{
+  "generatedAt": "2026-10-02T15:18:16.695Z",
+  "environment": "local production web build, real isolated API/PostgreSQL, cold browser contexts, laboratory measurement",
+  "sourceBase": "119f102c54d09831e2795951ec44d770b7f49d5f",
+  "change": "stable activity-section loading geometry",
+  "network": {
+    "latencyMs": 75,
+    "downloadBitsPerSecond": 1600000,
+    "uploadBitsPerSecond": 750000
+  },
+  "results": [
+    {
+      "device": "desktop",
+      "viewport": 1440,
+      "cpuSlowdown": 1,
+      "route": "/es/dashboard",
+      "sample": 1,
+      "metrics": {
+        "FCP": 396,
+        "LCP": 2172,
+        "CLS": 0.0015661385995370371,
+        "TTFB": 100.30000000074506,
+        "INP": 8
+      },
+      "errors": []
+    },
+    {
+      "device": "desktop",
+      "viewport": 1440,
+      "cpuSlowdown": 1,
+      "route": "/es/dashboard",
+      "sample": 2,
+      "metrics": {
+        "FCP": 388,
+        "LCP": 2108,
+        "CLS": 0.0015661385995370371,
+        "TTFB": 12.800000000745058,
+        "INP": 8
+      },
+      "errors": []
+    },
+    {
+      "device": "desktop",
+      "viewport": 1440,
+      "cpuSlowdown": 1,
+      "route": "/es/dashboard",
+      "sample": 3,
+      "metrics": {
+        "FCP": 380,
+        "LCP": 2112,
+        "CLS": 0.0015661385995370371,
+        "TTFB": 14.300000000745058,
+        "INP": 8
+      },
+      "errors": []
+    },
+    {
+      "device": "mobile",
+      "viewport": 390,
+      "cpuSlowdown": 4,
+      "route": "/es/dashboard",
+      "sample": 1,
+      "metrics": {
+        "FCP": 408,
+        "LCP": 2436,
+        "CLS": 0.0035241580032240615,
+        "TTFB": 12.600000001490116,
+        "INP": 40
+      },
+      "errors": []
+    },
+    {
+      "device": "mobile",
+      "viewport": 390,
+      "cpuSlowdown": 4,
+      "route": "/es/dashboard",
+      "sample": 2,
+      "metrics": {
+        "FCP": 408,
+        "LCP": 2520,
+        "CLS": 0.0035241580032240615,
+        "TTFB": 11,
+        "INP": 8
+      },
+      "errors": []
+    },
+    {
+      "device": "mobile",
+      "viewport": 390,
+      "cpuSlowdown": 4,
+      "route": "/es/dashboard",
+      "sample": 3,
+      "metrics": {
+        "FCP": 392,
+        "LCP": 2424,
+        "CLS": 0.0035241580032240615,
+        "TTFB": 11.200000001117587,
+        "INP": 16
+      },
+      "errors": []
+    }
+  ]
+}

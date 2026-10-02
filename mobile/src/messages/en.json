@@ -42,7 +42,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
-    "properties": "Owners",
+    "properties": "Properties",
     "tenants": "Tenants",
     "leases": "Leases",
     "payments": "Payments",

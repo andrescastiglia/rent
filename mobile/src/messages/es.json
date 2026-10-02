@@ -42,7 +42,7 @@
   },
   "nav": {
     "dashboard": "Panel",
-    "properties": "Propietarios",
+    "properties": "Propiedades",
     "tenants": "Inquilinos",
     "leases": "Contratos",
     "payments": "Pagos",

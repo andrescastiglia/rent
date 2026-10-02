@@ -46,7 +46,7 @@ contrato de escritorio y portal comprador.
 La revisión automatizada y estas interacciones no equivalen a certificación
 integral de WCAG ni sustituyen una revisión con lector de pantalla.
 
-Las 128 suites web (1291 casos), 34 móviles (407 casos) y 32 batch (325 casos)
+Las 128 suites web (1291 casos), 34 móviles (408 casos) y 32 batch (325 casos)
 pasaron completas. Las reglas de asistencia tienen pruebas de tiempos,
 interacción, pausa, errores, permisos y cambio de pantalla.
 
@@ -59,7 +59,7 @@ backend/batch/mobile ≥90%, web ≥85%; funciones móviles ≥90% y ramas web/m
 ≥80%. No se agregaron exclusiones para ocultar incidencias.
 
 SonarQube local analizó producción y pruebas sin excepciones por regla:
-**87,9%** de cobertura global, **91,7%** de líneas, **81,3%** de ramas y
+**88,0%** de cobertura global, **91,8%** de líneas, **81,5%** de ramas y
 **2,7%** de duplicación en la medición de esta entrega.
 Gate OK, cero incidencias abiertas y cero hotspots pendientes.
 [Resultado](evidence/2026-10-02-validation/sonar-result.json).
@@ -69,6 +69,28 @@ falsos positivos: dos editores HTML usan `role=textbox` para conservar formato,
 y el historial desplazable necesita foco de teclado. Fundamento:
 [textbox WAI-ARIA](https://www.w3.org/TR/wai-aria-1.2/#textbox) y
 [región desplazable W3C](https://www.w3.org/WAI/standards-guidelines/act/rules/0ssw9k/).
+
+## Rendimiento medido
+
+La API real con 1001 propiedades, 1022 contratos borrador y 21 ventas ficticias
+respondió 480 solicitudes con concurrencia 4, todas HTTP 200. El peor p95 fue
+146,75 ms, por debajo del objetivo de 2 segundos. Propiedades y contratos
+retornaron 20/100 registros con cinco consultas SQL por solicitud en ambos
+casos, incluyendo autorización: no hubo crecimiento N+1 en esos listados.
+Los reportes y cobros vacíos se midieron como controles y no representan carga
+financiera poblada. [Resultado API](evidence/2026-10-02-validation/performance-api.json).
+
+Web Vitals se midieron en 18 navegaciones autenticadas con contextos nuevos,
+API/PostgreSQL reales, red de 1,6 Mbps y 75 ms, y CPU móvil limitada a 4×.
+La medición inicial detectó CLS 0,1203 en Inicio móvil y una muestra de
+propiedades con LCP 9,076 s. Se conservó la geometría de las tres secciones de
+actividades durante la carga para evitar el desplazamiento de las tarjetas.
+La revalidación de Inicio móvil redujo CLS a 0,0035 en las tres muestras
+(antes: 0,1203); LCP 2424/2436/2520 ms e INP 8–40 ms. Las seis navegaciones
+desktop/mobile quedaron sin errores JavaScript.
+[Revalidación](evidence/2026-10-02-validation/performance-web-corrected.json).
+Los resultados de laboratorio se conservan y no acreditan RUM productivo.
+[Resultado web](evidence/2026-10-02-validation/performance-web.json).
 
 ## Operación y gates pendientes
 
@@ -80,7 +102,14 @@ en esta entrega. BFA, Mercado Libre y Payouts continúan deshabilitados.
 
 Android/iOS se ejecutan en CI sobre el mismo commit. iOS reutiliza el binario
 compilado para todos los recorridos Detox; el arranque por sí solo no cierra O02.
-Faltan sus resultados de esta entrega y la revisión con lector de pantalla.
+La ejecución `119f102` aprobó UT, web E2E, backend HTTP/PostgreSQL, batch E2E,
+contenedores ARM64, migraciones y Kubernetes. Detectó un test de logging batch
+desactualizado, Xcode/Swift incompatible y tres fallos Android. Las capturas
+confirmaron controles fuera del área visible en Más y en el formulario de
+cobro; Detox ahora desplaza el contenido antes de accionar. Se corrige la
+etiqueta Propiedades y se espera la restauración de sesión antes de montar
+el árbol nativo. Estas correcciones pasan UT y tipos; se exige su nuevo CI.
+Falta también la revisión con lector de pantalla.
 
 RAG se verificó con `scripts/qa/rag-local.py`: base dedicada, fixture ficticio de
 dos compañías, backfill, API/worker de loopback y proveedor real. Pasaron los
@@ -102,7 +131,11 @@ API/web a loopback, aceptando sólo email/password de fixtures ficticios y
 bloqueando redirecciones HTTP. Cuatro pruebas verifican el rechazo antes de
 enviar, el login local válido y que un 307 no alcanza un segundo servidor.
 La autenticación transmite deliberadamente esas credenciales de prueba a
-`/auth/login`; no se transmiten campos adicionales del archivo.
+`/auth/login`; no se transmiten campos adicionales del archivo. CodeQL marcó
+las alertas 50/51 como corregidas. La alerta 52 de ese login intencional se
+revisó y clasificó como `used in tests`, con fundamento y pruebas en GitHub;
+no se excluyó la regla. Los tres hilos están resueltos y quedan cero alertas
+abiertas del PR. [Registro](evidence/2026-10-02-validation/codeql-reviewed.json).
 
 La lectura RAG de roles externos queda detrás de
 `AI_RAG_EXTERNAL_READ_ENABLED=false` hasta aprobar los gates. La evaluación

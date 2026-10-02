@@ -12,7 +12,7 @@ export default function MoreScreen() {
   const router = useRouter();
   const items = useRoleNavigation();
   return (
-    <Screen>
+    <Screen scrollViewTestID="more.scroll">
       <View style={styles.list}>
         <Text style={styles.title}>{t('navigation.more')}</Text>
         {items.map((item) => (

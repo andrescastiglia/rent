@@ -1,0 +1,27 @@
+{
+  "sourceCommit": "119f102c54d09831e2795951ec44d770b7f49d5f",
+  "alerts": [
+    {
+      "number": 50,
+      "url": "https://github.com/andrescastiglia/rent/security/code-scanning/50",
+      "state": "fixed",
+      "reason": null,
+      "comment": null
+    },
+    {
+      "number": 51,
+      "url": "https://github.com/andrescastiglia/rent/security/code-scanning/51",
+      "state": "fixed",
+      "reason": null,
+      "comment": null
+    },
+    {
+      "number": 52,
+      "url": "https://github.com/andrescastiglia/rent/security/code-scanning/52",
+      "state": "dismissed",
+      "reason": "used in tests",
+      "comment": "Intentional fixture authentication; HTTP(S) loopback only, strict fictitious email/password fields, redirects blocked; four security tests passed locally and in CI at 119f102. QA-only helper; no runtime use or general suppression."
+    }
+  ],
+  "unresolved": 0
+}

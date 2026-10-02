@@ -1,0 +1,135 @@
+{
+  "generatedAt": "2026-10-02T14:59:26.584Z",
+  "sourceCommit": "119f102c54d09831e2795951ec44d770b7f49d5f",
+  "environment": "isolated loopback API and PostgreSQL; fictitious data; no external providers",
+  "concurrency": 4,
+  "population": {
+    "properties": 1001,
+    "leases": 1022,
+    "sale_agreements": 21
+  },
+  "queryInstrumentation": "AsyncLocalStorage per HTTP request and PostgresQueryRunner.query; includes authentication/authorization queries",
+  "apiP95TargetMs": 2000,
+  "results": [
+    {
+      "route": "/properties?page=1&limit=20",
+      "samples": 60,
+      "p50Ms": 15.756310999999982,
+      "p95Ms": 58.10286500000001,
+      "statuses": [
+        200
+      ],
+      "returnedRecords": [
+        20
+      ],
+      "queryCounts": [
+        5
+      ]
+    },
+    {
+      "route": "/properties?page=1&limit=100",
+      "samples": 60,
+      "p50Ms": 23.191213999999945,
+      "p95Ms": 29.91574300000002,
+      "statuses": [
+        200
+      ],
+      "returnedRecords": [
+        100
+      ],
+      "queryCounts": [
+        5
+      ]
+    },
+    {
+      "route": "/leases?status=draft&page=1&limit=20",
+      "samples": 60,
+      "p50Ms": 36.49069899999995,
+      "p95Ms": 46.54180199999996,
+      "statuses": [
+        200
+      ],
+      "returnedRecords": [
+        20
+      ],
+      "queryCounts": [
+        5
+      ]
+    },
+    {
+      "route": "/leases?status=draft&page=1&limit=100",
+      "samples": 60,
+      "p50Ms": 88.36298899999974,
+      "p95Ms": 146.74565299999995,
+      "statuses": [
+        200
+      ],
+      "returnedRecords": [
+        100
+      ],
+      "queryCounts": [
+        5
+      ]
+    },
+    {
+      "route": "/sales/agreements?page=1&limit=25",
+      "samples": 60,
+      "p50Ms": 17.06439599999976,
+      "p95Ms": 23.75331899999992,
+      "statuses": [
+        200
+      ],
+      "returnedRecords": [
+        21
+      ],
+      "queryCounts": [
+        3
+      ]
+    },
+    {
+      "route": "/dashboard/stats",
+      "samples": 60,
+      "p50Ms": 19.633539000000383,
+      "p95Ms": 24.614392999999836,
+      "statuses": [
+        200
+      ],
+      "returnedRecords": [
+        null
+      ],
+      "queryCounts": [
+        9
+      ]
+    },
+    {
+      "route": "/dashboard/reports?page=1&limit=25",
+      "samples": 60,
+      "p50Ms": 8.094745999999759,
+      "p95Ms": 10.69163299999991,
+      "statuses": [
+        200
+      ],
+      "returnedRecords": [
+        0
+      ],
+      "queryCounts": [
+        4
+      ]
+    },
+    {
+      "route": "/payments?page=1&limit=25",
+      "samples": 60,
+      "p50Ms": 8.88828599999988,
+      "p95Ms": 11.271703999999772,
+      "statuses": [
+        200
+      ],
+      "returnedRecords": [
+        0
+      ],
+      "queryCounts": [
+        3
+      ]
+    }
+  ]
+}

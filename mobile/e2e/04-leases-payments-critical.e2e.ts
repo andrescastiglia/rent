@@ -22,6 +22,10 @@ describe('Leases and payments critical flows', () => {
       .toBeVisible()
       .withTimeout(10000);
     await element(by.id('tenantPaymentCreate.amount')).replaceText('1234');
+    await waitFor(element(by.id('tenantPaymentCreate.submit')))
+      .toBeVisible()
+      .whileElement(by.id('tenantPaymentCreate.scroll'))
+      .scroll(240, 'down');
     await element(by.id('tenantPaymentCreate.submit')).tap();
 
     await waitFor(element(by.id('paymentDetail.confirm')))

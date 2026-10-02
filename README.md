@@ -6,13 +6,13 @@
 [![CI](https://github.com/andrescastiglia/rent/actions/workflows/ci.yml/badge.svg)](https://github.com/andrescastiglia/rent/actions/workflows/ci.yml)
 [![Backend Coverage](https://img.shields.io/badge/backend%20coverage-90.97%25-yellowgreen)](#estado-tecnico-actual)
 [![Batch Coverage](https://img.shields.io/badge/batch%20coverage-90.43%25-brightgreen)](#estado-tecnico-actual)
-[![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-86.52%25-brightgreen)](#estado-tecnico-actual)
+[![Frontend Coverage](https://img.shields.io/badge/frontend%20coverage-86.50%25-brightgreen)](#estado-tecnico-actual)
 [![Frontend E2E](https://img.shields.io/badge/frontend%20e2e-playwright-blue)](.github/workflows/ci.yml)
 [![Última Compilación](https://img.shields.io/badge/last%20build-2026--10--02%20OK-success)](#estado-tecnico-actual)
 
 ## Estado técnico actual
 
-Validación local del 2026-10-02: cobertura de líneas UT backend 90,97%, web 86,52%, batch 90,43% y mobile 93,69%. Las suites completas pasan y los umbrales aumentaron. La [evidencia del plan](docs/technical/validacion-plan-2026-10-02.md) conserva resultados, capturas con API real y gates pendientes de la publicación. Un build local aprobado no acredita un despliegue.
+Validación local del 2026-10-02: cobertura de líneas UT backend 90,97%, web 86,50%, batch 90,43% y mobile 93,70%. Las suites completas pasan y los umbrales aumentaron. La [evidencia del plan](docs/technical/validacion-plan-2026-10-02.md) conserva resultados, capturas con API real y gates pendientes de la publicación. Un build local aprobado no acredita un despliegue.
 
 ## 📋 Descripción
 

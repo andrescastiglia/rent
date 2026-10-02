@@ -15,6 +15,7 @@ import Settings from '../app/(app)/(tabs)/settings';
 import ProtectedLayout from '../app/(app)/_layout';
 import TabsLayout from '../app/(app)/(tabs)/_layout';
 import Index from '../app/index';
+import { RootNavigation } from '../app/_layout';
 import { ChannelAlternatives } from '@/components/channel-alternatives';
 import { useCanAccess } from '@/hooks/use-role-navigation';
 import { ownersApi } from '@/api/owners';
@@ -166,6 +167,18 @@ it('redirects missing and denied sessions while waiting for bootstrap', async ()
   expect(
     allowed.root.findAllByType('StackScreen' as never).length,
   ).toBeGreaterThan(20);
+});
+it('waits for session restoration before mounting the root native navigation tree', async () => {
+  setAuth(null, { loading: true });
+  const loading = await renderApp(<RootNavigation />);
+  expect(loading.root.findAllByType('Stack' as never)).toHaveLength(0);
+  expect(loading.root.findAllByType('ActivityIndicator' as never)).toHaveLength(
+    1,
+  );
+  await cleanup();
+  setAuth();
+  const ready = await renderApp(<RootNavigation />);
+  expect(ready.root.findAllByType('Stack' as never)).toHaveLength(1);
 });
 it('exposes exactly Home, Tasks and More as visible tabs and correct authorized creation routes', async () => {
   const app = await renderApp(<TabsLayout />);

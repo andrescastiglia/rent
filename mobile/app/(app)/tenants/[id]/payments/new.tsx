@@ -150,6 +150,7 @@ export default function NewTenantPaymentScreen() {
 
   return (
     <Screen
+      scrollViewTestID="tenantPaymentCreate.scroll"
       guidanceReady={!leasesQuery.isFetching && !tenantQuery.isFetching}
       guidanceBlocked={
         leasesQuery.isError ||

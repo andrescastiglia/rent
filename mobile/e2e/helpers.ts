@@ -7,10 +7,6 @@ export async function relaunchFreshApp(): Promise<void> {
   });
 }
 
-async function sleep(ms: number): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 async function isVisible(testId: string, timeout: number): Promise<boolean> {
   return waitFor(element(by.id(testId)))
     .toBeVisible()
@@ -42,12 +38,6 @@ export async function loginAsAdmin(): Promise<void> {
 
   await element(by.id('login.submit')).tap();
 
-  await sleep(1500);
-  await relaunchFreshApp();
-
-  if (!(await isVisible('tab.home', 20000))) {
-    await relaunchFreshApp();
-  }
   await waitFor(element(by.id('tab.home')))
     .toBeVisible()
     .withTimeout(20000);
@@ -111,8 +101,10 @@ export async function dismissNativeAlertIfVisible(): Promise<void> {
 
 export async function openModule(module: string): Promise<void> {
   await element(by.id('tab.more')).tap();
+  await element(by.id('more.scroll')).scrollTo('top');
   await waitFor(element(by.id(`more.${module}`)))
     .toBeVisible()
-    .withTimeout(15000);
+    .whileElement(by.id('more.scroll'))
+    .scroll(240, 'down');
   await element(by.id(`more.${module}`)).tap();
 }
