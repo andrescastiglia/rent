@@ -19,7 +19,16 @@ rollback() {
     if [ -f "$root/secrets-before-release.json" ]; then
       k3s kubectl apply --server-side --field-manager=rent-secrets -f "$root/secrets-before-release.json" >/dev/null || true
     fi
-    k3s kubectl apply -f "$root/deployed.yaml" >/dev/null || true
+    # Old release records may predate the financial schedule suspension.
+    # Filter before applying so rollback never briefly resumes those writers.
+    python3 - "$root/deployed.yaml" <<'PY' | k3s kubectl apply -f - >/dev/null || true
+import sys,yaml
+items=list(yaml.safe_load_all(open(sys.argv[1])))
+for item in items:
+    if item and item.get('kind')=='CronJob' and item['metadata']['name'] in {'billing','sync-indices','process-settlements'}:
+        item['spec']['suspend']=True
+print(yaml.safe_dump_all(items))
+PY
     echo 'Restored previous Kubernetes application definitions; database writes were retained.' >&2
   else
     echo 'Initial activation failed. The restored database is retained; do not reactivate the old writers without reconciliation.' >&2
@@ -91,8 +100,13 @@ items=[x for x in yaml.safe_load_all(open(sys.argv[1])) if x and x['kind']=='Dep
 print(yaml.safe_dump_all(items))
 PY
 for app in backend frontend; do k3s kubectl -n rent rollout status "deployment/$app" --timeout=300s; done
-curl --fail --silent --max-time 15 http://127.0.0.1:30080/health >/dev/null
-curl --fail --silent --max-time 15 http://127.0.0.1:30081/health >/dev/null
+# Ready pods can precede kube-proxy's NodePort route update. Bound retries while
+# preserving a failing exit status (and rollback) for an unhealthy release.
+for port in 30080 30081; do
+  curl --fail --silent --show-error --retry 12 --retry-connrefused \
+    --retry-delay 2 --retry-max-time 60 --max-time 15 \
+    "http://127.0.0.1:$port/health" >/dev/null
+done
 python3 scripts/k8s/switch-nginx.py
 python3 - "$root/candidate.yaml" <<'PY' | k3s kubectl apply -f - >/dev/null
 import sys,yaml

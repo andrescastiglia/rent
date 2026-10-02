@@ -44,6 +44,7 @@ export default function TenantDetailScreen() {
 
   return (
     <Screen
+      scrollViewTestID="tenantDetail.scroll"
       guidanceBlocked={
         dialog.open ||
         query.isError ||

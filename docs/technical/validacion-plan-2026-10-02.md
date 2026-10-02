@@ -201,7 +201,7 @@ Los umbrales se aprobaron completos.
 
 La segunda evaluación para la candidata `v0.1.19` volvió a aprobar los 62 casos:
 p50/p95 de 3000/5701 ms, recall 98,77%, frescura p95 de 54,35 segundos y cero
-fugas. El tag todavía no se publicó. El [reporte](evidence/2026-10-02-validation/rag-release-candidate.json)
+fugas. En esa evaluación, el tag todavía no se había publicado. El [reporte](evidence/2026-10-02-validation/rag-release-candidate.json)
 y su [procedencia](evidence/2026-10-02-validation/rag-release-candidate-provenance.json)
 identifican el árbol de backend comprobado; las correcciones posteriores de
 interfaz móvil no modifican ese árbol. La frescura corresponde al índice del
@@ -232,3 +232,26 @@ local activa el flag sólo en las compañías ficticias.
 La publicación requiere CI verde del SHA exacto en main, tag anotado y artefactos
 inmutables, migraciones, healthchecks y smoke. Su evidencia se incorporará sólo
 después de ejecutarla, conforme al [runbook Kubernetes](../deployment/kubernetes.md).
+
+
+## Producción publicada: v0.1.19
+
+El [PR #256](https://github.com/andrescastiglia/rent/pull/256) se integró en
+`aa28f13586bfc7458b7d1fe1b099b2c2c0275d44`; su CI de main aprobó y el tag
+anotado `v0.1.19` apunta al mismo SHA. Web/API está desplegado y el
+[GitHub Release](https://github.com/andrescastiglia/rent/releases/tag/v0.1.19)
+conserva el archivo de recuperación, checksums e inventarios construido/activo.
+
+El primer rollout encontró una demora de kube-proxy: los pods estaban listos
+pero la conexión local al NodePort todavía era rechazada. Se recuperó con
+reintentos acotados de salud sobre las mismas imágenes; el job `Deploy server`
+aprobó en el tercer intento y `Publish GitHub Release` aprobó. El workflow
+anterior compartía Android y se canceló su build para permitir el reintento del
+servidor; esa cancelación no describe el resultado de los jobs web/API.
+
+Verificación pública del 2026-10-02 21:57 UTC: sitio HTTP 200, `/api/health`
+saludable con base disponible; backend, frontend y RAG en 1/1. Los tres cron
+financieros permanecen suspendidos y BFA, Mercado Libre y Payouts deshabilitados.
+PostgreSQL conserva su digest anterior. La versión móvil de este tag no se
+publicó: su validación sigue pendiente en el flujo independiente autorizado.
+[Evidencia y digests activos](evidence/2026-10-02-validation/production-v0.1.19.json).

@@ -24,34 +24,48 @@ describe('Properties CRUD', () => {
     await waitFor(element(by.id('propertyCreate.name')))
       .toBeVisible()
       .withTimeout(15000);
-    await fillField('propertyCreate.name', uniqueName);
+    await fillField('propertyCreate.name', uniqueName, 'propertyCreate.scroll');
     await waitForFormControl('propertyCreate.ownerId', 'propertyCreate.scroll');
-    await fillField('propertyCreate.ownerId', 'owner-1');
+    await fillField(
+      'propertyCreate.ownerId',
+      'owner-1',
+      'propertyCreate.scroll',
+    );
     await waitForFormControl('propertyCreate.street', 'propertyCreate.scroll');
-    await fillField('propertyCreate.street', 'Avenida Test');
+    await fillField(
+      'propertyCreate.street',
+      'Avenida Test',
+      'propertyCreate.scroll',
+    );
     await waitForFormControl('propertyCreate.number', 'propertyCreate.scroll');
-    await fillField('propertyCreate.number', '123');
+    await fillField('propertyCreate.number', '123', 'propertyCreate.scroll');
     await waitForFormControl('propertyCreate.city', 'propertyCreate.scroll');
-    await fillField('propertyCreate.city', 'CABA');
+    await fillField('propertyCreate.city', 'CABA', 'propertyCreate.scroll');
     await waitForFormControl('propertyCreate.state', 'propertyCreate.scroll');
-    await fillField('propertyCreate.state', 'Buenos Aires');
+    await fillField(
+      'propertyCreate.state',
+      'Buenos Aires',
+      'propertyCreate.scroll',
+    );
     await waitForFormControl('propertyCreate.zipCode', 'propertyCreate.scroll');
-    await fillField('propertyCreate.zipCode', '1000');
+    await fillField('propertyCreate.zipCode', '1000', 'propertyCreate.scroll');
     await waitForFormControl('propertyCreate.country', 'propertyCreate.scroll');
-    await fillField('propertyCreate.country', 'Argentina');
+    await fillField(
+      'propertyCreate.country',
+      'Argentina',
+      'propertyCreate.scroll',
+    );
 
     await waitForFormControl('propertyCreate.submit', 'propertyCreate.scroll');
     await element(by.id('propertyCreate.submit')).tap();
 
-    await waitFor(element(by.id('propertyDetail.edit')))
-      .toBeVisible()
-      .withTimeout(15000);
+    await waitForFormControl('propertyDetail.edit', 'propertyDetail.scroll');
 
     await element(by.id('propertyDetail.edit')).tap();
     await waitFor(element(by.id('propertyEdit.name')))
       .toBeVisible()
       .withTimeout(10000);
-    await fillField('propertyEdit.name', updatedName);
+    await fillField('propertyEdit.name', updatedName, 'propertyEdit.scroll');
     await waitForFormControl('propertyEdit.submit', 'propertyEdit.scroll');
     await element(by.id('propertyEdit.submit')).tap();
 
@@ -59,7 +73,10 @@ describe('Properties CRUD', () => {
       .toBeVisible()
       .withTimeout(15000);
 
-    await tapAndConfirmDeletion('propertyDetail.delete');
+    await tapAndConfirmDeletion(
+      'propertyDetail.delete',
+      'propertyDetail.scroll',
+    );
     await waitFor(element(by.id('properties.new')))
       .toBeVisible()
       .withTimeout(15000);

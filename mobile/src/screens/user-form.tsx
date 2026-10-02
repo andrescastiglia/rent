@@ -163,6 +163,8 @@ export function UserForm({
               value={field.value ?? ''}
               onChangeText={field.onChange}
               secureTextEntry
+              autoComplete="off"
+              textContentType="none"
               autoCapitalize="none"
               testID={`${testIDPrefix}.password`}
             />

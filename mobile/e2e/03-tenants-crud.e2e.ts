@@ -25,23 +25,29 @@ describe('Tenants CRUD', () => {
       .toBeVisible()
       .withTimeout(15000);
 
-    await fillField('tenantCreate.firstName', 'E2E');
-    await fillField('tenantCreate.lastName', 'Tenant');
-    await fillField('tenantCreate.email', email);
-    await fillField('tenantCreate.phone', '+5491112345678');
-    await fillField('tenantCreate.dni', uniqueBase.slice(0, 8));
+    await fillField('tenantCreate.firstName', 'E2E', 'tenantCreate.scroll');
+    await fillField('tenantCreate.lastName', 'Tenant', 'tenantCreate.scroll');
+    await fillField('tenantCreate.email', email, 'tenantCreate.scroll');
+    await fillField(
+      'tenantCreate.phone',
+      '+5491112345678',
+      'tenantCreate.scroll',
+    );
+    await fillField(
+      'tenantCreate.dni',
+      uniqueBase.slice(0, 8),
+      'tenantCreate.scroll',
+    );
     await waitForFormControl('tenantCreate.submit', 'tenantCreate.scroll');
     await element(by.id('tenantCreate.submit')).tap();
 
-    await waitFor(element(by.id('tenantDetail.edit')))
-      .toBeVisible()
-      .withTimeout(15000);
+    await waitForFormControl('tenantDetail.edit', 'tenantDetail.scroll');
 
     await element(by.id('tenantDetail.edit')).tap();
     await waitFor(element(by.id('tenantEdit.email')))
       .toBeVisible()
       .withTimeout(10000);
-    await fillField('tenantEdit.email', updatedEmail);
+    await fillField('tenantEdit.email', updatedEmail, 'tenantEdit.scroll');
     await waitForFormControl('tenantEdit.submit', 'tenantEdit.scroll');
     await element(by.id('tenantEdit.submit')).tap();
 
@@ -49,7 +55,7 @@ describe('Tenants CRUD', () => {
       .toBeVisible()
       .withTimeout(15000);
 
-    await tapAndConfirmDeletion('tenantDetail.delete');
+    await tapAndConfirmDeletion('tenantDetail.delete', 'tenantDetail.scroll');
     await waitFor(element(by.id('tenants.new')))
       .toBeVisible()
       .withTimeout(15000);

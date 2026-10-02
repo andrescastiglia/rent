@@ -20,6 +20,13 @@ it('rejects an incomplete user and preserves required primary role during multir
   const app = await renderApp(
     <UserForm mode="create" submitLabel="Save" onSubmit={submit} />,
   );
+  // An administrator sets another user's credentials; do not populate or save
+  // them through the administrator's own password manager.
+  expect(control(app, 'userForm.password').props).toMatchObject({
+    secureTextEntry: true,
+    autoComplete: 'off',
+    textContentType: 'none',
+  });
   await press(app, 'userForm.submit');
   expect(submit).not.toHaveBeenCalled();
   for (const [field, value] of Object.entries({

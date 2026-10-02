@@ -1,0 +1,49 @@
+{
+  "release": "v0.1.19",
+  "sha": "aa28f13586bfc7458b7d1fe1b099b2c2c0275d44",
+  "verified_at": "2026-10-02T21:57:56Z",
+  "pull_request": "https://github.com/andrescastiglia/rent/pull/256",
+  "release_url": "https://github.com/andrescastiglia/rent/releases/tag/v0.1.19",
+  "main_ci": "https://github.com/andrescastiglia/rent/actions/runs/37065395794",
+  "release_workflow": "https://github.com/andrescastiglia/rent/actions/runs/37066332420",
+  "server_deploy_job": {
+    "id": 111042474597,
+    "conclusion": "success"
+  },
+  "release_publication_job": {
+    "id": 111043132508,
+    "conclusion": "success"
+  },
+  "overall_workflow": "cancelled after stopping the long Android build to allow retrying server deployment",
+  "http": {
+    "https://rent.maese.com.ar/": 200,
+    "https://rent.maese.com.ar/api/health": {
+      "status": "ok",
+      "database": "up"
+    }
+  },
+  "ready_deployments": {
+    "backend": "1/1",
+    "frontend": "1/1",
+    "rag-worker": "1/1"
+  },
+  "suspended_cronjobs": [
+    "billing",
+    "sync-indices",
+    "process-settlements"
+  ],
+  "disabled_flags": [
+    "BFA_ENABLED",
+    "MERCADOLIBRE_ENABLED",
+    "MERCADOPAGO_PAYOUTS_ENABLED"
+  ],
+  "deployed_images": {
+    "backend": "ghcr.io/andrescastiglia/rent-backend@sha256:3901541530b3b61168fa098dbf074d796fee0c2504840ba9f41fade79bbb5fac",
+    "frontend": "ghcr.io/andrescastiglia/rent-frontend@sha256:8c34b4408043c04827831fa2cc230b2d6832c590180958e4ecf260fd804205dc",
+    "batch": "ghcr.io/andrescastiglia/rent-batch@sha256:02a9b50740a29a3fdbfe786cef40b51662cf6a4aba2cdb2608b1e21ea414915d",
+    "postgres": "ghcr.io/andrescastiglia/rent-postgres@sha256:005c79a1407adadfd712384508ab818af8d334f4ce0693008e0d4fee56b0edf1",
+    "maintenance": "ghcr.io/andrescastiglia/rent-maintenance@sha256:18272ef3141be349cec23fa7461b89ddf85f9b4424f93e05854b6389c1f276b8"
+  },
+  "recovery": "Bounded curl retries allowed NodePort routing to converge after successful pod rollouts; the original exact-SHA deployment then succeeded on attempt 3.",
+  "native_publication": "not published; native validation remains separate and has not passed for this tag"
+}

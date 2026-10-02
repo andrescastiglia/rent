@@ -26,10 +26,22 @@ describe('Interested CRUD', () => {
       .toBeVisible()
       .withTimeout(15000);
 
-    await fillField('interestedCreate.firstName', 'E2E');
-    await fillField('interestedCreate.lastName', 'Interested');
-    await fillField('interestedCreate.phone', '+5491111111111');
-    await fillField('interestedCreate.email', email);
+    await fillField(
+      'interestedCreate.firstName',
+      'E2E',
+      'interestedCreate.scroll',
+    );
+    await fillField(
+      'interestedCreate.lastName',
+      'Interested',
+      'interestedCreate.scroll',
+    );
+    await fillField(
+      'interestedCreate.phone',
+      '+5491111111111',
+      'interestedCreate.scroll',
+    );
+    await fillField('interestedCreate.email', email, 'interestedCreate.scroll');
     await waitForFormControl(
       'interestedCreate.operation.sale',
       'interestedCreate.scroll',
@@ -42,15 +54,20 @@ describe('Interested CRUD', () => {
     );
     await element(by.id('interestedCreate.submit')).tap();
 
-    await waitFor(element(by.id('interestedDetail.edit')))
-      .toBeVisible()
-      .withTimeout(15000);
+    await waitForFormControl(
+      'interestedDetail.edit',
+      'interestedDetail.scroll',
+    );
 
     await element(by.id('interestedDetail.edit')).tap();
     await waitFor(element(by.id('interestedEdit.email')))
       .toBeVisible()
       .withTimeout(10000);
-    await fillField('interestedEdit.email', updatedEmail);
+    await fillField(
+      'interestedEdit.email',
+      updatedEmail,
+      'interestedEdit.scroll',
+    );
 
     await waitForFormControl('interestedEdit.submit', 'interestedEdit.scroll');
     await element(by.id('interestedEdit.submit')).tap();
@@ -59,7 +76,10 @@ describe('Interested CRUD', () => {
       .toBeVisible()
       .withTimeout(15000);
 
-    await tapAndConfirmDeletion('interestedDetail.delete');
+    await tapAndConfirmDeletion(
+      'interestedDetail.delete',
+      'interestedDetail.scroll',
+    );
     await waitFor(element(by.id('interested.new')))
       .toBeVisible()
       .withTimeout(15000);

@@ -51,6 +51,9 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      - name: Type check native test flows
+        run: npx tsc --noEmit --project e2e/tsconfig.json
+
       - name: Format check
         run: npm run format:check
 

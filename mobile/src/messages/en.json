@@ -1,5 +1,6 @@
 {
   "common": {
+    "dismissKeyboard": "Dismiss keyboard",
     "loading": "Loading...",
     "save": "Save",
     "cancel": "Cancel",
@@ -38,7 +39,11 @@
     "notImplemented": "Not implemented yet",
     "accessDenied": "Access Denied",
     "accessDeniedMessage": "You don't have permission to access this section. Contact your administrator if you believe this is an error.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "show": "Show",
+    "hide": "Hide",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "nav": {
     "dashboard": "Dashboard",

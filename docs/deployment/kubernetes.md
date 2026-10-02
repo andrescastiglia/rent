@@ -1,9 +1,12 @@
 # Rent on oracle K3s
 
 The production release builds ARM64 images in GitHub, validates native modules,
-publishes immutable GHCR digests, completes the existing Android gate and runs
+publishes immutable GHCR digests and runs
 `ansible/deploy-kubernetes.yml`. No application builds run on oracle. The legacy
 server archive remains attached for recovery; PM2 is not the Kubernetes runtime.
+Native Android/iOS validation and Android publication run independently of the
+server release. Android publication requires successful native validation of the
+same SHA and the published server release record.
 
 ## Boundaries and persistence
 
