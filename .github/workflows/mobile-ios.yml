@@ -43,11 +43,31 @@ jobs:
           cache-dependency-path: mobile/package-lock.json
       - name: Install JavaScript dependencies
         run: npm ci
+      - name: Restore simulator binary for identical native inputs
+        id: native-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: mobile/artifacts/ios/native
+          key: ios-native-v1-${{ runner.arch }}-xcode26.3-${{ hashFiles('.node-version', 'mobile/package.json', 'mobile/package-lock.json', 'mobile/app.json', 'mobile/app.config.*', 'mobile/assets/**', 'mobile/scripts/build-ios-simulator.sh', 'mobile/scripts/patch-react-native-screens.mjs') }}
       - name: Generate native iOS project
+        if: steps.native-cache.outputs.cache-hit != 'true'
         run: npx expo prebuild --platform ios --no-install
       - name: Install native dependencies
+        if: steps.native-cache.outputs.cache-hit != 'true'
         run: pod install --project-directory=ios
-      - name: Build once, launch and test on an available iPhone simulator
+      - name: Build or verify the simulator binary once
+        id: native-build
+        env:
+          RENT_IOS_BINARY_CACHE_HIT: ${{ steps.native-cache.outputs.cache-hit }}
+          RENT_IOS_NATIVE_CACHE_KEY: ${{ steps.native-cache.outputs.cache-primary-key }}
+        run: bash scripts/build-ios-simulator.sh
+      - name: Save verified native binary before running JavaScript tests
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: mobile/artifacts/ios/native
+          key: ${{ steps.native-cache.outputs.cache-primary-key }}
+      - name: Launch and test the current checkout on an available iPhone simulator
         run: bash scripts/ci-ios-smoke.sh
       - name: Upload iOS validation evidence
         if: always()
@@ -58,6 +78,7 @@ jobs:
             mobile/artifacts/ios/*.log
             mobile/artifacts/ios/*.png
             mobile/artifacts/ios/*.txt
+            mobile/artifacts/ios/native/inputs.txt
             mobile/artifacts/ios/detox
             mobile/coverage
           if-no-files-found: warn

@@ -54,7 +54,7 @@ export function Screen({
       <GuidanceControlsContext.Provider value={registry}>
         <GuidanceInteractionContext.Provider value={guidance.interact}>
           <View
-            onTouchStart={guidance.interact}
+            onTouchEnd={guidance.interact}
             style={!scrollable && styles.fill}
           >
             {children}
@@ -78,7 +78,7 @@ export function Screen({
           <ScrollView
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            onScrollBeginDrag={guidance.interact}
+            onScrollEndDrag={guidance.interact}
             testID={scrollViewTestID}
             contentContainerStyle={styles.scrollContent}
           >

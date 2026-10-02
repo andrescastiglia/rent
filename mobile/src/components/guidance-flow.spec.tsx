@@ -5,7 +5,7 @@ import { usePathname } from 'expo-router';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 import { GuidanceMessage, useScreenGuidance } from './guidance';
 import { Screen } from './screen';
-import { Field } from './ui';
+import { AppButton, Field } from './ui';
 
 let app: ReactTestRenderer;
 let guidance: ReturnType<typeof useScreenGuidance>;
@@ -186,7 +186,7 @@ it('connects field changes and scrolling to help timing without overlaying form 
   ).toBe(true);
   const scroll = app.root.findByType('ScrollView' as never);
   await act(async () => {
-    scroll.props.onScrollBeginDrag();
+    scroll.props.onScrollEndDrag();
   });
   expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
   expect(app.root.findByType('SafeAreaView' as never).props.edges).toEqual([
@@ -217,6 +217,49 @@ it('supports fixed content and iOS keyboard avoidance', async () => {
   } finally {
     Platform.OS = original;
   }
+});
+
+it('keeps help in place until a touch or drag finishes and lets the action run', async () => {
+  const onPress = jest.fn();
+  await mount(
+    <Screen scrollViewTestID="content">
+      <AppButton title="Create property" onPress={onPress} testID="create" />
+    </Screen>,
+  );
+  await advance(8000);
+  const messageVisible = () =>
+    app.root
+      .findAllByType(Text)
+      .some((node) => node.props.children === 'guidance.title');
+  expect(messageVisible()).toBe(true);
+  const touchSurface = app.root
+    .findAllByType('View' as never)
+    .find((node) => node.props.onTouchEnd);
+  expect(touchSurface).toBeDefined();
+  await act(async () => {
+    touchSurface?.props.onTouchStart?.();
+  });
+  expect(messageVisible()).toBe(true);
+  const button = app.root
+    .findAllByType('Pressable' as never)
+    .find((node) => node.props.testID === 'create');
+  await act(async () => {
+    button?.props.onPress();
+    touchSurface?.props.onTouchEnd();
+  });
+  expect(onPress).toHaveBeenCalledTimes(1);
+  expect(messageVisible()).toBe(false);
+  await advance(12000);
+  expect(messageVisible()).toBe(true);
+  const scroll = app.root.findByType('ScrollView' as never);
+  await act(async () => {
+    scroll.props.onScrollBeginDrag?.();
+  });
+  expect(messageVisible()).toBe(true);
+  await act(async () => {
+    scroll.props.onScrollEndDrag();
+  });
+  expect(messageVisible()).toBe(false);
 });
 it('clears asynchronous initialization safely after unmount', async () => {
   let resolve!: (value: string | null) => void;

@@ -68,7 +68,7 @@ Implementado:
 
 Los módulos principales incluyen alta, edición, detalle, PDFs compartibles y uploads. Las pruebas unitarias cubren adaptadores, formularios, pantallas, permisos, errores y recuperación; se ejecutan con `npm run test:cov -- --runInBand`.
 
-Pendiente de validación por plataforma: ejecutar los recorridos completos Android/iOS contra API y PostgreSQL reales, conservar capturas a los anchos definidos y revisar accesibilidad con teclado y lector de pantalla. La cobertura UT y el smoke de arranque no sustituyen esa evidencia.
+Android aprobó seis suites y siete recorridos completos en el CI de `f0dcf7e`; iOS conserva fallos de interacción pendientes de revalidación. Detox usa fixtures móviles, mientras que los contratos de API, autorización y dinero se comprueban por separado con HTTP/PostgreSQL reales. La cobertura UT y el smoke de arranque no sustituyen la evidencia por plataforma. Ver [validación de la entrega](../docs/technical/validacion-plan-2026-10-02.md).
 
 ### Navegación y recorridos (2026-10-01)
 
@@ -81,6 +81,15 @@ La ayuda contextual permanece activa en cada visita: 8 segundos al entrar y 12 d
 Cobros conservan `Idempotency-Key` después de un fallo de red y al reiniciar la app. Un resultado incierto bloquea cambios del mismo intento hasta revisarlo; no hay reenvío automático. Las DTO de acceso, usuarios y propietarios se importan del contrato OpenAPI generado. La cobertura UT mide todo el código propio de `src` y `app`, excepto código generado; las pruebas Android/iOS y la revisión visual real siguen siendo gates independientes.
 
 El workflow reutilizable `mobile-ios.yml` prepara iOS en macOS y compila una sola vez para simulador. Sobre ese mismo binario ejecuta el arranque y todos los recorridos Detox; conserva logs y capturas por plataforma. CI exige también UT, tipos y lint antes de ejecutar Android/iOS. Se puede ejecutar manualmente. La validación iOS usa Xcode 26.3 (Swift ≥6.2) y un simulador Apple; las pruebas nativas usan datos simulados y la autorización real se comprueba por separado con API/PostgreSQL.
+
+El build se limita a la arquitectura del simulador ejecutado. Se guarda el binario
+firmado en una caché determinada por Node, paquetes/lock, configuración Expo,
+assets, script nativo, Xcode y arquitectura; antes de reutilizarlo se verifican
+esos inputs y la firma. Metro sirve siempre el JavaScript del checkout actual.
+Cambios de JavaScript o pruebas no requieren otro build nativo. La caché se guarda
+antes de Detox y no se usa para producción. Después del login iOS, Detox restaura
+la sincronización para esperar navegación, teclado y animaciones. La ayuda retira
+su contenido al finalizar el gesto y conserva su geometría durante el toque/scroll.
 
 El binario del simulador usa la firma ad hoc local de Xcode, sin certificado de
 distribución. Desactivar la firma elimina la identidad que necesita Keychain y

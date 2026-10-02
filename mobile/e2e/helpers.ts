@@ -8,6 +8,9 @@ export async function relaunchFreshApp(): Promise<void> {
       detoxEnableSynchronization: '0',
     },
   });
+  if (device.getPlatform() === 'ios') {
+    await device.disableSynchronization();
+  }
 }
 
 async function isVisible(testId: string, timeout: number): Promise<boolean> {
@@ -20,6 +23,9 @@ async function isVisible(testId: string, timeout: number): Promise<boolean> {
 
 export async function loginAsAdmin(): Promise<void> {
   if (await isVisible('tab.home', 10000)) {
+    if (device.getPlatform() === 'ios') {
+      await device.enableSynchronization();
+    }
     return;
   }
 
@@ -28,6 +34,9 @@ export async function loginAsAdmin(): Promise<void> {
     // Re-establish the Detox instrumentation before retrying the login flow.
     await relaunchFreshApp();
     if (await isVisible('tab.home', 10000)) {
+      if (device.getPlatform() === 'ios') {
+        await device.enableSynchronization();
+      }
       return;
     }
   }
@@ -44,6 +53,9 @@ export async function loginAsAdmin(): Promise<void> {
   await waitFor(element(by.id('tab.home')))
     .toBeVisible()
     .withTimeout(20000);
+  if (device.getPlatform() === 'ios') {
+    await device.enableSynchronization();
+  }
 }
 
 export async function tapAndConfirmDeletion(

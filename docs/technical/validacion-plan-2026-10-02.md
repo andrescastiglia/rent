@@ -61,7 +61,7 @@ del portal inquilino (estaba fija en inglés) y su objetivo táctil a 44 px.
 La revisión de anuncios por Ingeniería no acredita todas las combinaciones de
 lectores/navegadores ni sustituye una evaluación integral de WCAG.
 
-Las 128 suites web (1291 casos), 34 móviles (408 casos) y 32 batch (325 casos)
+Las 128 suites web (1291 casos), 34 móviles (409 casos) y 32 batch (325 casos)
 pasaron completas. Las reglas de asistencia tienen pruebas de tiempos,
 interacción, pausa, errores, permisos y cambio de pantalla.
 
@@ -156,6 +156,24 @@ teclado respecto al encabezado, gestos desde el área visible y espera de
 controles. Pasan 408 UT móviles, tipos y lint; el nuevo CI nativo verificará
 los recorridos completos. El build usa únicamente la arquitectura del
 simulador ejecutado, evitando compilar una segunda arquitectura sin uso.
+
+El [CI de `f0dcf7e`](https://github.com/andrescastiglia/rent/actions/runs/37048772634)
+aprobó 22 jobs y los siete casos Android. iOS compiló en ocho minutos al evitar
+la arquitectura sin uso; pasó login/navegación y avanzó hasta confirmar el
+cobro y crear un inquilino, pero seis casos terminaron con acciones canceladas
+o visibilidad cambiante. La ayuda se retiraba al comenzar el toque/scroll,
+modificando la geometría antes de completar la acción. Se difiere su retiro
+al final del gesto y se agrega una regresión UT (409 casos móviles aprobados).
+Detox restaura la sincronización normal iOS después del login para esperar
+teclado, animaciones y navegación. El nuevo resultado nativo queda pendiente.
+
+El workflow guarda el binario simulador firmado después de verificar arquitectura
+e inputs nativos: Node, paquetes/lock, configuración Expo, assets y el script
+nativo, además de Xcode/arquitectura. Las ejecuciones con esos inputs idénticos
+verifican la firma antes de reutilizarlo, y Metro sirve el JavaScript del checkout
+actual. Cambios de inputs nativos fuerzan un build. La caché se guarda antes de
+Detox, por lo que corregir JavaScript o pruebas no exige recompilar tras un fallo;
+no se reutiliza para artefactos de producción.
 
 El PR #255 se cerró como duplicado: su SHA `5cd9b8f` es antecesor de `abb45b6`
 y todo su trabajo de adendas permanece incluido en el PR #256.

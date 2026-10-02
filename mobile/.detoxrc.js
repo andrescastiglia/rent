@@ -14,7 +14,7 @@ module.exports = {
       type: 'ios.app',
       binaryPath:
         process.env.DETOX_IOS_BINARY ||
-        'artifacts/ios/DerivedData/Build/Products/Debug-iphonesimulator/rent.app',
+        'artifacts/ios/native/rent.app',
       launchArgs: { detoxEnableSynchronization: '0' },
     },
     'android.debug': {
