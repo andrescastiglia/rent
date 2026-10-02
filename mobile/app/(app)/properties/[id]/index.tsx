@@ -314,6 +314,7 @@ export default function PropertyDetailScreen() {
 
   return (
     <Screen
+      scrollViewTestID="propertyDetail.scroll"
       guidanceBlocked={
         dialog.open ||
         propertyQuery.isError ||

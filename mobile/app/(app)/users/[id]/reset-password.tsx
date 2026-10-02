@@ -61,6 +61,8 @@ export default function ResetUserPasswordScreen() {
             if (error) setError(null);
           }}
           secureTextEntry
+          autoComplete="off"
+          textContentType="none"
           autoCapitalize="none"
           testID="userResetPassword.newPassword"
         />

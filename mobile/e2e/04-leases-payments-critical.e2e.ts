@@ -21,7 +21,11 @@ describe('Leases and payments critical flows', () => {
     await waitFor(element(by.id('tenantPaymentCreate.amount')))
       .toBeVisible()
       .withTimeout(10000);
-    await fillField('tenantPaymentCreate.amount', '1234');
+    await fillField(
+      'tenantPaymentCreate.amount',
+      '1234',
+      'tenantPaymentCreate.scroll',
+    );
     await waitForFormControl(
       'tenantPaymentCreate.submit',
       'tenantPaymentCreate.scroll',

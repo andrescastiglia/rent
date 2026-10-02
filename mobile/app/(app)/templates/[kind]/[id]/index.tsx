@@ -161,6 +161,7 @@ export default function TemplateDetailScreen() {
 
   return (
     <Screen
+      scrollViewTestID="templateDetail.scroll"
       guidanceReady={!query.isLoading}
       guidanceBlocked={
         dialog.open ||

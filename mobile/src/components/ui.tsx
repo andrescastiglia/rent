@@ -18,7 +18,7 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import { useSegments } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, type TextInputProps } from 'react-native';
 
 type ButtonProps = {
   title: string;
@@ -95,6 +95,8 @@ type FieldProps = {
   placeholder?: string;
   editable?: boolean;
   secureTextEntry?: boolean;
+  autoComplete?: TextInputProps['autoComplete'];
+  textContentType?: TextInputProps['textContentType'];
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'numeric';
   testID?: string;
@@ -107,6 +109,8 @@ export function Field({
   placeholder,
   editable = true,
   secureTextEntry,
+  autoComplete,
+  textContentType,
   autoCapitalize = 'sentences',
   keyboardType = 'default',
   testID,
@@ -137,6 +141,8 @@ export function Field({
         placeholder={placeholder}
         editable={editable}
         secureTextEntry={secureTextEntry}
+        autoComplete={autoComplete}
+        textContentType={textContentType}
         autoCapitalize={autoCapitalize}
         keyboardType={keyboardType}
         accessibilityLabel={label}

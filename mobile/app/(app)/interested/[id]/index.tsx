@@ -40,6 +40,7 @@ export default function InterestedDetailScreen() {
 
   return (
     <Screen
+      scrollViewTestID="interestedDetail.scroll"
       guidanceBlocked={
         dialog.open ||
         query.isError ||

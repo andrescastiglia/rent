@@ -50,7 +50,13 @@ export async function loginAsAdmin(): Promise<void> {
 }
 
 /** Real keyboard events also update React state before the next action. */
-export async function fillField(testId: string, value: string): Promise<void> {
+export async function fillField(
+  testId: string,
+  value: string,
+  scrollViewTestId?: string,
+): Promise<void> {
+  await dismissKeyboardIfVisible();
+  if (scrollViewTestId) await waitForFormControl(testId, scrollViewTestId);
   const field = element(by.id(testId));
   await field.tap();
   await waitFor(field).toBeFocused().withTimeout(5000);
@@ -62,36 +68,24 @@ export async function fillField(testId: string, value: string): Promise<void> {
 
 export async function tapAndConfirmDeletion(
   deleteButtonId: string,
+  scrollViewTestId: string,
 ): Promise<void> {
   // Updated text can already be present in the edit field; wait for the detail
   // action so deletion starts only after saving and navigation complete.
-  await waitFor(element(by.id(deleteButtonId)))
-    .toBeVisible()
+  await waitFor(element(by.id(scrollViewTestId)))
+    .toExist()
     .withTimeout(15000);
+  await waitForFormControl(deleteButtonId, scrollViewTestId);
   await element(by.id(deleteButtonId)).tap();
 
-  const androidPositiveButton = element(by.id('android:id/button1'));
-  const hasAndroidPositiveButton = await waitFor(androidPositiveButton)
-    .toBeVisible()
-    .withTimeout(1000)
-    .then(() => true)
-    .catch(() => false);
-  if (hasAndroidPositiveButton) {
-    await androidPositiveButton.tap();
-    return;
-  }
-
-  try {
-    await waitFor(element(by.text('Eliminar')).atIndex(1))
-      .toBeVisible()
-      .withTimeout(5000);
-    await element(by.text('Eliminar')).atIndex(1).tap();
-  } catch {
-    await waitFor(element(by.text('Eliminar')))
-      .toBeVisible()
-      .withTimeout(5000);
-    await element(by.text('Eliminar')).tap();
-  }
+  const confirmation = element(
+    device.getPlatform() === 'android'
+      ? by.id('android:id/button1')
+      : by.label('Eliminar').and(by.type('_UIAlertControllerActionView')),
+  );
+  await waitFor(confirmation).toBeVisible().withTimeout(5000);
+  await confirmation.tap();
+  await waitFor(confirmation).not.toExist().withTimeout(5000);
 }
 
 export async function dismissNativeAlertIfVisible(): Promise<void> {
@@ -135,10 +129,7 @@ export async function openModule(module: string): Promise<void> {
 }
 
 /** Scroll from the visible middle of the form, above the iOS keyboard. */
-export async function waitForFormControl(
-  testId: string,
-  scrollViewTestId: string,
-): Promise<void> {
+async function dismissKeyboardIfVisible(): Promise<void> {
   // Numeric iOS keyboards have no return key. Close the keyboard explicitly
   // and wait for the final layout before locating the next form action.
   if (await isVisible('screen.dismissKeyboard', 500)) {
@@ -147,10 +138,23 @@ export async function waitForFormControl(
       .not.toExist()
       .withTimeout(5000);
   }
+}
+
+export async function waitForFormControl(
+  testId: string,
+  scrollViewTestId: string,
+): Promise<void> {
+  await dismissKeyboardIfVisible();
   // Use Detox's visibility predicate; tap() separately checks the activation
   // point. A 100% pixel threshold rejects visible rounded choice controls.
   await waitFor(element(by.id(testId)))
     .toBeVisible()
     .whileElement(by.id(scrollViewTestId))
-    .scroll(120, 'down', 0.5, 0.5);
+    .scroll(240, 'down', 0.5, 0.5);
+  // A scroll gesture can focus an input beneath its end point on iOS.
+  // Stabilize the expanded viewport before the caller taps the target.
+  await dismissKeyboardIfVisible();
+  await waitFor(element(by.id(testId)))
+    .toBeVisible()
+    .withTimeout(5000);
 }

@@ -305,6 +305,11 @@ it('validates a new password, submits it once and navigates back only after ackn
     temporaryPassword: 'temporary123',
   });
   const app = await renderApp(<ResetPassword />);
+  expect(control(app, 'userResetPassword.newPassword').props).toMatchObject({
+    secureTextEntry: true,
+    autoComplete: 'off',
+    textContentType: 'none',
+  });
   await input(app, 'userResetPassword.newPassword', 'short');
   await press(app, 'userResetPassword.submit');
   expect(reset).not.toHaveBeenCalled();
