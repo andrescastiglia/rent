@@ -59,6 +59,11 @@ export async function fillField(testId: string, value: string): Promise<void> {
 export async function tapAndConfirmDeletion(
   deleteButtonId: string,
 ): Promise<void> {
+  // Updated text can already be present in the edit field; wait for the detail
+  // action so deletion starts only after saving and navigation complete.
+  await waitFor(element(by.id(deleteButtonId)))
+    .toBeVisible()
+    .withTimeout(15000);
   await element(by.id(deleteButtonId)).tap();
 
   const androidPositiveButton = element(by.id('android:id/button1'));
