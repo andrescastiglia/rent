@@ -52,8 +52,12 @@ export async function loginAsAdmin(): Promise<void> {
 /** Real keyboard events also update React state before the next action. */
 export async function fillField(testId: string, value: string): Promise<void> {
   const field = element(by.id(testId));
+  await field.tap();
+  await waitFor(field).toBeFocused().withTimeout(5000);
   await field.clearText();
+  await waitFor(field).toHaveText('').withTimeout(5000);
   await field.typeText(value);
+  await waitFor(field).toHaveText(value).withTimeout(5000);
 }
 
 export async function tapAndConfirmDeletion(
