@@ -136,6 +136,20 @@ promesas ya capturan sus errores y se marcan explícitamente con `void`.
 Estas correcciones requieren un nuevo CI nativo; no se consideran aprobadas
 por compilar o por sus UT. La revisión con lector descrita arriba sí se ejecutó.
 
+El [CI de `abb45b6`](https://github.com/andrescastiglia/rent/actions/runs/37032076416)
+aprobó todos los gates excepto iOS. Android pasó seis suites y siete casos;
+el log no volvió a registrar la excepción del encabezado. SonarCloud aprobó
+el gate y quedó sin bugs ni vulnerabilidades abiertas. iOS compiló y arrancó,
+pero los siete casos encontraron el mismo error de Keychain: el build tenía
+`CODE_SIGNING_ALLOWED=NO` y carecía de identidad para persistir la sesión.
+La nueva configuración deja que Xcode firme ad hoc el simulador y verifica
+la firma antes de instalar. Detox fija español/Argentina para las confirmaciones;
+el nuevo resultado iOS sigue pendiente. No se sustituye SecureStore por otro
+almacenamiento ni se declara aprobado el recorrido por el arranque.
+
+El PR #255 se cerró como duplicado: su SHA `5cd9b8f` es antecesor de `abb45b6`
+y todo su trabajo de adendas permanece incluido en el PR #256.
+
 RAG se verificó con `scripts/qa/rag-local.py`: base dedicada, fixture ficticio de
 dos compañías, backfill, API/worker de loopback y proveedor real. Pasaron los
 **62 casos** de los cinco roles, sin errores ni fugas entre compañías o

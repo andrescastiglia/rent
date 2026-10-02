@@ -8,7 +8,8 @@ workspace_name="$(basename "$workspace" .xcworkspace)"
 scheme="$(xcodebuild -list -json -workspace "$workspace" | node -e 'let value="";process.stdin.on("data",chunk=>value+=chunk);process.stdin.on("end",()=>{const schemes=JSON.parse(value).workspace.schemes;const expected=process.argv[1];if(!schemes.includes(expected)){process.stderr.write(`Expected application scheme ${expected}; available: ${schemes.join(", ")}\n`);process.exit(1);}process.stdout.write(expected);});' "$workspace_name")"
 xcodebuild -workspace "$workspace" -scheme "$scheme" -configuration Debug \
   -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
-  -derivedDataPath artifacts/ios/DerivedData CODE_SIGNING_ALLOWED=NO \
+  -derivedDataPath artifacts/ios/DerivedData \
+  CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- \
   build > artifacts/ios/build.log 2>&1
 
 simulator="$(xcrun simctl list devices available --json | node -e 'let value="";process.stdin.on("data",chunk=>value+=chunk);process.stdin.on("end",()=>{const devices=Object.values(JSON.parse(value).devices).flat();const device=devices.find(item=>item.name.startsWith("iPhone")&&item.isAvailable);if(!device)process.exit(1);process.stdout.write(device.udid);});')"
@@ -40,6 +41,10 @@ fi
 app="$(find artifacts/ios/DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 1 -name '*.app' -print -quit)"
 test -n "$app"
 bundle_id="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Info.plist")"
+# Xcode's local simulator signature supplies the app identity used by Keychain.
+# An unsigned app launches, but SecureStore cannot persist its authenticated session.
+codesign --verify --strict "$app"
+codesign --display --entitlements :- "$app" > artifacts/ios/signing.log 2>&1
 xcrun simctl install "$simulator" "$app"
 xcrun simctl launch "$simulator" "$bundle_id" > artifacts/ios/launch.log
 sleep 15

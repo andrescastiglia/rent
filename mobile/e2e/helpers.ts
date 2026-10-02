@@ -1,6 +1,9 @@
 export async function relaunchFreshApp(): Promise<void> {
   await device.launchApp({
     newInstance: true,
+    ...(device.getPlatform() === 'ios'
+      ? { languageAndLocale: { language: 'es', locale: 'es_AR' } }
+      : {}),
     launchArgs: {
       detoxEnableSynchronization: '0',
     },

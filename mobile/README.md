@@ -82,6 +82,13 @@ Cobros conservan `Idempotency-Key` después de un fallo de red y al reiniciar la
 
 El workflow reutilizable `mobile-ios.yml` prepara iOS en macOS y compila una sola vez para simulador. Sobre ese mismo binario ejecuta el arranque y todos los recorridos Detox; conserva logs y capturas por plataforma. CI exige también UT, tipos y lint antes de ejecutar Android/iOS. Se puede ejecutar manualmente. La validación iOS usa Xcode 26.3 (Swift ≥6.2) y un simulador Apple; las pruebas nativas usan datos simulados y la autorización real se comprueba por separado con API/PostgreSQL.
 
+El binario del simulador usa la firma ad hoc local de Xcode, sin certificado de
+distribución. Desactivar la firma elimina la identidad que necesita Keychain y
+bloquea el guardado de sesión con SecureStore. El script verifica la firma antes
+de instalar; Detox usa español/Argentina para mantener deterministas las etiquetas
+de las confirmaciones. Referencias: [firma local del simulador](https://developer.apple.com/forums/thread/826882)
+y [entitlements de Keychain](https://developer.apple.com/documentation/security/errsecmissingentitlement).
+
 ### Corrección nativa de encabezados Android
 
 `npm ci` aplica en `postinstall` el cambio acotado de
