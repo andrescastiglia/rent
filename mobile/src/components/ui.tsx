@@ -148,7 +148,8 @@ export function Field({
           secureTextEntry={secureTextEntry && !passwordVisible}
           autoComplete={autoComplete}
           textContentType={textContentType}
-          autoCapitalize={autoCapitalize}
+          autoCapitalize={secureTextEntry ? 'none' : autoCapitalize}
+          autoCorrect={secureTextEntry ? false : undefined}
           keyboardType={keyboardType}
           accessibilityLabel={label}
           accessibilityState={{ disabled: !editable }}

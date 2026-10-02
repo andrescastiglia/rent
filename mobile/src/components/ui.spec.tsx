@@ -49,7 +49,11 @@ it('masks passwords by default and retains their value when revealing and hiding
   expect(control(app, 'password').props.secureTextEntry).toBe(true);
   expect(control(app, 'locked.toggleVisibility').props.disabled).toBe(true);
   await press(app, 'password.toggleVisibility');
-  expect(control(app, 'password').props.secureTextEntry).toBe(false);
+  expect(control(app, 'password').props).toMatchObject({
+    secureTextEntry: false,
+    autoCapitalize: 'none',
+    autoCorrect: false,
+  });
   expect(
     control(app, 'password.toggleVisibility').props.accessibilityLabel,
   ).toBe('common.hidePassword');
