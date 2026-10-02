@@ -83,7 +83,7 @@ export async function tapAndConfirmDeletion(
 
   const confirmation = element(
     device.getPlatform() === 'android'
-      ? by.id('android:id/button1')
+      ? by.text('Eliminar').and(by.type('android.widget.Button'))
       : by.label('Eliminar').and(by.type('_UIAlertControllerActionView')),
   );
   await waitFor(confirmation).toBeVisible().withTimeout(5000);
@@ -92,20 +92,13 @@ export async function tapAndConfirmDeletion(
 }
 
 export async function dismissNativeAlertIfVisible(): Promise<void> {
-  const androidPositiveButton = element(by.id('android:id/button1'));
-  const hasAndroidPositiveButton = await waitFor(androidPositiveButton)
-    .toBeVisible()
-    .withTimeout(1200)
-    .then(() => true)
-    .catch(() => false);
-  if (hasAndroidPositiveButton) {
-    await androidPositiveButton.tap();
-    return;
-  }
-
   const commonButtons = ['OK', 'Aceptar', 'Cerrar', 'Entendido'];
   for (const label of commonButtons) {
-    const button = element(by.text(label));
+    const button = element(
+      device.getPlatform() === 'android'
+        ? by.text(label).and(by.type('android.widget.Button'))
+        : by.label(label).and(by.type('_UIAlertControllerActionView')),
+    );
     const isVisible = await waitFor(button)
       .toBeVisible()
       .withTimeout(700)
@@ -113,6 +106,7 @@ export async function dismissNativeAlertIfVisible(): Promise<void> {
       .catch(() => false);
     if (isVisible) {
       await button.tap();
+      await waitFor(button).not.toExist().withTimeout(5000);
       return;
     }
   }
