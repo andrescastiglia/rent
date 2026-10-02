@@ -13,8 +13,7 @@ module.exports = {
     'ios.debug': {
       type: 'ios.app',
       binaryPath:
-        process.env.DETOX_IOS_BINARY ||
-        'artifacts/ios/native/rent.app',
+        process.env.DETOX_IOS_BINARY || 'artifacts/ios/native/rent.app',
       launchArgs: { detoxEnableSynchronization: '0' },
     },
     'android.debug': {
