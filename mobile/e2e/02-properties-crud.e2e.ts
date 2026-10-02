@@ -59,9 +59,7 @@ describe('Properties CRUD', () => {
     await waitForFormControl('propertyCreate.submit', 'propertyCreate.scroll');
     await element(by.id('propertyCreate.submit')).tap();
 
-    await waitFor(element(by.id('propertyDetail.edit')))
-      .toBeVisible()
-      .withTimeout(15000);
+    await waitForFormControl('propertyDetail.edit', 'propertyDetail.scroll');
 
     await element(by.id('propertyDetail.edit')).tap();
     await waitFor(element(by.id('propertyEdit.name')))

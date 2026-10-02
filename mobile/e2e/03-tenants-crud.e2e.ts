@@ -41,9 +41,7 @@ describe('Tenants CRUD', () => {
     await waitForFormControl('tenantCreate.submit', 'tenantCreate.scroll');
     await element(by.id('tenantCreate.submit')).tap();
 
-    await waitFor(element(by.id('tenantDetail.edit')))
-      .toBeVisible()
-      .withTimeout(15000);
+    await waitForFormControl('tenantDetail.edit', 'tenantDetail.scroll');
 
     await element(by.id('tenantDetail.edit')).tap();
     await waitFor(element(by.id('tenantEdit.email')))

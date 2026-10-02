@@ -18,6 +18,7 @@ import { leasesApi } from '@/api/leases';
 import { admin, setAuth } from './auth-fixture';
 import {
   cleanup,
+  control,
   input,
   press,
   renderApp,

@@ -54,9 +54,10 @@ describe('Interested CRUD', () => {
     );
     await element(by.id('interestedCreate.submit')).tap();
 
-    await waitFor(element(by.id('interestedDetail.edit')))
-      .toBeVisible()
-      .withTimeout(15000);
+    await waitForFormControl(
+      'interestedDetail.edit',
+      'interestedDetail.scroll',
+    );
 
     await element(by.id('interestedDetail.edit')).tap();
     await waitFor(element(by.id('interestedEdit.email')))

@@ -55,8 +55,11 @@ export async function fillField(
   value: string,
   scrollViewTestId?: string,
 ): Promise<void> {
-  await dismissKeyboardIfVisible();
-  if (scrollViewTestId) await waitForFormControl(testId, scrollViewTestId);
+  if (scrollViewTestId) {
+    await waitForFormControl(testId, scrollViewTestId);
+  } else {
+    await dismissKeyboardIfVisible();
+  }
   const field = element(by.id(testId));
   await field.tap();
   await waitFor(field).toBeFocused().withTimeout(5000);
@@ -144,6 +147,9 @@ export async function waitForFormControl(
   testId: string,
   scrollViewTestId: string,
 ): Promise<void> {
+  await waitFor(element(by.id(scrollViewTestId)))
+    .toExist()
+    .withTimeout(15000);
   await dismissKeyboardIfVisible();
   // Use Detox's visibility predicate; tap() separately checks the activation
   // point. A 100% pixel threshold rejects visible rounded choice controls.
