@@ -1,5 +1,6 @@
 import { getCurrentOrigin } from '@/utils/location';
 import * as SecureStore from 'expo-secure-store';
+import { randomUUID } from 'expo-crypto';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
@@ -139,7 +140,7 @@ export async function enableProximity(user: User) {
   const next: Scope = {
     userId: user.id,
     companyId: user.companyId,
-    generation: `${Date.now()}:${Math.random()}`,
+    generation: randomUUID(),
   };
   await setTokenBackgroundAccess(true);
   await SecureStore.setItemAsync(SETTINGS, JSON.stringify(next), {

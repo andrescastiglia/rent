@@ -15,7 +15,7 @@ function Destination() {
     );
   useEffect(() => {
     let active = true;
-    (async () => {
+    void (async () => {
       try {
         const target = await noticesApi.destination(id);
         await noticesApi.read(id);

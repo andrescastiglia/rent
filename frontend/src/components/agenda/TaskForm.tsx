@@ -345,6 +345,7 @@ export default function TaskForm({
       )}
       {error && <p role="alert">{error}</p>}
       <button
+        type="submit"
         className="rounded bg-primary text-white p-2"
         disabled={busy || !companyConfig}
       >

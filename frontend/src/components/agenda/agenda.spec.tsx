@@ -316,7 +316,7 @@ it("reports list loading errors and recovers on refresh", async () => {
   render(<AgendaBoard />);
   await screen.findByText("list failed");
   fireEvent.click(screen.getByText("refresh"));
-  await screen.findByText("Call Ana");
+  expect(await screen.findByText("Call Ana")).toBeVisible();
 });
 it("shows person history and completes, cancels and edits a task", async () => {
   (agendaApi.entry as jest.Mock).mockResolvedValue(
@@ -396,7 +396,7 @@ it("shows action and entry errors", async () => {
   ui.unmount();
   (agendaApi.entry as jest.Mock).mockRejectedValue(new Error("entry failed"));
   render(<AgendaDetail id="missing" />);
-  await screen.findByText("entry failed");
+  expect(await screen.findByText("entry failed")).toBeVisible();
 });
 it("loads the inbox, updates preferences, marks read and pages notifications", async () => {
   render(<NotificationBell />);
@@ -443,7 +443,7 @@ it("surfaces denied push and inbox action failures", async () => {
   fireEvent.click(screen.getByText("markRead"));
   await screen.findByText("read failed");
   fireEvent.click(screen.getByRole("checkbox"));
-  await screen.findByText("prefs failed");
+  expect(await screen.findByText("prefs failed")).toBeVisible();
   await act(async () => {
     document.dispatchEvent(new Event("visibilitychange"));
   });

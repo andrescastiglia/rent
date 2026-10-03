@@ -43,7 +43,7 @@ export default function AgendaDetail({
     setTasks([]);
     setHistory([]);
     let active = true;
-    (async () => {
+    void (async () => {
       try {
         const e = id ? await agendaApi.entry(id) : null;
         if (!active) return;

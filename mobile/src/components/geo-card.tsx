@@ -64,7 +64,7 @@ export function GeoCard({
     setImageError('');
     setEta(null);
     setError('');
-    (async () => {
+    void (async () => {
       try {
         if (!(await contactApi.config()).maps) return;
         const destination = entryId

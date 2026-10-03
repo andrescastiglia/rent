@@ -129,12 +129,12 @@ it("retains actionable failed proposals and surfaces rejection errors", async ()
     new Error("reject failed"),
   );
   fireEvent.click(screen.getByText("peopleActivity.actions.reject"));
-  await screen.findByText("reject failed");
+  expect(await screen.findByText("reject failed")).toBeVisible();
 });
 it("reports missing proposals", async () => {
   (apiClient.get as jest.Mock).mockRejectedValue(new Error("not found"));
   render(<Proposal />);
-  await screen.findByText("not found");
+  expect(await screen.findByText("not found")).toBeVisible();
 });
 it("marks notifications read and recovers their current destination", async () => {
   render(<Destination />);
@@ -169,5 +169,7 @@ it("falls back to followup when the map destination is unavailable", async () =>
 it("shows destination errors", async () => {
   (noticesApi.destination as jest.Mock).mockRejectedValue("offline");
   render(<Destination />);
-  await screen.findByRole("alert");
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "No se pudo abrir el aviso",
+  );
 });

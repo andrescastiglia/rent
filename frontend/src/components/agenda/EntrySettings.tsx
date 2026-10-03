@@ -99,7 +99,7 @@ export default function EntrySettings({
         </label>
       )}
       {error && <p role="alert">{error}</p>}
-      <button disabled={busy} className="border rounded p-2">
+      <button type="submit" disabled={busy} className="border rounded p-2">
         {t("save")}
       </button>
     </form>
