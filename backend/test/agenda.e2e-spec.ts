@@ -38,7 +38,9 @@ describe('Company agenda and web notifications (PostgreSQL)', () => {
   const password = 'AgendaFixturePassword123!',
     suffix = randomUUID();
   let taskId: string, personId: string;
+  const previousToolsMode = process.env.AI_TOOLS_MODE;
   beforeAll(async () => {
+    process.env.AI_TOOLS_MODE = 'FULL';
     const module = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -139,6 +141,8 @@ describe('Company agenda and web notifications (PostgreSQL)', () => {
       }
     }
     await app?.close();
+    if (previousToolsMode === undefined) delete process.env.AI_TOOLS_MODE;
+    else process.env.AI_TOOLS_MODE = previousToolsMode;
   });
   const auth = (t = token) => ({ Authorization: `Bearer ${t}` });
   it('creates an optional-person, optional-responsible task once and rejects key reuse', async () => {

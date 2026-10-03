@@ -68,6 +68,7 @@ jest.mock('react-native', () => {
     Linking: { openURL: jest.fn(async () => true) },
     useColorScheme: jest.fn(() => 'light'),
     useWindowDimensions: () => ({ width: 390, height: 844 }),
+    Dimensions: { get: () => ({ width: 390, height: 844 }) },
   };
 });
 jest.mock('react-native-safe-area-context', () => ({

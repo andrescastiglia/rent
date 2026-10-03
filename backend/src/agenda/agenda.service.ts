@@ -95,6 +95,8 @@ export class AgendaService {
   }
   async people(actor: AgendaActor, search = '') {
     this.assertInternal(actor);
+    if (typeof search !== 'string')
+      throw new BadRequestException('Búsqueda inválida');
     if (search.length > 200)
       throw new BadRequestException('Búsqueda demasiado larga');
     return this.db.query(
