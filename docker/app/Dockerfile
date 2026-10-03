@@ -6,7 +6,7 @@ WORKDIR /src
 COPY ${APP}/package*.json ./
 RUN npm ci
 COPY ${APP}/ ./
-COPY shared/database-tls.cjs shared/database-tls.d.cts shared/agenda.ts /shared/
+COPY shared/database-tls.cjs shared/database-tls.d.cts shared/agenda.ts shared/contact-data.ts shared/proximity.ts /shared/
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_API_URL=/api API_PROXY_URL=http://backend.rent.svc.cluster.local:3001
 RUN npm run build
