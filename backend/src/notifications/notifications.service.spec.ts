@@ -40,7 +40,7 @@ describe('NotificationsService', () => {
       const result = await service.getPreferences('user-1', 'co-1');
 
       expect(preferencesRepo.find).toHaveBeenCalledWith({
-        where: { userId: 'user-1', companyId: 'co-1' },
+        where: { userId: 'user-1', companyId: 'co-1', channel: 'whatsapp' },
         order: { notificationType: 'ASC' },
       });
       expect(result).toEqual(existing);
@@ -63,7 +63,9 @@ describe('NotificationsService', () => {
       const result = await service.getPreferences('user-1', 'co-1');
 
       expect(preferencesRepo.create).toHaveBeenCalledTimes(
-        Object.values(NotificationType).length,
+        Object.values(NotificationType).filter(
+          (type) => !type.startsWith('agenda_'),
+        ).length,
       );
       expect(preferencesRepo.save).toHaveBeenCalled();
       expect(result).toEqual(created);
@@ -71,7 +73,12 @@ describe('NotificationsService', () => {
 
     it('getDefaultPreferences covers all notification types', () => {
       const defaults = service.getDefaultPreferences();
-      const types = Object.values(NotificationType);
+      const types = Object.values(NotificationType).filter(
+        (type) => !type.startsWith('agenda_'),
+      );
+      expect(
+        defaults.some((d) => d.notificationType.startsWith('agenda_')),
+      ).toBe(false);
 
       expect(defaults).toHaveLength(types.length);
       for (const type of types) {

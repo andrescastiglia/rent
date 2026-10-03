@@ -8,6 +8,7 @@ import { ChannelAlternatives } from '@/components/channel-alternatives';
 import { useRoleNavigation } from '@/hooks/use-role-navigation';
 
 const taskRoutes = new Set([
+  '/agenda',
   '/properties',
   '/payments',
   '/tenants',

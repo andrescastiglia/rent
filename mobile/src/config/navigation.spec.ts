@@ -93,7 +93,11 @@ describe('permission-aware navigation', () => {
       role: 'staff',
       permissions: { dashboard: true, payments: false, invoices: true },
     });
-    expect(items.map((item) => item.href)).toEqual(['/dashboard', '/invoices']);
+    expect(items.map((item) => item.href)).toEqual([
+      '/agenda',
+      '/dashboard',
+      '/invoices',
+    ]);
   });
 
   it('allows staff modules even when the base role menu omits them', () => {
@@ -103,6 +107,7 @@ describe('permission-aware navigation', () => {
     });
 
     expect(items.map((item) => item.href)).toEqual([
+      '/agenda',
       '/properties',
       '/tenants',
       '/leases',
@@ -163,4 +168,20 @@ it('does not let a secondary external role bypass staff mutation permissions', (
       '/owners/new',
     ),
   ).toBe(true);
+});
+
+it('shares the agenda with staff without widening financial or proposal permissions', () => {
+  expect(
+    canUserAccessPath(
+      { role: 'staff', permissions: {} },
+      '/agenda/task:example',
+    ),
+  ).toBe(true);
+  expect(
+    canUserAccessPath({ role: 'staff', permissions: {} }, '/agenda/proposals'),
+  ).toBe(false);
+  expect(
+    canUserAccessPath({ role: 'staff', permissions: {} }, '/invoices/example'),
+  ).toBe(false);
+  expect(canUserAccessPath({ role: 'tenant' }, '/agenda')).toBe(false);
 });

@@ -959,6 +959,8 @@ describe('WhatsappService', () => {
         userId: 'user-1',
         companyId: 'company-1',
         role: 'owner',
+        roles: undefined,
+        sourceCommunicationId: 'communication-1',
         permissions: { properties: false, ai: true },
         mutationApprovalMode: 'staff_queue',
         channel: 'whatsapp',

@@ -4,115 +4,55 @@ export type ClientOptions = {
   baseUrl: string;
 };
 
-export type LoginDto = {
-  email: string;
-  password: string;
-  captchaToken?: string;
+export type AgendaTaskDto = {
+  title: string;
+  description?: string | null;
+  kind?: 'call' | 'task' | 'visit';
+  personType?: 'owner' | 'tenant' | 'buyer' | 'interested' | 'user';
+  personId?: string | null;
+  responsibleUserId?: string | null;
+  scheduledDate?: string | null;
+  scheduledAt?: string | null;
+  endsAt?: string | null;
+  reminderMinutes?: number;
+  reminderHour?: number;
+  status?: 'pending' | 'completed' | 'cancelled';
+  relatedEntryId?: string | null;
+  sourceCommunicationId?: string;
 };
 
-export type RegisterDto = {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  role?: 'owner' | 'tenant';
-  phone?: string;
-  captchaToken?: string;
+export type UpdateAgendaTaskDto = {
+  title?: string;
+  description?: string | null;
+  kind?: 'call' | 'task' | 'visit';
+  personType?: 'owner' | 'tenant' | 'buyer' | 'interested' | 'user';
+  personId?: string | null;
+  responsibleUserId?: string | null;
+  scheduledDate?: string | null;
+  scheduledAt?: string | null;
+  endsAt?: string | null;
+  reminderMinutes?: number;
+  reminderHour?: number;
+  status?: 'pending' | 'completed' | 'cancelled';
+  relatedEntryId?: string | null;
+  sourceCommunicationId?: string;
+  version: number;
 };
 
-export type ReauthenticateDto = {
-  password: string;
-};
-
-export type CreateUserDto = {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  role: 'admin' | 'owner' | 'tenant' | 'staff' | 'buyer';
-  roles?: Array<'admin' | 'owner' | 'tenant' | 'staff' | 'buyer'>;
-  phone?: string;
-  permissions?: {
-    [key: string]: unknown;
-  };
-};
-
-export type UpdateProfileDto = {
-  email?: string;
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  avatarUrl?: string | null;
-  language?: string;
-  whatsappEnabled?: boolean;
-};
-
-export type ChangePasswordDto = {
-  currentPassword: string;
-  newPassword: string;
-};
-
-export type UpdateUserDto = {
-  email?: string;
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  avatarUrl?: string | null;
-  language?: 'es' | 'en' | 'pt';
-  permissions?: {
-    [key: string]: unknown;
-  };
-  whatsappEnabled?: boolean;
-  role?: 'admin' | 'owner' | 'tenant' | 'staff' | 'buyer';
-  roles?: Array<'admin' | 'owner' | 'tenant' | 'staff' | 'buyer'>;
-};
-
-export type SetUserActivationDto = {
-  isActive: boolean;
-};
-
-export type ResetUserPasswordDto = {
-  newPassword?: string;
-};
-
-export type CreatePropertyDto = {
-  companyId?: string;
-  ownerId?: string;
+export type CreateSaleFolderDto = {
   name: string;
-  ownerWhatsapp?: string;
-  propertyType:
-    | 'apartment'
-    | 'house'
-    | 'commercial'
-    | 'office'
-    | 'warehouse'
-    | 'land'
-    | 'parking'
-    | 'other';
-  addressStreet: string;
-  addressNumber?: string;
-  addressFloor?: string;
-  addressApartment?: string;
-  addressCity: string;
-  addressState: string;
-  addressCountry?: string;
-  addressPostalCode?: string;
-  latitude?: number;
-  longitude?: number;
-  totalArea?: number;
-  builtArea?: number;
-  yearBuilt?: number;
   description?: string;
-  notes?: string;
-  rentPrice?: number;
-  salePrice?: number;
-  saleCurrency?: string;
-  operations?: Array<'rent' | 'sale'>;
-  operationState?: 'available' | 'rented' | 'reserved' | 'sold';
-  allowsPets?: boolean;
-  acceptedGuaranteeTypes?: Array<string>;
-  maxOccupants?: number;
-  images?: Array<string>;
+};
+
+export type SaleFolder = {
+  id: string;
+  companyId: string;
+  name: string;
+  description: string;
+  agreements: Array<SaleAgreement>;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
 };
 
 export type Company = {
@@ -193,6 +133,68 @@ export type User = {
   deletedAt: string;
 };
 
+export type Tenant = {
+  id: string;
+  userId: string;
+  user: User;
+  companyId: string;
+  company: Company;
+  dni: string;
+  cuil: string;
+  dateOfBirth: string;
+  nationality: string;
+  occupation: string;
+  employer: string;
+  monthlyIncome: number;
+  employmentStatus:
+    'employed' | 'self_employed' | 'unemployed' | 'retired' | 'student';
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  emergencyContactRelationship: string;
+  notes: string;
+  creditScore: number;
+  creditScoreDate: string;
+  contactConsent: boolean;
+  contactConsentRecordedAt: string | null;
+  preferredContactChannel: 'whatsapp' | 'email' | 'sms';
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type InterestedActivity = {
+  id: string;
+  interestedProfileId: string;
+  interestedProfile: InterestedProfile;
+  type: 'call' | 'task' | 'note' | 'email' | 'whatsapp' | 'visit';
+  status: 'pending' | 'completed' | 'cancelled';
+  subject: string;
+  body: string;
+  dueAt: string;
+  completedAt: string;
+  templateName: string;
+  metadata: {
+    [key: string]: unknown;
+  };
+  createdByUserId: string;
+  createdByUser: User;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type InterestedStageHistory = {
+  id: string;
+  interestedProfileId: string;
+  interestedProfile: InterestedProfile;
+  fromStatus: 'interested' | 'tenant' | 'buyer';
+  toStatus: 'interested' | 'tenant' | 'buyer';
+  reason: string;
+  changedByUserId: string;
+  changedByUser: User;
+  changedAt: string;
+  createdAt: string;
+};
+
 export type Owner = {
   id: string;
   userId: string;
@@ -227,6 +229,37 @@ export type Owner = {
   contactConsent: boolean;
   contactConsentRecordedAt: string | null;
   preferredContactChannel: 'whatsapp' | 'email' | 'sms';
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string;
+};
+
+export type Unit = {
+  id: string;
+  propertyId: string;
+  property: Property;
+  companyId: string;
+  company: Company;
+  unitNumber: string;
+  floor: string;
+  status: 'available' | 'occupied' | 'maintenance' | 'reserved';
+  unitType: string;
+  area: number;
+  bedrooms: number;
+  bathrooms: number;
+  hasParking: boolean;
+  parkingSpots: number;
+  hasStorage: boolean;
+  isFurnished: boolean;
+  baseRent: number;
+  currency: string;
+  expenses: number;
+  description: string;
+  features: Array<string>;
+  images: Array<{
+    [key: string]: unknown;
+  }>;
+  notes: string;
   createdAt: string;
   updatedAt: string;
   deletedAt: string;
@@ -301,107 +334,90 @@ export type Property = {
   deletedAt: string;
 };
 
-export type Unit = {
+export type InterestedPropertyMatch = {
   id: string;
-  propertyId: string;
-  property: Property;
   companyId: string;
   company: Company;
-  unitNumber: string;
-  floor: string;
-  status: 'available' | 'occupied' | 'maintenance' | 'reserved';
-  unitType: string;
-  area: number;
-  bedrooms: number;
-  bathrooms: number;
-  hasParking: boolean;
-  parkingSpots: number;
-  hasStorage: boolean;
-  isFurnished: boolean;
-  baseRent: number;
-  currency: string;
-  expenses: number;
-  description: string;
-  features: Array<string>;
-  images: Array<{
-    [key: string]: unknown;
-  }>;
+  interestedProfileId: string;
+  interestedProfile: InterestedProfile;
+  propertyId: string;
+  property: Property;
+  status:
+    | 'suggested'
+    | 'contacted'
+    | 'visit_scheduled'
+    | 'accepted'
+    | 'rejected'
+    | 'expired';
+  score: number;
+  matchReasons: Array<string>;
+  firstMatchedAt: string;
+  lastMatchedAt: string;
+  contactedAt: string;
   notes: string;
+  createdByUserId: string;
+  createdByUser: User;
   createdAt: string;
   updatedAt: string;
   deletedAt: string;
 };
 
-export type UpdatePropertyDto = {
-  status?: 'active' | 'inactive' | 'under_maintenance' | 'pending_approval';
-  companyId?: string;
-  ownerId?: string;
-};
-
-export type DiscardPropertyImagesDto = {
-  images: Array<string>;
-};
-
-export type CreateUnitDto = {
-  propertyId: string;
-  companyId?: string;
-  unitNumber: string;
-  floor?: string;
-  bedrooms?: number;
-  bathrooms?: number;
-  area: number;
-  baseRent?: number;
-  currency?: string;
-  unitType?: string;
-  hasParking?: boolean;
-  parkingSpots?: number;
-  hasStorage?: boolean;
-  isFurnished?: boolean;
-  expenses?: number;
-  status?: 'available' | 'occupied' | 'maintenance' | 'reserved';
-  description?: string;
-  notes?: string;
-};
-
-export type UpdateUnitDto = {
-  propertyId?: string;
-  companyId?: string;
-};
-
-export type CreatePropertyVisitDto = {
-  visitedAt?: string;
-  interestedName?: string;
-  interestedProfileId?: string;
-  comments?: string;
-  hasOffer?: boolean;
-  offerAmount?: number;
-  offerCurrency?: string;
-};
-
-export type Tenant = {
+export type InterestedProfile = {
   id: string;
-  userId: string;
-  user: User;
   companyId: string;
   company: Company;
-  dni: string;
-  cuil: string;
-  dateOfBirth: string;
-  nationality: string;
-  occupation: string;
-  employer: string;
-  monthlyIncome: number;
-  employmentStatus:
-    'employed' | 'self_employed' | 'unemployed' | 'retired' | 'student';
-  emergencyContactName: string;
-  emergencyContactPhone: string;
-  emergencyContactRelationship: string;
-  notes: string;
-  creditScore: number;
-  creditScoreDate: string;
-  contactConsent: boolean;
-  contactConsentRecordedAt: string | null;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  peopleCount: number;
+  minAmount: number;
+  maxAmount: number;
+  verifiedMonthlyIncome: number | null;
+  hasPets: boolean;
+  guaranteeTypes: Array<string>;
+  preferredZones: Array<string>;
+  preferredCity: string;
+  desiredFeatures: Array<string>;
+  propertyTypePreference:
+    | 'apartment'
+    | 'house'
+    | 'commercial'
+    | 'office'
+    | 'warehouse'
+    | 'land'
+    | 'parking'
+    | 'other';
+  operation: 'rent' | 'sale';
+  operations: Array<'rent' | 'sale'>;
+  status: 'interested' | 'tenant' | 'buyer';
+  qualificationLevel: 'mql' | 'sql' | 'rejected';
+  qualificationNotes: string;
+  source: string;
+  assignedToUserId: string;
+  assignedToUser: User;
+  organizationName: string;
+  customFields: {
+    [key: string]: unknown;
+  };
+  pipelineStage: string | null;
+  lastContactAt: string;
+  nextContactAt: string;
+  lostReason: string;
+  consentContact: boolean;
+  consentRecordedAt: string;
+  registeredInOffice: boolean;
   preferredContactChannel: 'whatsapp' | 'email' | 'sms';
+  convertedToTenantId: string | null;
+  convertedToTenant: Tenant | null;
+  convertedToBuyerId: string | null;
+  convertedToBuyer: Buyer | null;
+  convertedToSaleAgreementId: string | null;
+  convertedToSaleAgreement: SaleAgreement | null;
+  notes: string;
+  activities: Array<InterestedActivity>;
+  stageHistory: Array<InterestedStageHistory>;
+  propertyMatches: Array<InterestedPropertyMatch>;
   createdAt: string;
   updatedAt: string;
   deletedAt: string;
@@ -420,17 +436,6 @@ export type Buyer = {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
-};
-
-export type SaleFolder = {
-  id: string;
-  companyId: string;
-  name: string;
-  description: string;
-  agreements: Array<SaleAgreement>;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string;
 };
 
 export type Currency = {
@@ -642,175 +647,101 @@ export type SaleAgreement = {
   deletedAt: string;
 };
 
-export type InterestedActivity = {
+export type CreateSaleAgreementDto = {
+  folderId: string;
+  propertyId: string;
+  buyerId: string;
+  buyerName?: string;
+  buyerPhone?: string;
+  buyerEmail?: string;
+  totalAmount: number;
+  currency?: string;
+  installmentAmount: number;
+  installmentCount: number;
+  startDate: string;
+  dueDay?: number;
+  notes?: string;
+};
+
+export type CreateSaleReceiptDto = {
+  amount: number;
+  paymentDate: string;
+  installmentNumber?: number;
+};
+
+export type CancelSaleReceiptDto = {
+  reason: string;
+};
+
+export type GenerateUploadUrlDto = {
+  entityType:
+    | 'property'
+    | 'properties'
+    | 'unit'
+    | 'units'
+    | 'lease'
+    | 'leases'
+    | 'tenant'
+    | 'tenants'
+    | 'owner'
+    | 'owners'
+    | 'maintenance'
+    | 'maintenance_ticket';
+  entityId: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  documentType:
+    | 'lease_contract'
+    | 'id_document'
+    | 'proof_of_income'
+    | 'bank_statement'
+    | 'utility_bill'
+    | 'insurance'
+    | 'inspection_report'
+    | 'maintenance_record'
+    | 'photo'
+    | 'other';
+};
+
+export type Document = {
   id: string;
-  interestedProfileId: string;
-  interestedProfile: InterestedProfile;
-  type: 'call' | 'task' | 'note' | 'email' | 'whatsapp' | 'visit';
-  status: 'pending' | 'completed' | 'cancelled';
-  subject: string;
-  body: string;
-  dueAt: string;
-  completedAt: string;
-  templateName: string;
+  companyId: string;
+  company: Company;
+  documentType:
+    | 'lease_contract'
+    | 'id_document'
+    | 'proof_of_income'
+    | 'bank_statement'
+    | 'utility_bill'
+    | 'insurance'
+    | 'inspection_report'
+    | 'maintenance_record'
+    | 'photo'
+    | 'other';
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  name: string;
+  description: string;
+  fileUrl: string;
+  fileData: {
+    [key: string]: unknown;
+  } | null;
+  fileSize: number;
+  fileMimeType: string;
+  expiresAt: string;
+  entityType: string;
+  entityId: string;
+  verifiedBy: string;
+  verifier: User;
+  verifiedAt: string;
+  rejectionReason: string;
+  tags: Array<string>;
   metadata: {
     [key: string]: unknown;
   };
-  createdByUserId: string;
-  createdByUser: User;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type InterestedStageHistory = {
-  id: string;
-  interestedProfileId: string;
-  interestedProfile: InterestedProfile;
-  fromStatus: 'interested' | 'tenant' | 'buyer';
-  toStatus: 'interested' | 'tenant' | 'buyer';
-  reason: string;
-  changedByUserId: string;
-  changedByUser: User;
-  changedAt: string;
-  createdAt: string;
-};
-
-export type InterestedPropertyMatch = {
-  id: string;
-  companyId: string;
-  company: Company;
-  interestedProfileId: string;
-  interestedProfile: InterestedProfile;
-  propertyId: string;
-  property: Property;
-  status:
-    | 'suggested'
-    | 'contacted'
-    | 'visit_scheduled'
-    | 'accepted'
-    | 'rejected'
-    | 'expired';
-  score: number;
-  matchReasons: Array<string>;
-  firstMatchedAt: string;
-  lastMatchedAt: string;
-  contactedAt: string;
-  notes: string;
-  createdByUserId: string;
-  createdByUser: User;
   createdAt: string;
   updatedAt: string;
   deletedAt: string;
-};
-
-export type InterestedProfile = {
-  id: string;
-  companyId: string;
-  company: Company;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  email: string;
-  peopleCount: number;
-  minAmount: number;
-  maxAmount: number;
-  verifiedMonthlyIncome: number | null;
-  hasPets: boolean;
-  guaranteeTypes: Array<string>;
-  preferredZones: Array<string>;
-  preferredCity: string;
-  desiredFeatures: Array<string>;
-  propertyTypePreference:
-    | 'apartment'
-    | 'house'
-    | 'commercial'
-    | 'office'
-    | 'warehouse'
-    | 'land'
-    | 'parking'
-    | 'other';
-  operation: 'rent' | 'sale';
-  operations: Array<'rent' | 'sale'>;
-  status: 'interested' | 'tenant' | 'buyer';
-  qualificationLevel: 'mql' | 'sql' | 'rejected';
-  qualificationNotes: string;
-  source: string;
-  assignedToUserId: string;
-  assignedToUser: User;
-  organizationName: string;
-  customFields: {
-    [key: string]: unknown;
-  };
-  pipelineStage: string | null;
-  lastContactAt: string;
-  nextContactAt: string;
-  lostReason: string;
-  consentContact: boolean;
-  consentRecordedAt: string;
-  registeredInOffice: boolean;
-  preferredContactChannel: 'whatsapp' | 'email' | 'sms';
-  convertedToTenantId: string | null;
-  convertedToTenant: Tenant | null;
-  convertedToBuyerId: string | null;
-  convertedToBuyer: Buyer | null;
-  convertedToSaleAgreementId: string | null;
-  convertedToSaleAgreement: SaleAgreement | null;
-  notes: string;
-  activities: Array<InterestedActivity>;
-  stageHistory: Array<InterestedStageHistory>;
-  propertyMatches: Array<InterestedPropertyMatch>;
-  createdAt: string;
-  updatedAt: string;
-  deletedAt: string;
-};
-
-export type PropertyVisit = {
-  id: string;
-  propertyId: string;
-  property: Property;
-  kind: 'visit' | 'maintenance';
-  visitedAt: string;
-  interestedName: string;
-  interestedProfileId: string;
-  interestedProfile: InterestedProfile;
-  comments: string;
-  hasOffer: boolean;
-  offerAmount: number | null;
-  offerCurrency: string;
-  result: 'pending' | 'interested' | 'not_interested' | 'offer';
-  resultReason: string | null;
-  completedAt: string | null;
-  createdByUserId: string;
-  notifications: Array<PropertyVisitNotification>;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type PropertyVisitNotification = {
-  id: string;
-  visitId: string;
-  visit: PropertyVisit;
-  channel: 'whatsapp' | 'email';
-  recipient: string;
-  message: string;
-  status: 'queued' | 'sent' | 'failed';
-  error: string | null;
-  sentAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type UpdatePropertyVisitResultDto = {
-  result: 'pending' | 'interested' | 'not_interested' | 'offer';
-  reason?: string;
-  offerAmount?: number;
-  offerCurrency?: string;
-};
-
-export type CreatePropertyMaintenanceTaskDto = {
-  scheduledAt?: string;
-  title: string;
-  notes?: string;
 };
 
 export type CommunicationTemplate = {
@@ -1038,75 +969,211 @@ export type CreateWhatsappActivityDto = {
   markReserved?: boolean;
 };
 
-export type GenerateUploadUrlDto = {
-  entityType:
-    | 'property'
-    | 'properties'
-    | 'unit'
-    | 'units'
-    | 'lease'
-    | 'leases'
-    | 'tenant'
-    | 'tenants'
-    | 'owner'
-    | 'owners'
-    | 'maintenance'
-    | 'maintenance_ticket';
-  entityId: string;
-  fileName: string;
-  mimeType: string;
-  fileSize: number;
-  documentType:
-    | 'lease_contract'
-    | 'id_document'
-    | 'proof_of_income'
-    | 'bank_statement'
-    | 'utility_bill'
-    | 'insurance'
-    | 'inspection_report'
-    | 'maintenance_record'
-    | 'photo'
-    | 'other';
+export type LoginDto = {
+  email: string;
+  password: string;
+  captchaToken?: string;
 };
 
-export type Document = {
-  id: string;
-  companyId: string;
-  company: Company;
-  documentType:
-    | 'lease_contract'
-    | 'id_document'
-    | 'proof_of_income'
-    | 'bank_statement'
-    | 'utility_bill'
-    | 'insurance'
-    | 'inspection_report'
-    | 'maintenance_record'
-    | 'photo'
-    | 'other';
-  status: 'pending' | 'approved' | 'rejected' | 'expired';
-  name: string;
-  description: string;
-  fileUrl: string;
-  fileData: {
-    [key: string]: unknown;
-  } | null;
-  fileSize: number;
-  fileMimeType: string;
-  expiresAt: string;
-  entityType: string;
-  entityId: string;
-  verifiedBy: string;
-  verifier: User;
-  verifiedAt: string;
-  rejectionReason: string;
-  tags: Array<string>;
-  metadata: {
+export type RegisterDto = {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  role?: 'owner' | 'tenant';
+  phone?: string;
+  captchaToken?: string;
+};
+
+export type ReauthenticateDto = {
+  password: string;
+};
+
+export type CreateUserDto = {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  role: 'admin' | 'owner' | 'tenant' | 'staff' | 'buyer';
+  roles?: Array<'admin' | 'owner' | 'tenant' | 'staff' | 'buyer'>;
+  phone?: string;
+  permissions?: {
     [key: string]: unknown;
   };
+};
+
+export type UpdateProfileDto = {
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  avatarUrl?: string | null;
+  language?: string;
+  whatsappEnabled?: boolean;
+};
+
+export type ChangePasswordDto = {
+  currentPassword: string;
+  newPassword: string;
+};
+
+export type UpdateUserDto = {
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  avatarUrl?: string | null;
+  language?: 'es' | 'en' | 'pt';
+  permissions?: {
+    [key: string]: unknown;
+  };
+  whatsappEnabled?: boolean;
+  role?: 'admin' | 'owner' | 'tenant' | 'staff' | 'buyer';
+  roles?: Array<'admin' | 'owner' | 'tenant' | 'staff' | 'buyer'>;
+};
+
+export type SetUserActivationDto = {
+  isActive: boolean;
+};
+
+export type ResetUserPasswordDto = {
+  newPassword?: string;
+};
+
+export type CreatePropertyDto = {
+  companyId?: string;
+  ownerId?: string;
+  name: string;
+  ownerWhatsapp?: string;
+  propertyType:
+    | 'apartment'
+    | 'house'
+    | 'commercial'
+    | 'office'
+    | 'warehouse'
+    | 'land'
+    | 'parking'
+    | 'other';
+  addressStreet: string;
+  addressNumber?: string;
+  addressFloor?: string;
+  addressApartment?: string;
+  addressCity: string;
+  addressState: string;
+  addressCountry?: string;
+  addressPostalCode?: string;
+  latitude?: number;
+  longitude?: number;
+  totalArea?: number;
+  builtArea?: number;
+  yearBuilt?: number;
+  description?: string;
+  notes?: string;
+  rentPrice?: number;
+  salePrice?: number;
+  saleCurrency?: string;
+  operations?: Array<'rent' | 'sale'>;
+  operationState?: 'available' | 'rented' | 'reserved' | 'sold';
+  allowsPets?: boolean;
+  acceptedGuaranteeTypes?: Array<string>;
+  maxOccupants?: number;
+  images?: Array<string>;
+};
+
+export type UpdatePropertyDto = {
+  status?: 'active' | 'inactive' | 'under_maintenance' | 'pending_approval';
+  companyId?: string;
+  ownerId?: string;
+};
+
+export type DiscardPropertyImagesDto = {
+  images: Array<string>;
+};
+
+export type CreateUnitDto = {
+  propertyId: string;
+  companyId?: string;
+  unitNumber: string;
+  floor?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  area: number;
+  baseRent?: number;
+  currency?: string;
+  unitType?: string;
+  hasParking?: boolean;
+  parkingSpots?: number;
+  hasStorage?: boolean;
+  isFurnished?: boolean;
+  expenses?: number;
+  status?: 'available' | 'occupied' | 'maintenance' | 'reserved';
+  description?: string;
+  notes?: string;
+};
+
+export type UpdateUnitDto = {
+  propertyId?: string;
+  companyId?: string;
+};
+
+export type CreatePropertyVisitDto = {
+  visitedAt?: string;
+  interestedName?: string;
+  interestedProfileId?: string;
+  comments?: string;
+  hasOffer?: boolean;
+  offerAmount?: number;
+  offerCurrency?: string;
+};
+
+export type PropertyVisit = {
+  id: string;
+  propertyId: string;
+  property: Property;
+  kind: 'visit' | 'maintenance';
+  agendaScheduleKind: 'time' | 'date';
+  visitedAt: string;
+  interestedName: string;
+  interestedProfileId: string;
+  interestedProfile: InterestedProfile;
+  comments: string;
+  hasOffer: boolean;
+  offerAmount: number | null;
+  offerCurrency: string;
+  result: 'pending' | 'interested' | 'not_interested' | 'offer';
+  resultReason: string | null;
+  completedAt: string | null;
+  createdByUserId: string;
+  notifications: Array<PropertyVisitNotification>;
   createdAt: string;
   updatedAt: string;
-  deletedAt: string;
+};
+
+export type PropertyVisitNotification = {
+  id: string;
+  visitId: string;
+  visit: PropertyVisit;
+  channel: 'whatsapp' | 'email';
+  recipient: string;
+  message: string;
+  status: 'queued' | 'sent' | 'failed';
+  error: string | null;
+  sentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UpdatePropertyVisitResultDto = {
+  result: 'pending' | 'interested' | 'not_interested' | 'offer';
+  reason?: string;
+  offerAmount?: number;
+  offerCurrency?: string;
+};
+
+export type CreatePropertyMaintenanceTaskDto = {
+  scheduledAt?: string;
+  title: string;
+  notes?: string;
 };
 
 export type CreateLeaseDto = {
@@ -2312,37 +2379,6 @@ export type UpdateInterestedProfileDto = {
   [key: string]: unknown;
 };
 
-export type CreateSaleFolderDto = {
-  name: string;
-  description?: string;
-};
-
-export type CreateSaleAgreementDto = {
-  folderId: string;
-  propertyId: string;
-  buyerId: string;
-  buyerName?: string;
-  buyerPhone?: string;
-  buyerEmail?: string;
-  totalAmount: number;
-  currency?: string;
-  installmentAmount: number;
-  installmentCount: number;
-  startDate: string;
-  dueDay?: number;
-  notes?: string;
-};
-
-export type CreateSaleReceiptDto = {
-  amount: number;
-  paymentDate: string;
-  installmentNumber?: number;
-};
-
-export type CancelSaleReceiptDto = {
-  reason: string;
-};
-
 export type ExecuteAiToolDto = {
   toolName: string;
   arguments?: {
@@ -2808,6 +2844,12 @@ export type NotificationPreference = {
   companyId: string;
   company: Company;
   notificationType:
+    | 'agenda_assigned'
+    | 'agenda_rescheduled'
+    | 'agenda_changed'
+    | 'agenda_reminder'
+    | 'agenda_overdue'
+    | 'agenda_proposal'
     | 'invoice_issued'
     | 'payment_reminder'
     | 'payment_received'
@@ -2828,6 +2870,12 @@ export type NotificationPreference = {
 
 export type NotificationPreferenceItemDto = {
   notificationType:
+    | 'agenda_assigned'
+    | 'agenda_rescheduled'
+    | 'agenda_changed'
+    | 'agenda_reminder'
+    | 'agenda_overdue'
+    | 'agenda_proposal'
     | 'invoice_issued'
     | 'payment_reminder'
     | 'payment_received'
@@ -3144,6 +3192,775 @@ export type AppGetCapabilitiesData = {
 };
 
 export type AppGetCapabilitiesResponses = {
+  200: unknown;
+};
+
+export type AgendaConfigData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/agenda/config';
+};
+
+export type AgendaConfigResponses = {
+  200: unknown;
+};
+
+export type AgendaListData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/agenda';
+};
+
+export type AgendaListResponses = {
+  200: unknown;
+};
+
+export type AgendaPeopleData = {
+  body?: never;
+  path?: never;
+  query?: {
+    search?: string;
+  };
+  url: '/agenda/people';
+};
+
+export type AgendaPeopleResponses = {
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type AgendaPeopleResponse =
+  AgendaPeopleResponses[keyof AgendaPeopleResponses];
+
+export type AgendaStaffData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/agenda/staff';
+};
+
+export type AgendaStaffResponses = {
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type AgendaStaffResponse =
+  AgendaStaffResponses[keyof AgendaStaffResponses];
+
+export type AgendaPersonData = {
+  body?: never;
+  path: {
+    type: string;
+    id: string;
+  };
+  query?: never;
+  url: '/agenda/people/{type}/{id}';
+};
+
+export type AgendaPersonResponses = {
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type AgendaPersonResponse =
+  AgendaPersonResponses[keyof AgendaPersonResponses];
+
+export type AgendaCreateData = {
+  body: AgendaTaskDto;
+  headers: {
+    'idempotency-key': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/agenda/tasks';
+};
+
+export type AgendaCreateResponses = {
+  201: unknown;
+};
+
+export type AgendaEntryData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/agenda/entries/{id}';
+};
+
+export type AgendaEntryResponses = {
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type AgendaEntryResponse =
+  AgendaEntryResponses[keyof AgendaEntryResponses];
+
+export type AgendaUpdateData = {
+  body: UpdateAgendaTaskDto;
+  headers: {
+    'idempotency-key': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/agenda/entries/{id}';
+};
+
+export type AgendaUpdateResponses = {
+  200: unknown;
+};
+
+export type AgendaHistoryData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/agenda/entries/{id}/history';
+};
+
+export type AgendaHistoryResponses = {
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type AgendaHistoryResponse =
+  AgendaHistoryResponses[keyof AgendaHistoryResponses];
+
+export type AgendaSettingsData = {
+  body?: never;
+  headers: {
+    'idempotency-key': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/agenda/entries/{id}/settings';
+};
+
+export type AgendaSettingsResponses = {
+  200: unknown;
+};
+
+export type SalesListFoldersData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/sales/folders';
+};
+
+export type SalesListFoldersResponses = {
+  200: Array<SaleFolder>;
+};
+
+export type SalesListFoldersResponse =
+  SalesListFoldersResponses[keyof SalesListFoldersResponses];
+
+export type SalesCreateFolderData = {
+  body: CreateSaleFolderDto;
+  headers: {
+    'idempotency-key': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/sales/folders';
+};
+
+export type SalesCreateFolderResponses = {
+  201: SaleFolder;
+};
+
+export type SalesCreateFolderResponse =
+  SalesCreateFolderResponses[keyof SalesCreateFolderResponses];
+
+export type SalesListAgreementsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    folderId?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  };
+  url: '/sales/agreements';
+};
+
+export type SalesListAgreementsResponses = {
+  200: Array<SaleAgreement>;
+};
+
+export type SalesListAgreementsResponse =
+  SalesListAgreementsResponses[keyof SalesListAgreementsResponses];
+
+export type SalesCreateAgreementData = {
+  body: CreateSaleAgreementDto;
+  headers: {
+    'idempotency-key': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/sales/agreements';
+};
+
+export type SalesCreateAgreementResponses = {
+  201: SaleAgreement;
+};
+
+export type SalesCreateAgreementResponse =
+  SalesCreateAgreementResponses[keyof SalesCreateAgreementResponses];
+
+export type SalesPageAgreementsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    folderId?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  };
+  url: '/sales/agreements/page';
+};
+
+export type SalesPageAgreementsResponses = {
+  200: unknown;
+};
+
+export type SalesGetAgreementData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/sales/agreements/{id}';
+};
+
+export type SalesGetAgreementResponses = {
+  200: SaleAgreement;
+};
+
+export type SalesGetAgreementResponse =
+  SalesGetAgreementResponses[keyof SalesGetAgreementResponses];
+
+export type SalesListReceiptsData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/sales/agreements/{id}/receipts';
+};
+
+export type SalesListReceiptsResponses = {
+  200: Array<SaleReceipt>;
+};
+
+export type SalesListReceiptsResponse =
+  SalesListReceiptsResponses[keyof SalesListReceiptsResponses];
+
+export type SalesCreateReceiptData = {
+  body: CreateSaleReceiptDto;
+  headers: {
+    'idempotency-key': string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/sales/agreements/{id}/receipts';
+};
+
+export type SalesCreateReceiptResponses = {
+  201: SaleReceipt;
+};
+
+export type SalesCreateReceiptResponse =
+  SalesCreateReceiptResponses[keyof SalesCreateReceiptResponses];
+
+export type SalesCancelReceiptData = {
+  body: CancelSaleReceiptDto;
+  headers: {
+    'idempotency-key': string;
+  };
+  path: {
+    receiptId: string;
+  };
+  query?: never;
+  url: '/sales/receipts/{receiptId}/cancel';
+};
+
+export type SalesCancelReceiptResponses = {
+  200: SaleReceipt;
+};
+
+export type SalesCancelReceiptResponse =
+  SalesCancelReceiptResponses[keyof SalesCancelReceiptResponses];
+
+export type SalesGetScheduleData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query: {
+    page: number;
+    limit: number;
+    asOf?: string;
+  };
+  url: '/sales/agreements/{id}/schedule';
+};
+
+export type SalesGetScheduleResponses = {
+  200: unknown;
+};
+
+export type SalesDownloadReceiptData = {
+  body?: never;
+  path: {
+    receiptId: string;
+  };
+  query?: never;
+  url: '/sales/receipts/{receiptId}/pdf';
+};
+
+export type SalesDownloadReceiptResponses = {
+  200: unknown;
+};
+
+export type SaleReceiptEffectsProcessData = {
+  body?: never;
+  headers: {
+    'x-batch-communications-token': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/sales/internal/process-receipts';
+};
+
+export type SaleReceiptEffectsProcessResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type SaleReceiptEffectsProcessResponse =
+  SaleReceiptEffectsProcessResponses[keyof SaleReceiptEffectsProcessResponses];
+
+export type DocumentsGenerateUploadUrlData = {
+  body: GenerateUploadUrlDto;
+  path?: never;
+  query?: never;
+  url: '/documents/upload-url';
+};
+
+export type DocumentsGenerateUploadUrlResponses = {
+  201: unknown;
+};
+
+export type DocumentsConfirmUploadData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/documents/{id}/confirm';
+};
+
+export type DocumentsConfirmUploadResponses = {
+  200: Document;
+};
+
+export type DocumentsConfirmUploadResponse =
+  DocumentsConfirmUploadResponses[keyof DocumentsConfirmUploadResponses];
+
+export type DocumentsGenerateDownloadUrlData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/documents/{id}/download-url';
+};
+
+export type DocumentsGenerateDownloadUrlResponses = {
+  200: unknown;
+};
+
+export type DocumentsFindByEntityData = {
+  body?: never;
+  path: {
+    type: string;
+    id: string;
+  };
+  query?: never;
+  url: '/documents/entity/{type}/{id}';
+};
+
+export type DocumentsFindByEntityResponses = {
+  200: Array<Document>;
+};
+
+export type DocumentsFindByEntityResponse =
+  DocumentsFindByEntityResponses[keyof DocumentsFindByEntityResponses];
+
+export type DocumentsRemoveData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/documents/{id}';
+};
+
+export type DocumentsRemoveResponses = {
+  200: unknown;
+};
+
+export type DocumentContentDownloadData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query: {
+    token: string;
+  };
+  url: '/documents/{id}/content';
+};
+
+export type DocumentContentDownloadResponses = {
+  200: Blob | File;
+};
+
+export type DocumentContentDownloadResponse =
+  DocumentContentDownloadResponses[keyof DocumentContentDownloadResponses];
+
+export type DocumentContentUploadData = {
+  body: Blob | File;
+  path: {
+    id: string;
+  };
+  query: {
+    token: string;
+  };
+  url: '/documents/{id}/content';
+};
+
+export type DocumentContentUploadResponses = {
+  204: void;
+};
+
+export type DocumentContentUploadResponse =
+  DocumentContentUploadResponses[keyof DocumentContentUploadResponses];
+
+export type CommunicationsListTemplatesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/communications/templates';
+};
+
+export type CommunicationsListTemplatesResponses = {
+  200: Array<CommunicationTemplate>;
+};
+
+export type CommunicationsListTemplatesResponse =
+  CommunicationsListTemplatesResponses[keyof CommunicationsListTemplatesResponses];
+
+export type CommunicationsCreateTemplateData = {
+  body: CreateCommunicationTemplateDto;
+  path?: never;
+  query?: never;
+  url: '/communications/templates';
+};
+
+export type CommunicationsCreateTemplateResponses = {
+  201: CommunicationTemplate;
+};
+
+export type CommunicationsCreateTemplateResponse =
+  CommunicationsCreateTemplateResponses[keyof CommunicationsCreateTemplateResponses];
+
+export type CommunicationsUpdateTemplateData = {
+  body: UpdateCommunicationTemplateDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/communications/templates/{id}';
+};
+
+export type CommunicationsUpdateTemplateResponses = {
+  200: CommunicationTemplate;
+};
+
+export type CommunicationsUpdateTemplateResponse =
+  CommunicationsUpdateTemplateResponses[keyof CommunicationsUpdateTemplateResponses];
+
+export type CommunicationsPreviewData = {
+  body: PreviewCommunicationDto;
+  path?: never;
+  query?: never;
+  url: '/communications/preview';
+};
+
+export type CommunicationsPreviewResponses = {
+  201: unknown;
+};
+
+export type CommunicationsSendTestData = {
+  body: TestCommunicationDto;
+  path?: never;
+  query?: never;
+  url: '/communications/test';
+};
+
+export type CommunicationsSendTestResponses = {
+  201: CommunicationDelivery;
+};
+
+export type CommunicationsSendTestResponse =
+  CommunicationsSendTestResponses[keyof CommunicationsSendTestResponses];
+
+export type CommunicationsListDeliveriesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/communications/deliveries';
+};
+
+export type CommunicationsListDeliveriesResponses = {
+  200: Array<CommunicationDelivery>;
+};
+
+export type CommunicationsListDeliveriesResponse =
+  CommunicationsListDeliveriesResponses[keyof CommunicationsListDeliveriesResponses];
+
+export type CommunicationsListInboxData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/communications/inbox';
+};
+
+export type CommunicationsListInboxResponses = {
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type CommunicationsListInboxResponse =
+  CommunicationsListInboxResponses[keyof CommunicationsListInboxResponses];
+
+export type CommunicationsMarkReadData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/communications/inbox/{id}/read';
+};
+
+export type CommunicationsMarkReadResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type CommunicationsMarkReadResponse =
+  CommunicationsMarkReadResponses[keyof CommunicationsMarkReadResponses];
+
+export type CommunicationsReplyData = {
+  body: ReplyCommunicationDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/communications/inbox/{id}/reply';
+};
+
+export type CommunicationsReplyResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type CommunicationsReplyResponse =
+  CommunicationsReplyResponses[keyof CommunicationsReplyResponses];
+
+export type CommunicationsApproveData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/communications/deliveries/{id}/approve';
+};
+
+export type CommunicationsApproveResponses = {
+  201: CommunicationDelivery;
+};
+
+export type CommunicationsApproveResponse =
+  CommunicationsApproveResponses[keyof CommunicationsApproveResponses];
+
+export type CommunicationsRetryData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/communications/deliveries/{id}/retry';
+};
+
+export type CommunicationsRetryResponses = {
+  201: CommunicationDelivery;
+};
+
+export type CommunicationsRetryResponse =
+  CommunicationsRetryResponses[keyof CommunicationsRetryResponses];
+
+export type CommunicationsRetryDueData = {
+  body?: never;
+  headers: {
+    'x-batch-communications-token': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/communications/internal/retry-due';
+};
+
+export type CommunicationsRetryDueResponses = {
+  201: unknown;
+};
+
+export type WhatsappSendMessageData = {
+  body: SendWhatsappMessageDto;
+  path?: never;
+  query?: never;
+  url: '/whatsapp/messages';
+};
+
+export type WhatsappSendMessageResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type WhatsappSendMessageResponse =
+  WhatsappSendMessageResponses[keyof WhatsappSendMessageResponses];
+
+export type WhatsappCreateActivityData = {
+  body: CreateWhatsappActivityDto;
+  path?: never;
+  query?: never;
+  url: '/whatsapp/activities';
+};
+
+export type WhatsappCreateActivityResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type WhatsappCreateActivityResponse =
+  WhatsappCreateActivityResponses[keyof WhatsappCreateActivityResponses];
+
+export type WhatsappSendMessageFromBatchData = {
+  body: SendWhatsappMessageDto;
+  headers: {
+    'x-batch-whatsapp-token': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/whatsapp/messages/internal';
+};
+
+export type WhatsappSendMessageFromBatchResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type WhatsappSendMessageFromBatchResponse =
+  WhatsappSendMessageFromBatchResponses[keyof WhatsappSendMessageFromBatchResponses];
+
+export type WhatsappVerifyWebhookData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/whatsapp/webhook';
+};
+
+export type WhatsappVerifyWebhookResponses = {
+  200: unknown;
+};
+
+export type WhatsappReceiveWebhookData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/whatsapp/webhook';
+};
+
+export type WhatsappReceiveWebhookResponses = {
+  200: unknown;
+};
+
+export type WhatsappProcessWebhookInboxData = {
+  body?: never;
+  headers: {
+    'x-batch-whatsapp-token': string;
+  };
+  path?: never;
+  query?: {
+    limit?: string;
+  };
+  url: '/whatsapp/internal/process-inbox';
+};
+
+export type WhatsappProcessWebhookInboxResponses = {
+  201: unknown;
+};
+
+export type WhatsappApplyRetentionData = {
+  body?: never;
+  headers: {
+    'x-batch-whatsapp-token': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/whatsapp/internal/apply-retention';
+};
+
+export type WhatsappApplyRetentionResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type WhatsappApplyRetentionResponse =
+  WhatsappApplyRetentionResponses[keyof WhatsappApplyRetentionResponses];
+
+export type WhatsappDownloadDocumentData = {
+  body?: never;
+  path: {
+    documentId: string;
+  };
+  query: {
+    token: string;
+  };
+  url: '/whatsapp/documents/{documentId}';
+};
+
+export type WhatsappDownloadDocumentResponses = {
   200: unknown;
 };
 
@@ -3710,416 +4527,6 @@ export type PropertyVisitsCreateMaintenanceTaskResponses = {
 
 export type PropertyVisitsCreateMaintenanceTaskResponse =
   PropertyVisitsCreateMaintenanceTaskResponses[keyof PropertyVisitsCreateMaintenanceTaskResponses];
-
-export type CommunicationsListTemplatesData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/communications/templates';
-};
-
-export type CommunicationsListTemplatesResponses = {
-  200: Array<CommunicationTemplate>;
-};
-
-export type CommunicationsListTemplatesResponse =
-  CommunicationsListTemplatesResponses[keyof CommunicationsListTemplatesResponses];
-
-export type CommunicationsCreateTemplateData = {
-  body: CreateCommunicationTemplateDto;
-  path?: never;
-  query?: never;
-  url: '/communications/templates';
-};
-
-export type CommunicationsCreateTemplateResponses = {
-  201: CommunicationTemplate;
-};
-
-export type CommunicationsCreateTemplateResponse =
-  CommunicationsCreateTemplateResponses[keyof CommunicationsCreateTemplateResponses];
-
-export type CommunicationsUpdateTemplateData = {
-  body: UpdateCommunicationTemplateDto;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/communications/templates/{id}';
-};
-
-export type CommunicationsUpdateTemplateResponses = {
-  200: CommunicationTemplate;
-};
-
-export type CommunicationsUpdateTemplateResponse =
-  CommunicationsUpdateTemplateResponses[keyof CommunicationsUpdateTemplateResponses];
-
-export type CommunicationsPreviewData = {
-  body: PreviewCommunicationDto;
-  path?: never;
-  query?: never;
-  url: '/communications/preview';
-};
-
-export type CommunicationsPreviewResponses = {
-  201: unknown;
-};
-
-export type CommunicationsSendTestData = {
-  body: TestCommunicationDto;
-  path?: never;
-  query?: never;
-  url: '/communications/test';
-};
-
-export type CommunicationsSendTestResponses = {
-  201: CommunicationDelivery;
-};
-
-export type CommunicationsSendTestResponse =
-  CommunicationsSendTestResponses[keyof CommunicationsSendTestResponses];
-
-export type CommunicationsListDeliveriesData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/communications/deliveries';
-};
-
-export type CommunicationsListDeliveriesResponses = {
-  200: Array<CommunicationDelivery>;
-};
-
-export type CommunicationsListDeliveriesResponse =
-  CommunicationsListDeliveriesResponses[keyof CommunicationsListDeliveriesResponses];
-
-export type CommunicationsListInboxData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/communications/inbox';
-};
-
-export type CommunicationsListInboxResponses = {
-  200: {
-    [key: string]: unknown;
-  };
-};
-
-export type CommunicationsListInboxResponse =
-  CommunicationsListInboxResponses[keyof CommunicationsListInboxResponses];
-
-export type CommunicationsMarkReadData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/communications/inbox/{id}/read';
-};
-
-export type CommunicationsMarkReadResponses = {
-  201: {
-    [key: string]: unknown;
-  };
-};
-
-export type CommunicationsMarkReadResponse =
-  CommunicationsMarkReadResponses[keyof CommunicationsMarkReadResponses];
-
-export type CommunicationsReplyData = {
-  body: ReplyCommunicationDto;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/communications/inbox/{id}/reply';
-};
-
-export type CommunicationsReplyResponses = {
-  201: {
-    [key: string]: unknown;
-  };
-};
-
-export type CommunicationsReplyResponse =
-  CommunicationsReplyResponses[keyof CommunicationsReplyResponses];
-
-export type CommunicationsApproveData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/communications/deliveries/{id}/approve';
-};
-
-export type CommunicationsApproveResponses = {
-  201: CommunicationDelivery;
-};
-
-export type CommunicationsApproveResponse =
-  CommunicationsApproveResponses[keyof CommunicationsApproveResponses];
-
-export type CommunicationsRetryData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/communications/deliveries/{id}/retry';
-};
-
-export type CommunicationsRetryResponses = {
-  201: CommunicationDelivery;
-};
-
-export type CommunicationsRetryResponse =
-  CommunicationsRetryResponses[keyof CommunicationsRetryResponses];
-
-export type CommunicationsRetryDueData = {
-  body?: never;
-  headers: {
-    'x-batch-communications-token': string;
-  };
-  path?: never;
-  query?: never;
-  url: '/communications/internal/retry-due';
-};
-
-export type CommunicationsRetryDueResponses = {
-  201: unknown;
-};
-
-export type WhatsappSendMessageData = {
-  body: SendWhatsappMessageDto;
-  path?: never;
-  query?: never;
-  url: '/whatsapp/messages';
-};
-
-export type WhatsappSendMessageResponses = {
-  201: {
-    [key: string]: unknown;
-  };
-};
-
-export type WhatsappSendMessageResponse =
-  WhatsappSendMessageResponses[keyof WhatsappSendMessageResponses];
-
-export type WhatsappCreateActivityData = {
-  body: CreateWhatsappActivityDto;
-  path?: never;
-  query?: never;
-  url: '/whatsapp/activities';
-};
-
-export type WhatsappCreateActivityResponses = {
-  201: {
-    [key: string]: unknown;
-  };
-};
-
-export type WhatsappCreateActivityResponse =
-  WhatsappCreateActivityResponses[keyof WhatsappCreateActivityResponses];
-
-export type WhatsappSendMessageFromBatchData = {
-  body: SendWhatsappMessageDto;
-  headers: {
-    'x-batch-whatsapp-token': string;
-  };
-  path?: never;
-  query?: never;
-  url: '/whatsapp/messages/internal';
-};
-
-export type WhatsappSendMessageFromBatchResponses = {
-  201: {
-    [key: string]: unknown;
-  };
-};
-
-export type WhatsappSendMessageFromBatchResponse =
-  WhatsappSendMessageFromBatchResponses[keyof WhatsappSendMessageFromBatchResponses];
-
-export type WhatsappVerifyWebhookData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/whatsapp/webhook';
-};
-
-export type WhatsappVerifyWebhookResponses = {
-  200: unknown;
-};
-
-export type WhatsappReceiveWebhookData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/whatsapp/webhook';
-};
-
-export type WhatsappReceiveWebhookResponses = {
-  200: unknown;
-};
-
-export type WhatsappProcessWebhookInboxData = {
-  body?: never;
-  headers: {
-    'x-batch-whatsapp-token': string;
-  };
-  path?: never;
-  query?: {
-    limit?: string;
-  };
-  url: '/whatsapp/internal/process-inbox';
-};
-
-export type WhatsappProcessWebhookInboxResponses = {
-  201: unknown;
-};
-
-export type WhatsappApplyRetentionData = {
-  body?: never;
-  headers: {
-    'x-batch-whatsapp-token': string;
-  };
-  path?: never;
-  query?: never;
-  url: '/whatsapp/internal/apply-retention';
-};
-
-export type WhatsappApplyRetentionResponses = {
-  201: {
-    [key: string]: unknown;
-  };
-};
-
-export type WhatsappApplyRetentionResponse =
-  WhatsappApplyRetentionResponses[keyof WhatsappApplyRetentionResponses];
-
-export type WhatsappDownloadDocumentData = {
-  body?: never;
-  path: {
-    documentId: string;
-  };
-  query: {
-    token: string;
-  };
-  url: '/whatsapp/documents/{documentId}';
-};
-
-export type WhatsappDownloadDocumentResponses = {
-  200: unknown;
-};
-
-export type DocumentsGenerateUploadUrlData = {
-  body: GenerateUploadUrlDto;
-  path?: never;
-  query?: never;
-  url: '/documents/upload-url';
-};
-
-export type DocumentsGenerateUploadUrlResponses = {
-  201: unknown;
-};
-
-export type DocumentsConfirmUploadData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/documents/{id}/confirm';
-};
-
-export type DocumentsConfirmUploadResponses = {
-  200: Document;
-};
-
-export type DocumentsConfirmUploadResponse =
-  DocumentsConfirmUploadResponses[keyof DocumentsConfirmUploadResponses];
-
-export type DocumentsGenerateDownloadUrlData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/documents/{id}/download-url';
-};
-
-export type DocumentsGenerateDownloadUrlResponses = {
-  200: unknown;
-};
-
-export type DocumentsFindByEntityData = {
-  body?: never;
-  path: {
-    type: string;
-    id: string;
-  };
-  query?: never;
-  url: '/documents/entity/{type}/{id}';
-};
-
-export type DocumentsFindByEntityResponses = {
-  200: Array<Document>;
-};
-
-export type DocumentsFindByEntityResponse =
-  DocumentsFindByEntityResponses[keyof DocumentsFindByEntityResponses];
-
-export type DocumentsRemoveData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/documents/{id}';
-};
-
-export type DocumentsRemoveResponses = {
-  200: unknown;
-};
-
-export type DocumentContentDownloadData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query: {
-    token: string;
-  };
-  url: '/documents/{id}/content';
-};
-
-export type DocumentContentDownloadResponses = {
-  200: Blob | File;
-};
-
-export type DocumentContentDownloadResponse =
-  DocumentContentDownloadResponses[keyof DocumentContentDownloadResponses];
-
-export type DocumentContentUploadData = {
-  body: Blob | File;
-  path: {
-    id: string;
-  };
-  query: {
-    token: string;
-  };
-  url: '/documents/{id}/content';
-};
-
-export type DocumentContentUploadResponses = {
-  204: void;
-};
-
-export type DocumentContentUploadResponse =
-  DocumentContentUploadResponses[keyof DocumentContentUploadResponses];
 
 export type LeasesFindAllData = {
   body?: never;
@@ -6709,208 +7116,6 @@ export type InterestedConvertToBuyerResponses = {
   201: unknown;
 };
 
-export type SalesListFoldersData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/sales/folders';
-};
-
-export type SalesListFoldersResponses = {
-  200: Array<SaleFolder>;
-};
-
-export type SalesListFoldersResponse =
-  SalesListFoldersResponses[keyof SalesListFoldersResponses];
-
-export type SalesCreateFolderData = {
-  body: CreateSaleFolderDto;
-  headers: {
-    'idempotency-key': string;
-  };
-  path?: never;
-  query?: never;
-  url: '/sales/folders';
-};
-
-export type SalesCreateFolderResponses = {
-  201: SaleFolder;
-};
-
-export type SalesCreateFolderResponse =
-  SalesCreateFolderResponses[keyof SalesCreateFolderResponses];
-
-export type SalesListAgreementsData = {
-  body?: never;
-  path?: never;
-  query?: {
-    folderId?: string;
-    search?: string;
-    page?: number;
-    limit?: number;
-  };
-  url: '/sales/agreements';
-};
-
-export type SalesListAgreementsResponses = {
-  200: Array<SaleAgreement>;
-};
-
-export type SalesListAgreementsResponse =
-  SalesListAgreementsResponses[keyof SalesListAgreementsResponses];
-
-export type SalesCreateAgreementData = {
-  body: CreateSaleAgreementDto;
-  headers: {
-    'idempotency-key': string;
-  };
-  path?: never;
-  query?: never;
-  url: '/sales/agreements';
-};
-
-export type SalesCreateAgreementResponses = {
-  201: SaleAgreement;
-};
-
-export type SalesCreateAgreementResponse =
-  SalesCreateAgreementResponses[keyof SalesCreateAgreementResponses];
-
-export type SalesPageAgreementsData = {
-  body?: never;
-  path?: never;
-  query?: {
-    folderId?: string;
-    search?: string;
-    page?: number;
-    limit?: number;
-  };
-  url: '/sales/agreements/page';
-};
-
-export type SalesPageAgreementsResponses = {
-  200: unknown;
-};
-
-export type SalesGetAgreementData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/sales/agreements/{id}';
-};
-
-export type SalesGetAgreementResponses = {
-  200: SaleAgreement;
-};
-
-export type SalesGetAgreementResponse =
-  SalesGetAgreementResponses[keyof SalesGetAgreementResponses];
-
-export type SalesListReceiptsData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/sales/agreements/{id}/receipts';
-};
-
-export type SalesListReceiptsResponses = {
-  200: Array<SaleReceipt>;
-};
-
-export type SalesListReceiptsResponse =
-  SalesListReceiptsResponses[keyof SalesListReceiptsResponses];
-
-export type SalesCreateReceiptData = {
-  body: CreateSaleReceiptDto;
-  headers: {
-    'idempotency-key': string;
-  };
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: '/sales/agreements/{id}/receipts';
-};
-
-export type SalesCreateReceiptResponses = {
-  201: SaleReceipt;
-};
-
-export type SalesCreateReceiptResponse =
-  SalesCreateReceiptResponses[keyof SalesCreateReceiptResponses];
-
-export type SalesCancelReceiptData = {
-  body: CancelSaleReceiptDto;
-  headers: {
-    'idempotency-key': string;
-  };
-  path: {
-    receiptId: string;
-  };
-  query?: never;
-  url: '/sales/receipts/{receiptId}/cancel';
-};
-
-export type SalesCancelReceiptResponses = {
-  200: SaleReceipt;
-};
-
-export type SalesCancelReceiptResponse =
-  SalesCancelReceiptResponses[keyof SalesCancelReceiptResponses];
-
-export type SalesGetScheduleData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query: {
-    page: number;
-    limit: number;
-    asOf?: string;
-  };
-  url: '/sales/agreements/{id}/schedule';
-};
-
-export type SalesGetScheduleResponses = {
-  200: unknown;
-};
-
-export type SalesDownloadReceiptData = {
-  body?: never;
-  path: {
-    receiptId: string;
-  };
-  query?: never;
-  url: '/sales/receipts/{receiptId}/pdf';
-};
-
-export type SalesDownloadReceiptResponses = {
-  200: unknown;
-};
-
-export type SaleReceiptEffectsProcessData = {
-  body?: never;
-  headers: {
-    'x-batch-communications-token': string;
-  };
-  path?: never;
-  query?: never;
-  url: '/sales/internal/process-receipts';
-};
-
-export type SaleReceiptEffectsProcessResponses = {
-  201: {
-    [key: string]: unknown;
-  };
-};
-
-export type SaleReceiptEffectsProcessResponse =
-  SaleReceiptEffectsProcessResponses[keyof SaleReceiptEffectsProcessResponses];
-
 export type AiListToolsData = {
   body?: never;
   path?: never;
@@ -7714,6 +7919,124 @@ export type MercadoLibreCatalogNeighborhoodsResponses = {
 
 export type MercadoLibreCatalogNeighborhoodsResponse =
   MercadoLibreCatalogNeighborhoodsResponses[keyof MercadoLibreCatalogNeighborhoodsResponses];
+
+export type WebNotificationsListData = {
+  body?: never;
+  path?: never;
+  query?: {
+    page?: string;
+  };
+  url: '/notifications/web';
+};
+
+export type WebNotificationsListResponses = {
+  200: {
+    [key: string]: unknown;
+  };
+};
+
+export type WebNotificationsListResponse =
+  WebNotificationsListResponses[keyof WebNotificationsListResponses];
+
+export type WebNotificationsConfigData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/notifications/web/config';
+};
+
+export type WebNotificationsConfigResponses = {
+  200: unknown;
+};
+
+export type WebNotificationsPrefsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/notifications/web/preferences';
+};
+
+export type WebNotificationsPrefsResponses = {
+  200: unknown;
+};
+
+export type WebNotificationsSetPrefsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/notifications/web/preferences';
+};
+
+export type WebNotificationsSetPrefsResponses = {
+  200: unknown;
+};
+
+export type WebNotificationsSubscribeData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/notifications/web/subscriptions';
+};
+
+export type WebNotificationsSubscribeResponses = {
+  201: {
+    [key: string]: unknown;
+  };
+};
+
+export type WebNotificationsSubscribeResponse =
+  WebNotificationsSubscribeResponses[keyof WebNotificationsSubscribeResponses];
+
+export type WebNotificationsRemoveData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/notifications/web/subscriptions/remove';
+};
+
+export type WebNotificationsRemoveResponses = {
+  201: unknown;
+};
+
+export type WebNotificationsReadData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/notifications/web/{id}/read';
+};
+
+export type WebNotificationsReadResponses = {
+  201: unknown;
+};
+
+export type WebNotificationsDestinationData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/notifications/web/{id}/destination';
+};
+
+export type WebNotificationsDestinationResponses = {
+  200: unknown;
+};
+
+export type WebNotificationsInternalProcessData = {
+  body?: never;
+  headers: {
+    'x-batch-communications-token': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/notifications/internal/process-agenda';
+};
+
+export type WebNotificationsInternalProcessResponses = {
+  201: unknown;
+};
 
 export type NotificationsGetMyPreferencesData = {
   body?: never;

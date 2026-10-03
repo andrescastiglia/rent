@@ -44,6 +44,14 @@ export class PropertyVisit {
   })
   kind: PropertyVisitKind;
 
+  @Column({
+    name: 'agenda_schedule_kind',
+    type: 'varchar',
+    length: 4,
+    default: 'time',
+  })
+  agendaScheduleKind: 'date' | 'time';
+
   @Column({ name: 'visited_at', type: 'timestamptz' })
   visitedAt: Date;
 

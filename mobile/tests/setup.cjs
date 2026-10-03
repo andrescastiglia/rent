@@ -42,6 +42,7 @@ jest.mock('react-native', () => {
           : props.ListEmptyComponent,
         props.ListFooterComponent,
       ),
+    AppState: { addEventListener: jest.fn(() => ({ remove: jest.fn() })) },
     Platform: {
       OS: 'android',
       select: (values) => values.android ?? values.default,
@@ -184,3 +185,24 @@ jest.mock('react-native-gesture-handler', () => ({
   GestureHandlerRootView: 'GestureHandlerRootView',
 }));
 jest.mock('expo-status-bar', () => ({ StatusBar: 'StatusBar' }));
+
+// Native calendar integration is disabled by default in component tests.
+jest.mock('expo-calendar', () => ({
+  getCalendarPermissions: jest.fn(async () => ({ granted: false })),
+  requestCalendarPermissions: jest.fn(async () => ({ granted: false })),
+  getCalendars: jest.fn(async () => []),
+  AlarmMethod: { ALERT: 'alert' },
+  EntityTypes: { EVENT: 'event' },
+  SourceType: { LOCAL: 'local' },
+  CalendarAccessLevel: { OWNER: 'owner' },
+}));
+jest.mock('expo-file-system', () => ({
+  Paths: { document: 'test-documents' },
+  File: class {
+    exists = false;
+    async text() {
+      return '{}';
+    }
+    write() {}
+  },
+}));

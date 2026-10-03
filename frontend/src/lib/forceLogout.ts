@@ -10,6 +10,17 @@ function getLocaleFromPathname(pathname: string): string {
 export function forceLogout(): void {
   if (globalThis.location == null) return;
 
+  if (
+    /^\/(es|en|pt)\/(agenda|notifications)(\/|$)/.test(
+      globalThis.location.pathname,
+    )
+  )
+    sessionStorage.setItem(
+      "rent.returnTo",
+      globalThis.location.pathname +
+        globalThis.location.search +
+        globalThis.location.hash,
+    );
   clearAuth();
 
   const pathname = globalThis.location.pathname || "/";

@@ -1,3 +1,5 @@
+import { Alert } from 'react-native';
+import { disableAgendaCalendar } from '@/calendar/agenda-calendar';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -97,12 +99,23 @@ export function AuthProvider({
   );
 
   const logout = useCallback(async () => {
+    if (user)
+      try {
+        await disableAgendaCalendar(user);
+      } catch (error) {
+        Alert.alert(
+          'Calendario de Rent',
+          error instanceof Error
+            ? error.message
+            : 'No se pudo retirar el calendario del dispositivo',
+        );
+      }
     await Promise.all([clearAuth(), queryClient.cancelQueries()]);
     queryClient.clear();
     setToken(null);
     setUser(null);
     router.replace('/(auth)/login');
-  }, [queryClient, router]);
+  }, [queryClient, router, user]);
 
   useEffect(() => {
     const unsubscribe = setSessionExpiredHandler(() => {

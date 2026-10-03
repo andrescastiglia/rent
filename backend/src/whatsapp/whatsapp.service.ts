@@ -31,6 +31,7 @@ type AiRagRollout = {
     prompt: string;
     conversationId?: string;
     context: {
+      sourceCommunicationId?: string;
       userId: string;
       companyId: string;
       role: UserRole;
@@ -1272,6 +1273,7 @@ export class WhatsappService implements OnApplicationBootstrap {
           role: user.role,
           roles: user.roles,
           permissions: user.permissions,
+          sourceCommunicationId: inserted[0].id,
           mutationApprovalMode: 'staff_queue',
           channel: 'whatsapp',
         },

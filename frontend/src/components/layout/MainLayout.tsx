@@ -36,6 +36,17 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   useEffect(() => {
     if (!loading && !user) {
+      if (
+        /^\/(es|en|pt)\/(agenda|notifications)(\/|$)/.test(
+          window.location.pathname,
+        )
+      )
+        sessionStorage.setItem(
+          "rent.returnTo",
+          window.location.pathname +
+            window.location.search +
+            window.location.hash,
+        );
       router.replace("/login");
     }
   }, [user, loading, router]);

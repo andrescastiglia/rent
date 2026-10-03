@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { AgendaService } from '../agenda/agenda.service';
+import { Injectable, Optional } from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { CurrenciesService } from '../currencies/currencies.service';
 import { DashboardService } from '../dashboard/dashboard.service';
@@ -60,5 +61,6 @@ export class AiToolRegistryDepsProvider implements AiToolRegistryDeps {
     readonly notificationsService: NotificationsService,
     readonly buyersService: BuyersService,
     readonly communicationsService: CommunicationsService,
+    @Optional() readonly agendaService?: AgendaService,
   ) {}
 }

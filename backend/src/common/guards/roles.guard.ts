@@ -109,6 +109,8 @@ export class RolesGuard implements CanActivate {
       requiredRoles.includes(UserRole.ADMIN) && !path.startsWith('/users');
     if (!hasDirectRole && !inheritsAdmin) return false;
 
+    if (hasDirectRole && policy === 'self-service') return true;
+
     return this.staffHasAccess(
       path,
       permissions,

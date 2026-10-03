@@ -23,14 +23,21 @@
     },
     "scheme": "rent",
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "onDemandFilesystem": false
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
       "expo-localization",
       "expo-sharing",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Rent necesita acceso para mantener la agenda de empresa y sus recordatorios."
+        }
+      ]
     ],
     "extra": {
       "router": {},

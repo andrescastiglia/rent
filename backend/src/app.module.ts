@@ -1,3 +1,4 @@
+import { AgendaModule } from './agenda/agenda.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -66,6 +67,7 @@ import * as path from 'node:path';
       useFactory: getDatabaseConfig,
       inject: [ConfigService],
     }),
+    AgendaModule,
     AuthModule,
     UsersModule,
     ...(process.env.NODE_ENV === 'test' ? [TestModule] : []),

@@ -30,6 +30,7 @@ const approvedReview = new AsyncLocalStorage<ReviewContext>();
 
 // Table identifiers and labels are application constants; request values remain parameters.
 const targets = [
+  { pattern: /agenda_task/, table: 'agenda_tasks', label: 'Tarea de agenda' },
   { pattern: /amendment/, table: 'lease_amendments', label: 'Adenda' },
   {
     pattern: /lease_template/,
@@ -79,7 +80,11 @@ const targets = [
 function reviewTarget(tool: string, payload: Record<string, unknown>) {
   const direct = targets.find((entry) => entry.pattern.test(tool));
   const id = payload[direct?.key ?? 'id'] ?? payload.id;
-  if (direct && typeof id === 'string') return { ...direct, id };
+  if (direct && typeof id === 'string')
+    return {
+      ...direct,
+      id: direct.table === 'agenda_tasks' ? id.replace(/^task:/, '') : id,
+    };
   for (const [key, table, label] of [
     ['leaseId', 'leases', 'Contrato'],
     ['propertyId', 'properties', 'Propiedad'],

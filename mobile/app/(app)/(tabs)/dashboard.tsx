@@ -14,8 +14,6 @@ import {
 } from '@/api/dashboard';
 import { Screen } from '@/components/screen';
 import { i18n } from '@/i18n';
-import * as Linking from 'expo-linking';
-import { authenticatedWebUrl } from '@/config/channel-capabilities';
 
 function formatMoney(
   amount: number | null | undefined,
@@ -519,13 +517,7 @@ export default function DashboardScreen() {
 
       <ReviewSection
         items={peopleActivity?.new ?? []}
-        onApprove={() => {
-          void Linking.openURL(
-            authenticatedWebUrl('/dashboard#pending-actions', i18n.language),
-          ).catch(() =>
-            Alert.alert(t('common.error'), t('channels.openError')),
-          );
-        }}
+        onApprove={() => router.push('/(app)/agenda/proposals' as never)}
         onReject={reject}
         onRead={(item) => void markRead(item)}
         labels={{

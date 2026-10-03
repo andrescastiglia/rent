@@ -74,7 +74,8 @@
       "operations": "Operações",
       "people": "Pessoas",
       "administration": "Administração"
-    }
+    },
+    "agenda": "Agenda da empresa"
   },
   "breadcrumbs": {
     "home": "Início",
@@ -2586,5 +2587,96 @@
     "quickError": "Não foi possível criar o interessado.",
     "importError": "Não foi possível importar o contrato vigente.",
     "unsupportedFile": "Os contratos devem ser arquivos PDF, DOCX, MD ou TXT."
+  },
+  "agenda": {
+    "heading": "Agenda da empresa",
+    "internalOnly": "Agenda reservada ao pessoal interno",
+    "title": "Título",
+    "description": "Descrição",
+    "kind": "Tipo",
+    "person": "Pessoa",
+    "findPerson": "Buscar pessoa",
+    "noPerson": "Sem pessoa vinculada",
+    "responsible": "Responsável",
+    "unassigned": "Sem responsável",
+    "schedule": "Programação",
+    "date": "Data",
+    "dateTime": "Data e hora",
+    "end": "Fim opcional",
+    "reminderMinutes": "Avisar minutos antes",
+    "reminderHour": "Hora do lembrete",
+    "requiredDate": "Informe uma data",
+    "taskForm": "Formulário de tarefa",
+    "save": "Salvar",
+    "saving": "Salvando…",
+    "error": "Não foi possível concluir a operação",
+    "close": "Fechar",
+    "newTask": "Nova tarefa",
+    "view": "Visualização",
+    "today": "Hoje",
+    "unscheduled": "A programar",
+    "refresh": "Atualizar",
+    "search": "Buscar",
+    "all": "Todos",
+    "status": "Estado",
+    "loading": "Carregando…",
+    "previous": "Anterior",
+    "next": "Seguinte",
+    "items": "compromissos",
+    "followup": "Acompanhamento",
+    "openPerson": "Abrir cadastro da pessoa",
+    "personUnavailable": "A pessoa vinculada não está mais disponível",
+    "edit": "Editar",
+    "complete": "Concluir",
+    "derived": "A data e o estado são atualizados no módulo de origem",
+    "newFollowup": "Criar acompanhamento",
+    "history": "Histórico",
+    "notifications": "Notificações",
+    "enablePush": "Ativar avisos do navegador",
+    "disablePush": "Desativar avisos do navegador",
+    "pushDenied": "Permissão negada. Os avisos continuam disponíveis no Rent",
+    "markRead": "Marcar como lido",
+    "preferences": "Preferências de avisos",
+    "cancelTask": "Cancelar tarefa",
+    "openSource": "Abrir módulo de origem",
+    "empty": "Nenhum compromisso corresponde a estes filtros",
+    "kinds": {
+      "task": "Tarefa",
+      "call": "Ligação",
+      "visit": "Visita",
+      "maintenance": "Manutenção",
+      "invoice": "Cobrança",
+      "lease": "Contrato",
+      "sale": "Parcela de venda"
+    },
+    "views": {
+      "list": "Lista",
+      "day": "Dia",
+      "week": "Semana",
+      "month": "Mês"
+    },
+    "statuses": {
+      "pending": "Pendente",
+      "completed": "Concluído",
+      "cancelled": "Cancelado",
+      "all": "Todos"
+    },
+    "scheduleKinds": {
+      "none": "Sem data",
+      "date": "Data sem hora",
+      "time": "Data e hora"
+    },
+    "events": {
+      "created": "Criação",
+      "updated": "Alteração"
+    },
+    "noticeEvents": {
+      "assigned": "Atribuição",
+      "rescheduled": "Mudança de data",
+      "changed": "Mudança de tarefa",
+      "reminder": "Lembrete",
+      "overdue": "Vencimento",
+      "proposal": "Proposta para revisão"
+    }
   }
 }

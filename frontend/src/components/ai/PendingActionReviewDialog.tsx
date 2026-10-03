@@ -61,7 +61,7 @@ export default function PendingActionReviewDialog({
   onCancel,
   onConfirm,
 }: Readonly<{
-  item: PersonActivityItem | null;
+  item: Pick<PersonActivityItem, "actionId" | "subject" | "canRetry"> | null;
   password: string;
   error: string | null;
   busy: boolean;

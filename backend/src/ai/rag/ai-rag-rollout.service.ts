@@ -23,6 +23,7 @@ import {
 export type AiRetrievalMode = 'TOOLS' | 'RAG_SHADOW' | 'RAG_READ' | 'HYBRID';
 
 type RolloutContext = {
+  sourceCommunicationId?: string;
   userId: string;
   companyId: string;
   role: UserRole;
