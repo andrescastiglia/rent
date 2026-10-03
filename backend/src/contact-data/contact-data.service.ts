@@ -152,20 +152,20 @@ export class ContactDataService {
   }
   private async providerJson(url: string, init?: RequestInit) {
     try {
-      const target = new URL(url);
-      if (
-        target.protocol !== 'https:' ||
-        target.port ||
-        target.username ||
-        target.password ||
-        (target.hostname !== 'nominatim.openstreetmap.org' &&
-          target.hostname !== 'routing.openstreetmap.de')
-      )
-        throw new Error('Proveedor geográfico no permitido');
       const response = await context.with(
         suppressTracing(context.active()),
-        () =>
-          fetch(target, {
+        () => {
+          const target = new URL(url);
+          if (
+            target.protocol !== 'https:' ||
+            target.port ||
+            target.username ||
+            target.password ||
+            (target.hostname !== 'nominatim.openstreetmap.org' &&
+              target.hostname !== 'routing.openstreetmap.de')
+          )
+            throw new Error('Proveedor geográfico no permitido');
+          return fetch(target, {
             ...init,
             redirect: 'error',
             signal: AbortSignal.timeout(8000),
@@ -175,7 +175,8 @@ export class ContactDataService {
                 'RentFlow/1.0 (address and visit assistance)',
               ...init?.headers,
             },
-          }),
+          });
+        },
       );
       if (!response.ok) throw new Error();
       return await response.json();
@@ -494,8 +495,14 @@ export class ContactDataService {
         walking: 'routed-foot',
         cycling: 'routed-bike',
       }[mode];
+      const coordinates = [
+        input.origin.longitude,
+        input.origin.latitude,
+        dest.longitude,
+        dest.latitude,
+      ].map((value) => encodeURIComponent(String(value)));
       const result = await this.providerJson(
-        `https://routing.openstreetmap.de/${endpoint}/route/v1/driving/${input.origin.longitude},${input.origin.latitude};${dest.longitude},${dest.latitude}?overview=false&steps=false`,
+        `https://routing.openstreetmap.de/${endpoint}/route/v1/driving/${coordinates[0]},${coordinates[1]};${coordinates[2]},${coordinates[3]}?overview=false&steps=false`,
       );
       if (
         result.code !== 'Ok' ||

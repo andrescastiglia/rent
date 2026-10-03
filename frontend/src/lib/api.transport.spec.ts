@@ -37,6 +37,28 @@ afterEach(() => {
   process.env = { ...originalEnv };
   jest.useRealTimers();
 });
+it("keeps notification reads offline in mock mode without weakening the production CSP", async () => {
+  const { apiClient } = await load(true);
+  global.fetch = jest.fn();
+  await expect(
+    apiClient.get("/notifications/web?page=2", "mock-token-1"),
+  ).resolves.toEqual({
+    data: [],
+    unread: 0,
+    total: 0,
+    page: 2,
+  });
+  await expect(
+    apiClient.get("/notifications/web", "mock-token-1"),
+  ).resolves.toMatchObject({ page: 1 });
+  await expect(
+    apiClient.get("/notifications/web/config", "mock-token-1"),
+  ).resolves.toEqual({ publicKey: null, enabled: false });
+  await expect(
+    apiClient.get("/notifications/web/preferences", "mock-token-1"),
+  ).resolves.toEqual([]);
+  expect(global.fetch).not.toHaveBeenCalled();
+});
 it("blocks expired sessions before network calls and preserves the active form on an HTTP401", async () => {
   const { apiClient, expired, logout, toast } = await load();
   global.fetch = jest.fn();
