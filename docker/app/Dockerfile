@@ -41,7 +41,8 @@ FROM server AS backend
 ENV RENT_TRACING_MODULE=./dist/tracing.js
 
 FROM runtime AS frontend
-COPY --from=build --chown=node:node /src/.next/standalone/src/ ./
+COPY --from=build --chown=node:node /src/.next/standalone/ ./
+WORKDIR /app/src
 COPY --from=build --chown=node:node /src/.next/static ./.next/static
 COPY --from=build --chown=node:node /src/public ./public
 COPY --from=build /src/newrelic.js ./newrelic.js
