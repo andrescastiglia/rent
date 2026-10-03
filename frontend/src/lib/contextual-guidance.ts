@@ -286,6 +286,7 @@ export function guidanceBlocked(root: HTMLElement): boolean {
 export type GuidanceSuggestion = {
   id: string;
   message: string;
+  text?: string;
   field?: string;
   target: HTMLElement;
 };

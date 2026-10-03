@@ -119,6 +119,8 @@ describe("aiApi", () => {
           {
             prompt: "¿Cuántos alquileres activos hay?",
             conversationId: undefined,
+            channel: "web",
+            currentPath: undefined,
           },
           "token-respond",
         );
@@ -140,7 +142,12 @@ describe("aiApi", () => {
         });
         expect(apiClient.post).toHaveBeenCalledWith(
           "/ai/tools/respond",
-          { prompt: "¿Y las propiedades?", conversationId: "conv-42" },
+          {
+            prompt: "¿Y las propiedades?",
+            conversationId: "conv-42",
+            channel: "web",
+            currentPath: undefined,
+          },
           "token-respond",
         );
       });

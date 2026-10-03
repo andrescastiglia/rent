@@ -71,6 +71,17 @@ const MOCK_RECEIPTS: Record<string, SaleReceipt[]> = {
 };
 
 export const salesApi = {
+  getAgreement: async (id: string): Promise<SaleAgreement> => {
+    if (IS_MOCK_MODE) {
+      const agreement = MOCK_AGREEMENTS.find((record) => record.id === id);
+      if (!agreement) throw new Error("Sale agreement not found");
+      return agreement;
+    }
+    return apiClient.get<SaleAgreement>(
+      `/sales/agreements/${encodeURIComponent(id)}`,
+      getToken() ?? undefined,
+    );
+  },
   getAgreementPage: async (filters?: {
     page?: number;
     limit?: number;

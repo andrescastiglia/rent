@@ -599,6 +599,7 @@ function PaymentDetailContent() {
               {!editForm && (
                 <button
                   data-guide="payment-edit"
+                  data-assistant-intent="edit"
                   onClick={handleEditInit}
                   className="btn btn-ghost btn-sm"
                 >

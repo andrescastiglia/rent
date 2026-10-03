@@ -23,6 +23,9 @@ import { AiController } from './ai.controller';
 import { AiToolCatalogService } from './ai-tool-catalog.service';
 import { AiToolExecutorService } from './ai-tool-executor.service';
 import { AiOpenAiService } from './ai-openai.service';
+import { AiApplicationService } from './ai-application.service';
+import { BuyersModule } from '../buyers/buyers.module';
+import { CommunicationsModule } from '../communications/communications.module';
 import { AiToolRegistryDepsProvider } from './ai-tool-registry-deps.provider';
 import { AiToolsRegistryService } from './ai-tools-registry.service';
 import { AiConversationsService } from './ai-conversations.service';
@@ -49,6 +52,8 @@ import { AI_RAG_ROLLOUT } from './ai.tokens';
 
 @Module({
   imports: [
+    BuyersModule,
+    CommunicationsModule,
     TypeOrmModule.forFeature([
       AiConversation,
       AiGithubIssuePreview,
@@ -85,6 +90,7 @@ import { AI_RAG_ROLLOUT } from './ai.tokens';
     AiToolCatalogService,
     AiToolExecutorService,
     AiOpenAiService,
+    AiApplicationService,
     AiToolsRegistryService,
     AiIntentClassifierService,
     AiQueryEmbeddingService,

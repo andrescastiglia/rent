@@ -26,6 +26,8 @@ import { SettlementsService } from '../settlements/settlements.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AiToolRegistryDeps } from './openai-tools.registry';
 import { GithubIssuesService } from './github-issues.service';
+import { BuyersService } from '../buyers/buyers.service';
+import { CommunicationsService } from '../communications/communications.service';
 
 @Injectable()
 export class AiToolRegistryDepsProvider implements AiToolRegistryDeps {
@@ -56,5 +58,7 @@ export class AiToolRegistryDepsProvider implements AiToolRegistryDeps {
     readonly bankAccountsService: BankAccountsService,
     readonly settlementsService: SettlementsService,
     readonly notificationsService: NotificationsService,
+    readonly buyersService: BuyersService,
+    readonly communicationsService: CommunicationsService,
   ) {}
 }

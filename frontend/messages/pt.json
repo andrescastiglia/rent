@@ -2158,7 +2158,14 @@
     "invoiceOpen": "Abra a fatura encontrada para consultar vencimento, saldo e pagamentos associados.",
     "userOpen": "Abra o usuário encontrado para revisar seus papéis e permissões.",
     "templateOpen": "Abra o modelo para revisar seu conteúdo e os campos do documento.",
-    "templateName": "Revise o nome do modelo para reconhecê-lo ao emitir o documento."
+    "templateName": "Revise o nome do modelo para reconhecê-lo ao emitir o documento.",
+    "passwordCurrent": "Preencha sua senha atual neste campo.",
+    "passwordNew": "Digite uma nova senha com pelo menos 8 caracteres.",
+    "passwordConfirm": "Repita a nova senha para confirmá-la.",
+    "passwordSave": "Revise os dados e selecione Alterar senha.",
+    "assistantField": "Preencha este campo e revise os dados antes de salvar.",
+    "assistantEdit": "Modifique este dado. Salve as alterações no formulário.",
+    "assistantPage": "Comece aqui para utilizar esta página."
   },
   "propertyList": {
     "title": "Imóveis",

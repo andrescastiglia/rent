@@ -8773,6 +8773,195 @@
         ]
       }
     },
+    "/buyers": {
+      "get": {
+        "operationId": "Buyers_findAll",
+        "parameters": [
+          {
+            "name": "name",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "email",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "phone",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Buyers"
+        ]
+      },
+      "post": {
+        "operationId": "Buyers_create",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBuyerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Buyer"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Buyers"
+        ]
+      }
+    },
+    "/buyers/{id}": {
+      "get": {
+        "operationId": "Buyers_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Buyer"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Buyers"
+        ]
+      },
+      "patch": {
+        "operationId": "Buyers_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "UUID conservado para recuperar el resultado de un intento.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBuyerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Buyer"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Buyers"
+        ]
+      }
+    },
     "/maintenance/tickets": {
       "get": {
         "operationId": "Maintenance_findAll",
@@ -10198,195 +10387,6 @@
         },
         "tags": [
           "Metrics"
-        ]
-      }
-    },
-    "/buyers": {
-      "get": {
-        "operationId": "Buyers_findAll",
-        "parameters": [
-          {
-            "name": "name",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "email",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "phone",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "type": "number"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "minimum": 1,
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Buyers"
-        ]
-      },
-      "post": {
-        "operationId": "Buyers_create",
-        "parameters": [
-          {
-            "name": "idempotency-key",
-            "required": true,
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "description": "UUID conservado para recuperar el resultado de un intento.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateBuyerDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Buyer"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Buyers"
-        ]
-      }
-    },
-    "/buyers/{id}": {
-      "get": {
-        "operationId": "Buyers_findOne",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Buyer"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Buyers"
-        ]
-      },
-      "patch": {
-        "operationId": "Buyers_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "idempotency-key",
-            "required": true,
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Idempotency-Key",
-            "in": "header",
-            "description": "UUID conservado para recuperar el resultado de un intento.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateBuyerDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Buyer"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Buyers"
         ]
       }
     },
@@ -20117,6 +20117,18 @@
             "items": {
               "type": "string"
             }
+          },
+          "channel": {
+            "enum": [
+              "web",
+              "mobile"
+            ],
+            "type": "string"
+          },
+          "currentPath": {
+            "type": "string",
+            "maxLength": 300,
+            "pattern": "^\\/(?:es|en|pt)(?:\\/[a-zA-Z0-9/_-]*)?$"
           }
         },
         "required": [
@@ -20142,6 +20154,52 @@
             "maxLength": 500
           }
         }
+      },
+      "CreateBuyerDto": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 255,
+            "format": "email"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "dni": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "interestedProfileId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName"
+        ]
+      },
+      "UpdateBuyerDto": {
+        "type": "object",
+        "properties": {}
       },
       "MaintenanceTicket": {
         "type": "object",
@@ -21845,52 +21903,6 @@
         "required": [
           "type"
         ]
-      },
-      "CreateBuyerDto": {
-        "type": "object",
-        "properties": {
-          "firstName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "lastName": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 100
-          },
-          "email": {
-            "type": "string",
-            "maxLength": 255,
-            "format": "email"
-          },
-          "phone": {
-            "type": "string"
-          },
-          "dni": {
-            "type": "string",
-            "maxLength": 50
-          },
-          "interestedProfileId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "notes": {
-            "type": "string"
-          },
-          "password": {
-            "type": "string",
-            "minLength": 8
-          }
-        },
-        "required": [
-          "firstName",
-          "lastName"
-        ]
-      },
-      "UpdateBuyerDto": {
-        "type": "object",
-        "properties": {}
       },
       "CreateSandboxBankMovementDto": {
         "type": "object",

@@ -154,6 +154,7 @@ describe('AiController', () => {
         userId: 'u1',
         companyId: 'c1',
         role: UserRole.ADMIN,
+        channel: 'web',
       },
     });
     expect(result).toEqual(

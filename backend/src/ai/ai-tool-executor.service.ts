@@ -99,6 +99,11 @@ export class AiToolExecutorService {
     this.assertContext(context);
 
     const parsed = this.parseArguments(definition, args ?? {});
+    if (context.channel === 'web' && definition.mutability === 'mutable') {
+      throw new ForbiddenException(
+        'Los cambios desde el asistente web se completan y guardan en el formulario correspondiente.',
+      );
+    }
     let confirmationId: string | null = null;
     if (definition.mutability === 'mutable') {
       const confirmation = await this.requireMutationConfirmation(

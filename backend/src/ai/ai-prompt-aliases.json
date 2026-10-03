@@ -52,6 +52,8 @@
   "pagos": ["payment", "payments", "invoice", "invoices"],
   "cobro": ["payment", "payments", "invoice"],
   "cobros": ["payment", "payments", "invoice"],
+  "cobranza": ["payment", "payments", "collection", "summary"],
+  "cobranzas": ["payment", "payments", "collection", "summary"],
   "factura": ["invoice", "invoices", "generate_invoice"],
   "facturas": ["invoice", "invoices", "generate_invoice"],
   "recibo": ["receipt", "payment", "invoice"],

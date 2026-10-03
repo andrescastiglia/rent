@@ -354,6 +354,7 @@ it('routes authorization, assistant conversations and review operations without 
   expect(apiClient.post).toHaveBeenLastCalledWith('/ai/tools/respond', {
     prompt: 'Review',
     conversationId: 'conversation',
+    channel: 'mobile',
   });
   await aiApi.respond('New');
   await dashboardApi.getStats();

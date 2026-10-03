@@ -68,6 +68,25 @@ describe('AiToolExecutorService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('never saves a mutation from web chat, even with explicit confirmation', async () => {
+    process.env.AI_TOOLS_MODE = 'FULL';
+    testTool.mutability = 'mutable';
+    await expect(
+      service.execute(
+        testTool.name,
+        {},
+        {
+          ...context,
+          channel: 'web',
+          confirmMutation: true,
+          conversationId: 'conversation',
+        },
+      ),
+    ).rejects.toThrow('formulario correspondiente');
+    expect(databaseQuery).not.toHaveBeenCalled();
+    expect(testTool.execute).not.toHaveBeenCalled();
+  });
+
   it('should reject mutable tool in READONLY mode', async () => {
     process.env.AI_TOOLS_MODE = 'READONLY';
     testTool.mutability = 'mutable';

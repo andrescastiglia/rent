@@ -1,4 +1,5 @@
 "use client";
+import { useAssistantRecord } from "@/hooks/useAssistantRecord";
 
 import { SyntheticEvent, useCallback, useEffect, useState } from "react";
 import { staffApi } from "@/lib/api/staff";
@@ -96,12 +97,15 @@ function StaffFormPanel({
 
   return (
     <form
+      data-assistant-ready
+      data-assistant-record={editingStaff?.id}
       onSubmit={onSubmit}
       className="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-white p-4 md:grid-cols-2 dark:border-gray-700 dark:bg-gray-800"
     >
       <label className="text-sm text-gray-700 dark:text-gray-300">
         {tAuth("firstName")}
         <input
+          data-guide="firstName"
           required
           type="text"
           value={form.firstName}
@@ -115,6 +119,7 @@ function StaffFormPanel({
       <label className="text-sm text-gray-700 dark:text-gray-300">
         {tAuth("lastName")}
         <input
+          data-guide="lastName"
           required
           type="text"
           value={form.lastName}
@@ -128,6 +133,7 @@ function StaffFormPanel({
       <label className="text-sm text-gray-700 dark:text-gray-300">
         {tAuth("email")}
         <input
+          data-guide="email"
           type="email"
           value={form.email}
           onChange={(e) =>
@@ -140,6 +146,7 @@ function StaffFormPanel({
       <label className="text-sm text-gray-700 dark:text-gray-300">
         {tAuth("phone")}
         <input
+          data-guide="phone"
           type="tel"
           value={form.phone}
           onChange={(e) =>
@@ -152,6 +159,7 @@ function StaffFormPanel({
       <label className="text-sm text-gray-700 dark:text-gray-300">
         {tStaff("specialization")}
         <select
+          data-guide="specialization"
           required
           value={form.specialization}
           onChange={(e) =>
@@ -174,6 +182,7 @@ function StaffFormPanel({
         <label className="flex-1 text-sm text-gray-700 dark:text-gray-300">
           {tStaff("hourlyRate")}
           <input
+            data-guide="hourlyRate"
             type="number"
             min="0"
             step="0.01"
@@ -187,6 +196,7 @@ function StaffFormPanel({
         <label className="w-24 text-sm text-gray-700 dark:text-gray-300">
           {tStaff("currency")}
           <input
+            data-guide="currency"
             aria-label={tStaff("currency")}
             type="text"
             value={form.currency}
@@ -203,6 +213,7 @@ function StaffFormPanel({
       <label className="text-sm text-gray-700 md:col-span-2 dark:text-gray-300">
         {tStaff("notes")}
         <textarea
+          data-guide="notes"
           rows={2}
           value={form.notes}
           onChange={(e) =>
@@ -391,6 +402,7 @@ export default function StaffPage() {
     setShowForm(true);
   };
 
+  useAssistantRecord(staffApi.getOne, openEdit);
   const closeForm = () => {
     setShowForm(false);
     setEditingStaff(null);
@@ -475,6 +487,8 @@ export default function StaffPage() {
           <button
             type="button"
             onClick={() => openEdit(s)}
+            data-assistant-intent="edit"
+            data-assistant-record={s.id}
             className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
           >
             <UserPen className="h-3.5 w-3.5" />
@@ -512,6 +526,7 @@ export default function StaffPage() {
             <button
               type="button"
               onClick={openCreate}
+              data-assistant-intent="create"
               className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               <Plus className="h-4 w-4" />

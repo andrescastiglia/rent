@@ -637,9 +637,14 @@ export class AiToolsRegistryService {
     prompt?: string,
   ): AiToolDefinition[] {
     const mode = this.executor.getMode();
-    const retiredReadTools = this.retiredReadTools(context.companyId);
+    const retiredReadTools =
+      context.channel === 'web' || context.channel === 'whatsapp'
+        ? new Set<string>()
+        : this.retiredReadTools(context.companyId);
     const eligible = this.catalog.getDefinitions().filter((tool) => {
-      if (context.mutationIntent && tool.mutability !== 'mutable') {
+      // Web changes are completed by the user in the destination form. Reads
+      // remain available during any mutation intent to resolve names safely.
+      if (context.channel === 'web' && tool.mutability === 'mutable') {
         return false;
       }
       if (!canRolesUseAiTool(tool, context)) {
@@ -663,12 +668,14 @@ export class AiToolsRegistryService {
       return true;
     });
 
-    if (eligible.length <= OPENAI_TOOLS_LIMIT) {
+    const limit =
+      context.channel === 'web' ? OPENAI_TOOLS_LIMIT - 1 : OPENAI_TOOLS_LIMIT;
+    if (eligible.length <= limit) {
       return eligible;
     }
 
     const ranked = this.rankToolsByPrompt(eligible, prompt);
-    const selected = ranked.slice(0, OPENAI_TOOLS_LIMIT);
+    const selected = ranked.slice(0, limit);
     this.logger.warn(
       `OpenAI tools trimmed from ${eligible.length} to ${selected.length} for user ${context.userId}`,
     );

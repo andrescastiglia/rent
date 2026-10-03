@@ -153,6 +153,19 @@ const getMockUser = (): User => {
 };
 
 export const usersApi = {
+  getOne: async (id: string): Promise<User> => {
+    if (IS_MOCK_MODE) {
+      const user = MOCK_MANAGED_USERS.find((record) => record.id === id);
+      if (!user) throw new Error("User not found");
+      return user;
+    }
+    return mapUser(
+      await apiClient.get<BackendUser>(
+        `/users/${encodeURIComponent(id)}`,
+        getToken() ?? undefined,
+      ),
+    );
+  },
   getMyProfile: async (): Promise<User> => {
     if (IS_MOCK_MODE) {
       await delay(DELAY);

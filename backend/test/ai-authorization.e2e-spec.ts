@@ -9,6 +9,12 @@ import { User, UserRole } from '../src/users/entities/user.entity';
 import { Company } from '../src/companies/entities/company.entity';
 import { AiToolExecutorService } from '../src/ai/ai-tool-executor.service';
 import { AiExecutionContext } from '../src/ai/types/ai-tool.types';
+import { Tenant } from '../src/tenants/entities/tenant.entity';
+import {
+  Payment,
+  PaymentMethod,
+  PaymentStatus,
+} from '../src/payments/entities/payment.entity';
 import {
   configureE2eApp,
   createActiveTestUser,
@@ -74,6 +80,13 @@ describe('AI company and module authorization (e2e)', () => {
 
   afterAll(async () => {
     if (db && company && foreignCompany) {
+      await db.query(
+        'DELETE FROM payments WHERE company_id = ANY($1::uuid[])',
+        [[company.id, foreignCompany.id]],
+      );
+      await db.query('DELETE FROM tenants WHERE company_id = ANY($1::uuid[])', [
+        [company.id, foreignCompany.id],
+      ]);
       await db.query('DELETE FROM users WHERE company_id = ANY($1::uuid[])', [
         [company.id, foreignCompany.id],
       ]);
@@ -84,6 +97,124 @@ describe('AI company and module authorization (e2e)', () => {
     await app?.close();
     if (previousMode === undefined) delete process.env.AI_TOOLS_MODE;
     else process.env.AI_TOOLS_MODE = previousMode;
+  });
+
+  it('provides password help in READONLY without a provider and sends no web actions to mobile', async () => {
+    process.env.AI_TOOLS_MODE = 'READONLY';
+    try {
+      const response = await request(app.getHttpServer())
+        .post('/ai/tools/respond')
+        .auth(adminToken, { type: 'bearer' })
+        .send({
+          prompt: 'quiero cambiar la password',
+          channel: 'web',
+          currentPath: '/es/properties',
+        })
+        .expect(201);
+      expect(response.body.uiAction).toEqual({
+        type: 'navigate',
+        path: '/settings',
+        guide: 'password',
+      });
+      expect(response.body.outputText).toContain('contraseña actual');
+      const mobile = await request(app.getHttpServer())
+        .post('/ai/tools/respond')
+        .auth(adminToken, { type: 'bearer' })
+        .send({ prompt: 'quiero cambiar la password', channel: 'mobile' })
+        .expect(201);
+      expect(mobile.body).not.toHaveProperty('uiAction');
+      await request(app.getHttpServer())
+        .post('/ai/tools/respond')
+        .auth(adminToken, { type: 'bearer' })
+        .send({ prompt: 'password', channel: 'whatsapp' })
+        .expect(400);
+    } finally {
+      process.env.AI_TOOLS_MODE = 'FULL';
+    }
+  });
+
+  it('returns full daily currency totals with bounded details and excludes foreign, deleted and incomplete payments', async () => {
+    const users = app.get(UsersService);
+    const tenantUser = await createActiveTestUser(users, {
+      email: `collections-${suffix}@ai.test`,
+      password,
+      firstName: 'Collections',
+      lastName: 'Fixture',
+      role: UserRole.TENANT,
+      companyId: company.id,
+    });
+    const foreignTenantUser = await createActiveTestUser(users, {
+      email: `foreign-collections-${suffix}@ai.test`,
+      password,
+      firstName: 'Foreign',
+      lastName: 'Fixture',
+      role: UserRole.TENANT,
+      companyId: foreignCompany.id,
+    });
+    const tenant = await db
+      .getRepository(Tenant)
+      .save({ userId: tenantUser.id, companyId: company.id });
+    const foreignTenant = await db
+      .getRepository(Tenant)
+      .save({ userId: foreignTenantUser.id, companyId: foreignCompany.id });
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    const payments = db.getRepository(Payment);
+    const base = {
+      companyId: company.id,
+      tenantId: tenant.id,
+      method: PaymentMethod.CASH,
+      currencyCode: 'ARS',
+      paymentDate: new Date(`${today}T12:00:00Z`),
+      status: PaymentStatus.COMPLETED,
+    };
+    await payments.save([
+      ...Array.from({ length: 23 }, () => ({ ...base, amount: 10.1 })),
+      { ...base, currencyCode: 'USD', amount: 3.03 },
+      { ...base, amount: 100, refundedAmount: 20 },
+      { ...base, amount: 1000, status: PaymentStatus.PENDING },
+      { ...base, amount: 2000, status: PaymentStatus.CANCELLED },
+      { ...base, amount: 3000, deletedAt: new Date() },
+      { ...base, amount: 4000, paymentDate: new Date('2020-01-01T12:00:00Z') },
+      {
+        ...base,
+        amount: 5000,
+        companyId: foreignCompany.id,
+        tenantId: foreignTenant.id,
+      },
+    ]);
+    const summary = await request(app.getHttpServer())
+      .post('/ai/tools/execute')
+      .auth(adminToken, { type: 'bearer' })
+      .send({
+        toolName: 'get_payments_collection_summary',
+        arguments: { fromDate: today, toDate: today },
+      })
+      .expect(201);
+    expect(summary.body.result.totalCount).toBe(25);
+    expect(summary.body.result.details).toHaveLength(20);
+    expect(summary.body.result.totals).toEqual([
+      { currency: 'ARS', amount: '312.30', count: 24 },
+      { currency: 'USD', amount: '3.03', count: 1 },
+    ]);
+    const response = await request(app.getHttpServer())
+      .post('/ai/tools/respond')
+      .auth(adminToken, { type: 'bearer' })
+      .send({ prompt: 'quiero ver la cobranza del dia de hoy', channel: 'web' })
+      .expect(201);
+    expect(response.body.outputText).toContain('ARS 312,30');
+    expect(response.body.outputText).toContain('USD 3,03');
+    expect(response.body.outputText).toContain('Mostrando 20 de 25');
+    expect(response.body).not.toHaveProperty('uiAction');
+    await request(app.getHttpServer())
+      .post('/ai/tools/respond')
+      .auth(staffToken, { type: 'bearer' })
+      .send({ prompt: 'cobranza de hoy', channel: 'web' })
+      .expect(403);
   });
 
   it('scopes HTTP and AI user reads to the authenticated company', async () => {

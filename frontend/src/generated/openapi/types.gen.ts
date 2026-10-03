@@ -2357,6 +2357,8 @@ export type AiChatRequestDto = {
   prompt: string;
   conversationId?: string;
   messages?: Array<string>;
+  channel?: "web" | "mobile";
+  currentPath?: string;
 };
 
 export type ApprovePendingActionDto = {
@@ -2365,6 +2367,21 @@ export type ApprovePendingActionDto = {
 
 export type RejectPendingActionDto = {
   reason?: string;
+};
+
+export type CreateBuyerDto = {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  dni?: string;
+  interestedProfileId?: string;
+  notes?: string;
+  password?: string;
+};
+
+export type UpdateBuyerDto = {
+  [key: string]: unknown;
 };
 
 export type MaintenanceTicket = {
@@ -2837,21 +2854,6 @@ export type FrontendMetricDto = {
   endpoint?: string;
   statusCode?: number;
   errorType?: string;
-};
-
-export type CreateBuyerDto = {
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone?: string;
-  dni?: string;
-  interestedProfileId?: string;
-  notes?: string;
-  password?: string;
-};
-
-export type UpdateBuyerDto = {
-  [key: string]: unknown;
 };
 
 export type CreateSandboxBankMovementDto = {
@@ -7061,6 +7063,81 @@ export type PendingActionsRejectResponses = {
 export type PendingActionsRejectResponse =
   PendingActionsRejectResponses[keyof PendingActionsRejectResponses];
 
+export type BuyersFindAllData = {
+  body?: never;
+  path?: never;
+  query?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    page?: number;
+    limit?: number;
+  };
+  url: "/buyers";
+};
+
+export type BuyersFindAllResponses = {
+  200: unknown;
+};
+
+export type BuyersCreateData = {
+  body: CreateBuyerDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    "Idempotency-Key"?: string;
+  };
+  path?: never;
+  query?: never;
+  url: "/buyers";
+};
+
+export type BuyersCreateResponses = {
+  201: Buyer;
+};
+
+export type BuyersCreateResponse =
+  BuyersCreateResponses[keyof BuyersCreateResponses];
+
+export type BuyersFindOneData = {
+  body?: never;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/buyers/{id}";
+};
+
+export type BuyersFindOneResponses = {
+  200: Buyer;
+};
+
+export type BuyersFindOneResponse =
+  BuyersFindOneResponses[keyof BuyersFindOneResponses];
+
+export type BuyersUpdateData = {
+  body: UpdateBuyerDto;
+  headers?: {
+    /**
+     * UUID conservado para recuperar el resultado de un intento.
+     */
+    "Idempotency-Key"?: string;
+  };
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: "/buyers/{id}";
+};
+
+export type BuyersUpdateResponses = {
+  200: Buyer;
+};
+
+export type BuyersUpdateResponse =
+  BuyersUpdateResponses[keyof BuyersUpdateResponses];
+
 export type MaintenanceFindAllData = {
   body?: never;
   path?: never;
@@ -7706,81 +7783,6 @@ export type MetricsRecordFrontendMetricData = {
 export type MetricsRecordFrontendMetricResponses = {
   202: unknown;
 };
-
-export type BuyersFindAllData = {
-  body?: never;
-  path?: never;
-  query?: {
-    name?: string;
-    email?: string;
-    phone?: string;
-    page?: number;
-    limit?: number;
-  };
-  url: "/buyers";
-};
-
-export type BuyersFindAllResponses = {
-  200: unknown;
-};
-
-export type BuyersCreateData = {
-  body: CreateBuyerDto;
-  headers?: {
-    /**
-     * UUID conservado para recuperar el resultado de un intento.
-     */
-    "Idempotency-Key"?: string;
-  };
-  path?: never;
-  query?: never;
-  url: "/buyers";
-};
-
-export type BuyersCreateResponses = {
-  201: Buyer;
-};
-
-export type BuyersCreateResponse =
-  BuyersCreateResponses[keyof BuyersCreateResponses];
-
-export type BuyersFindOneData = {
-  body?: never;
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: "/buyers/{id}";
-};
-
-export type BuyersFindOneResponses = {
-  200: Buyer;
-};
-
-export type BuyersFindOneResponse =
-  BuyersFindOneResponses[keyof BuyersFindOneResponses];
-
-export type BuyersUpdateData = {
-  body: UpdateBuyerDto;
-  headers?: {
-    /**
-     * UUID conservado para recuperar el resultado de un intento.
-     */
-    "Idempotency-Key"?: string;
-  };
-  path: {
-    id: string;
-  };
-  query?: never;
-  url: "/buyers/{id}";
-};
-
-export type BuyersUpdateResponses = {
-  200: Buyer;
-};
-
-export type BuyersUpdateResponse =
-  BuyersUpdateResponses[keyof BuyersUpdateResponses];
 
 export type BankReconciliationIngestSandboxMovementData = {
   body: CreateSandboxBankMovementDto;

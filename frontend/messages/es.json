@@ -2158,7 +2158,14 @@
     "invoiceOpen": "Abra la factura encontrada para consultar vencimiento, saldo y cobros asociados.",
     "userOpen": "Abra el usuario encontrado para revisar sus roles y permisos.",
     "templateOpen": "Abra la plantilla para revisar su contenido y los campos del documento.",
-    "templateName": "Revise el nombre de la plantilla para reconocerla al emitir el documento."
+    "templateName": "Revise el nombre de la plantilla para reconocerla al emitir el documento.",
+    "passwordCurrent": "Completá tu contraseña actual en este campo.",
+    "passwordNew": "Ingresá una nueva contraseña de al menos 8 caracteres.",
+    "passwordConfirm": "Repetí la nueva contraseña para confirmarla.",
+    "passwordSave": "Revisá los datos y seleccioná Cambiar contraseña.",
+    "assistantField": "Completá este campo y revisá los datos antes de guardar.",
+    "assistantEdit": "Modificá este dato. El guardado lo realizás vos desde el formulario.",
+    "assistantPage": "Empezá aquí para utilizar esta página."
   },
   "propertyList": {
     "title": "Propiedades",

@@ -1,9 +1,12 @@
 import {
   IsArray,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
+  MaxLength,
 } from 'class-validator';
 import { z } from 'zod';
 
@@ -17,6 +20,12 @@ const aiChatRequestZodSchema = z
     prompt: z.string().min(1),
     conversationId: z.uuid().optional(),
     messages: z.array(aiChatMessageZodSchema).optional(),
+    channel: z.enum(['web', 'mobile']).optional(),
+    currentPath: z
+      .string()
+      .max(300)
+      .regex(/^\/(?:es|en|pt)(?:\/[a-zA-Z0-9/_-]*)?$/)
+      .optional(),
   })
   .strict();
 
@@ -37,4 +46,14 @@ export class AiChatRequestDto {
   @IsArray()
   @IsOptional()
   messages?: AiChatMessage[];
+
+  @IsOptional()
+  @IsIn(['web', 'mobile'])
+  channel?: 'web' | 'mobile';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  @Matches(/^\/(?:es|en|pt)(?:\/[a-zA-Z0-9/_-]*)?$/)
+  currentPath?: string;
 }

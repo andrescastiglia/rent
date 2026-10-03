@@ -133,6 +133,8 @@ export class AiController {
         role: req.user.role,
         roles: req.user.roles,
         permissions: req.user.permissions,
+        channel: dto.channel ?? 'web',
+        currentPath: dto.currentPath,
       },
     });
     return { mode: this.executor.getMode(), ...response };

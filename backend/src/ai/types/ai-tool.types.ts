@@ -8,6 +8,18 @@ import { AuthenticatedPolicy } from '../../common/decorators/authenticated.decor
 
 export type AiToolsMode = 'NONE' | 'READONLY' | 'FULL';
 export type AiToolMutability = 'readonly' | 'mutable';
+export type AiChannel = 'web' | 'mobile' | 'whatsapp';
+
+export type AiUiAction = {
+  type: 'navigate';
+  path: string;
+  guide: 'password' | 'screen';
+  intent?: 'help' | 'edit' | 'create';
+  field?: string;
+  instruction?: string;
+  recordId?: string;
+  openControl?: string;
+};
 
 export interface AiExecutionContext {
   userId: string;
@@ -21,6 +33,8 @@ export interface AiExecutionContext {
   mutationApprovalMode?: 'conversation' | 'staff_queue';
   mutationIntent?: boolean;
   roleDataContext?: string;
+  channel?: AiChannel;
+  currentPath?: string;
   idempotencyKey?: string;
   mutationReview?: MutationReview;
 }

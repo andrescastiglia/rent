@@ -24,7 +24,7 @@ describe('PaymentsService', () => {
   let paymentAllocationsRepository: MockRepository<PaymentAllocation>;
   let tenantAccountsRepository: MockRepository<TenantAccount>;
   let tenantAccountsService: Partial<TenantAccountsService>;
-  let dataSource: { transaction: jest.Mock };
+  let dataSource: { transaction: jest.Mock; query: jest.Mock };
   let transactionManager: {
     queryRunner: { isTransactionActive: boolean };
     query: jest.Mock;
@@ -72,6 +72,7 @@ describe('PaymentsService', () => {
       }),
     };
     dataSource = {
+      query: jest.fn(),
       transaction: jest.fn(async (callback: (manager: any) => unknown) =>
         callback(transactionManager),
       ),
@@ -587,6 +588,44 @@ describe('PaymentsService', () => {
     await expect(
       service.findCreditNoteById('missing', 'company-1'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('aggregates full completed collections by currency within the company and payment dates', async () => {
+    const result = {
+      totalCount: 25,
+      totals: [{ currency: 'ARS', amount: '12500.50', count: 25 }],
+      details: [],
+    };
+    dataSource.query.mockResolvedValueOnce([result]);
+    expect(
+      await service.collectionSummary(
+        { fromDate: '2026-10-02', toDate: '2026-10-02' },
+        { id: 'user', companyId: 'company', role: UserRole.ADMIN },
+      ),
+    ).toEqual({ ...result, fromDate: '2026-10-02', toDate: '2026-10-02' });
+    const [sql, params] = dataSource.query.mock.calls[0];
+    expect(params).toEqual(['company', '2026-10-02', '2026-10-02']);
+    expect(sql).toContain("p.status = 'completed'");
+    expect(sql).toContain('p.amount - COALESCE(p.refunded_amount, 0)');
+    expect(sql).toContain('GROUP BY currency');
+    expect(sql).toContain('LIMIT 20');
+    expect(sql).toContain('SELECT COUNT(*)::int FROM eligible');
+  });
+
+  it('denies collection summaries outside staff scope and rejects reversed dates before querying', async () => {
+    await expect(
+      service.collectionSummary(
+        { fromDate: '2026-10-02', toDate: '2026-10-02' },
+        { id: 'user', companyId: 'company', role: UserRole.TENANT },
+      ),
+    ).rejects.toThrow('staff access');
+    await expect(
+      service.collectionSummary(
+        { fromDate: '2026-10-03', toDate: '2026-10-02' },
+        { id: 'user', companyId: 'company', role: UserRole.ADMIN },
+      ),
+    ).rejects.toThrow('date range');
+    expect(dataSource.query).not.toHaveBeenCalled();
   });
 
   it('should apply filters and owner visibility scope in findAll', async () => {

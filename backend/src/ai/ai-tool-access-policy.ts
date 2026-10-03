@@ -70,6 +70,8 @@ export function resolveAiToolPermission(
     [/^(payments|payment_|tenant_account|bank_account)/, 'payments'],
     [/^(invoice|credit_note)/, 'invoices'],
     [/^tenant/, 'tenants'],
+    [/^buyer/, 'self-service'],
+    [/^communications/, 'communications'],
     [/^interested/, 'interested'],
     [/^owner/, 'owners'],
     [/^github_/, 'ai'],
