@@ -1,3 +1,5 @@
+import type { ContactData } from '../../contact-data/normalization';
+import type { ContactAddress } from '../../contact-data/contact-data.dto';
 import {
   Entity,
   Column,
@@ -23,6 +25,15 @@ export enum EmploymentStatus {
 
 @Entity('tenants')
 export class Tenant {
+  @Column({ name: 'contact_data', type: 'jsonb', default: {} })
+  contactData: ContactData;
+  @Column({ name: 'contact_address', type: 'jsonb', nullable: true })
+  contactAddress: ContactAddress | null;
+  @Column({ type: 'double precision', nullable: true })
+  latitude: number | null;
+  @Column({ type: 'double precision', nullable: true })
+  longitude: number | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

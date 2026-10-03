@@ -1,3 +1,4 @@
+import { applyContactNormalization } from '../contact-data/normalization';
 import { DomainMutationScope } from '../common/helpers/domain-mutation-scope';
 import { OwnerSummaryDto } from './dto/owner-summary.dto';
 import {
@@ -322,6 +323,9 @@ export class OwnersService {
         preferredContactChannel: dto.preferredContactChannel,
       });
 
+      applyContactNormalization(owner, dto, 'owner', {
+        phone: savedUser.phone,
+      });
       const savedOwner = await manager.getRepository(Owner).save(owner);
       return savedOwner.id;
     });
@@ -345,9 +349,17 @@ export class OwnersService {
       );
 
     const owner = await this.findOne(id, companyId);
+    const previousContact = structuredClone(owner);
     await this.applyOwnerUserUpdates(owner, dto);
     await this.usersRepository.save(owner.user);
     this.applyOwnerProfileUpdates(owner, dto);
+    applyContactNormalization(
+      owner,
+      dto,
+      'owner',
+      { phone: owner.user.phone },
+      previousContact,
+    );
     await this.ownersRepository.save(owner);
 
     return this.findOne(id, companyId);

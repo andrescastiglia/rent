@@ -189,3 +189,16 @@ it("ignores a capability lookup resolving after logout", async () => {
   expect(screen.queryByRole("main")).not.toBeInTheDocument();
   expect(mockRouter.replace).toHaveBeenCalledWith("/login");
 });
+it.each([
+  "/es/notifications/00000000-0000-4000-8000-000000000001",
+  "/es/agenda/people/interested/person?entry=task%3Aid",
+])("preserves an agenda destination before authentication: %s", (path) => {
+  window.history.replaceState({}, "", path);
+  sessionStorage.clear();
+  mockAuth = { user: null, token: null, loading: false };
+  render(<MainLayout>Content</MainLayout>);
+  expect(sessionStorage.getItem("rent.returnTo")).toBe(path);
+  expect(mockRouter.replace).toHaveBeenCalledWith("/login");
+  window.history.replaceState({}, "", "/");
+  sessionStorage.clear();
+});

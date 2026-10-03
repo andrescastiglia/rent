@@ -12,26 +12,30 @@ npm run build
 
 ### Variables de Entorno
 
-Crear archivo `.env` en la raíz del proyecto:
+En ejecución nativa, crear `batch/.env`; el CLI carga el archivo desde su directorio de trabajo. Kubernetes monta el runtime protegido y no usa ese archivo. Ver [despliegue vigente](../../docs/deployment/kubernetes.md).
 
 ```bash
 # Database
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_USERNAME=rent_user
-DATABASE_PASSWORD=secret
-DATABASE_NAME=rent_db
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=rent_user
+POSTGRES_PASSWORD=secret
+POSTGRES_DB=rent_db
 
 # APIs Externas
 BCRA_API_URL=https://api.bcra.gob.ar
 BCRA_ICL_VARIABLE_ID=40
-# BCRA_API_INSECURE=true   # opcional solo si el entorno no valida el certificado TLS
+BCRA_EXCHANGE_RATE_API_URL=https://api.bcra.gob.ar/estadisticascambiarias/v1.0
+BCB_API_URL=https://api.bcb.gov.br/dados/serie
 DATOS_AR_API_URL=https://apis.datos.gob.ar/series/api/series
 DATOS_AR_IPC_SERIES_ID=148.3_INIVELNAL_DICI_M_26
 
 # WhatsApp (vía backend)
-PORT=3001
+BACKEND_INTERNAL_URL=http://localhost:3001
 BATCH_WHATSAPP_INTERNAL_TOKEN=replace_with_shared_secret
+BATCH_BILLING_INTERNAL_TOKEN=replace_with_shared_secret
+BATCH_BANK_RECONCILIATION_INTERNAL_TOKEN=replace_with_shared_secret
+# Los tokens deben coincidir con los del backend.
 
 # Logs
 LOG_LEVEL=info
@@ -47,18 +51,25 @@ LOG_DIR=./logs
 | `billing` | Generar facturas del día |
 | `overdue` | Marcar facturas vencidas |
 | `reminders` | Enviar recordatorios por WhatsApp |
-| `sync-indices` | Sincronizar índices `icl` (BCRA) e `ipc` (datos.gob.ar) |
+| `sync-indices` | Ingerir observaciones versionadas `icl`, `ipc` e `igp_m` |
 | `sync-rates` | Sincronizar tipos de cambio `USD/ARS`, `BRL/ARS`, `USD/BRL` |
 | `reports` | Generar reportes PDF (`monthly` o `settlement`) por propietario |
-| `process-settlements` | Calcular/procesar liquidaciones de propietarios |
+| `process-settlements` | Preview legado con `--dry-run`; escrituras retiradas |
+| `lease-renewal-alerts` | Crear actividades y avisos de renovación |
+| `reconcile-bank` | Conciliar movimientos mediante el backend; ejecución manual |
+| `process-whatsapp-inbox` | Procesar mensajes entrantes; requiere entrada habilitada en backend |
+| `apply-whatsapp-retention` | Aplicar retención de datos de WhatsApp |
+| `rag-sync` | Worker continuo de la outbox RAG |
+| `rag-reconcile` / `rag-purge-audit` | Reparación diaria y retención semanal RAG |
 
 Notas operativas:
 - La opción `late-fees` fue eliminada del CLI batch.
 - `reminders` usa WhatsApp a través del endpoint interno del backend.
-- `sync-indices` sincroniza `ipc` diariamente y persiste un registro por mes (`period_date`) para evitar duplicados.
-- `sync-indices` sincroniza `icl` diariamente y persiste solo el último valor disponible de cada mes.
-- `igp_m` (Brasil) está deshabilitado para sincronización en batch.
-- En facturación, `icl` toma el valor del mes anterior al mes facturado; si falta, usa el mes previo disponible.
+- `sync-indices` guarda ICL diario e IPC/IGP-M mensuales en `inflation_observations`, con revisiones inmutables, procedencia y recuperación de ventanas. El cron productivo permanece suspendido; no existe `--dry-run` para este comando.
+- Los ajustes de facturación pertenecen al backend y exigen la cobertura exacta del índice y fechas del contrato; consultar [ajustes](../../docs/technical/rent-adjustments.md).
+- `sync-rates --dry-run` consulta y valida proveedores sin guardar cotizaciones; registra la ejecución como preview. USD/ARS y BRL/ARS usan `/Cotizaciones/{moneda}` y `tipoCotizacion`, no IDs de series monetarias. USD/BRL conserva BCB SGS 1; una falla de DNS no se convierte en éxito ni reemplaza la fuente.
+- `process-settlements` conserva sólo el cálculo legado de lectura. Generación, snapshots, comisiones, retenciones y pagos canónicos pertenecen al backend; no reactivar su cron como escritor.
+- Los comandos administrativos RAG (`rag-backfill`, `rag-verify`, `rag-build-index`, `rag-purge-stale`, `rag-recall`) son manuales. Ver [RAG](RAG.md).
 - `reports` requiere `--owner-id`.
 
 ### Ejemplos
@@ -102,33 +113,11 @@ npm run start -- process-settlements --dry-run
 
 ## Configuración de Crontab
 
-Editar crontab con `crontab -e`:
+Producción utiliza [los 15 CronJobs de Kubernetes](../../k8s/base/cronjobs.yaml), el overlay productivo y un Deployment `rag-worker`. Los horarios son **UTC**, tres horas por delante de Argentina. `billing`, `sync-indices` y `process-settlements` permanecen suspendidos.
 
-```cron
-# Billing Batch Jobs
-# ===================
+El [crontab de ejemplo](../scripts/crontab.example) corresponde al despliegue nativo histórico; no instalarlo junto a Kubernetes. `reports` debe invocar `generate-all-reports.sh`: el comando individual exige `--owner-id`. El wrapper genera ambos tipos para todos los propietarios durante el mes anterior y admite `--dry-run`.
 
-# Sincronizar índices de inflación (diario 6:00 AM)
-0 6 * * * cd /opt/rent/batch && npm run start -- sync-indices --log /var/log/batch/sync-indices.log
-
-# Sincronizar tipos de cambio (diario 6:30 AM)
-30 6 * * * cd /opt/rent/batch && npm run start -- sync-rates --log /var/log/batch/sync-rates.log
-
-# Generar facturas (diario 7:00 AM)
-0 7 * * * cd /opt/rent/batch && npm run start -- billing --log /var/log/batch/billing.log
-
-# Marcar facturas vencidas (diario 8:00 AM)
-0 8 * * * cd /opt/rent/batch && npm run start -- overdue --log /var/log/batch/overdue.log
-
-# Enviar recordatorios por WhatsApp (diario 9:00 AM)
-0 9 * * * cd /opt/rent/batch && npm run start -- reminders --log /var/log/batch/reminders.log
-
-# Generar reportes mensuales (día 1 de cada mes, 10:00 AM)
-0 10 1 * * cd /opt/rent/batch && /opt/rent/batch/scripts/generate-all-reports.sh --log /var/log/batch/reports.log
-
-# Calcular liquidaciones (día 2 de cada mes, 07:00 AM)
-0 7 2 * * cd /opt/rent/batch && npm run start -- process-settlements --log /var/log/batch/process-settlements.log
-```
+**Batch operations** permite ejecuciones manuales con la imagen desplegada y bloqueo de base compartido con el cron. La opción `reports` ejecuta el wrapper completo. `sync-indices` con `dry_run=true` se rechaza antes de crear el Job; usar una ingestión real únicamente con autorización operativa. `reconcile-bank` no tiene cron automático.
 
 ---
 
@@ -136,14 +125,12 @@ Editar crontab con `crontab -e`:
 
 ### Logs
 
-Los logs se almacenan en `./logs/` con rotación diaria:
-- `batch-YYYY-MM-DD.log` - Logs de aplicación
-- `error-YYYY-MM-DD.log` - Solo errores
+En Kubernetes se usa stdout/stderr con `LOG_TO_FILE=false`; consultar `kubectl logs`. En ejecución nativa, revisar `LOG_DIR` y la configuración de `shared/logger.ts`; `--log` selecciona un archivo sin rotación.
 
 ### Healthcheck
 
 ```bash
-# Verificar conectividad
+# Verificar únicamente versión del CLI (no conectividad ni proveedores)
 npm run start -- --version
 
 # Verificar base de datos
@@ -231,11 +218,13 @@ env | grep DATABASE
 # Endpoint: https://graph.facebook.com/v22.0/{phone-id}/messages
 ```
 
-### Error: Puppeteer no genera PDF
-```bash
-# Instalar dependencias de Chrome
-sudo apt-get install -y chromium-browser
-```
+### Error de generación PDF
+
+Los reportes usan PDFKit y guardan bytes en PostgreSQL; no requieren Chromium. Revisar inconsistencias contables, permisos de base, `file_data` y errores de `billing_jobs`.
+
+### Error 404 o DNS al sincronizar cotizaciones
+
+Verificar que `BCRA_EXCHANGE_RATE_API_URL` corresponda a Estadísticas Cambiarias y que la imagen use `/Cotizaciones/USD` y `/Cotizaciones/BRL`. No consultar `/Monetarias/12` como BRL/ARS. Si BCB devuelve `ENOTFOUND`, verificar resolución desde el host y el pod; conservar la falla hasta que el proveedor sea accesible. No publicar cotizaciones estimadas como datos oficiales.
 
 ## Garantías de reportes y recuperación (2026-10-01)
 

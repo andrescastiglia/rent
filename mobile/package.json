@@ -19,15 +19,17 @@
     "e2e:test:android": "sh scripts/e2e-android-test.sh",
     "e2e:android": "npm run e2e:build:android && npm run e2e:test:android",
     "format:check": "prettier --check \"{app,src}/**/*.{ts,tsx}\" \"*.{js,json}\"",
-    "postinstall": "node scripts/patch-react-native-screens.mjs"
+    "postinstall": "node scripts/patch-react-native-screens.mjs && node scripts/patch-expo-calendar.mjs"
   },
   "dependencies": {
+    "@expo/ui": "~56.0.26",
     "@expo/vector-icons": "^15.0.3",
     "@hookform/resolvers": "^5.2.2",
     "@react-native-community/datetimepicker": "9.1.0",
     "@tanstack/react-query": "^5.101.2",
     "base-64": "^1.0.0",
     "expo": "~56.0.13",
+    "expo-calendar": "56.0.10",
     "expo-constants": "~56.0.19",
     "expo-crypto": "~56.0.5",
     "expo-file-system": "~56.0.8",
@@ -35,12 +37,15 @@
     "expo-image-picker": "~56.0.19",
     "expo-linking": "~56.0.14",
     "expo-localization": "~56.0.6",
+    "expo-location": "~56.0.26",
     "expo-modules-core": "~56.0.18",
     "expo-router": "~56.2.12",
     "expo-secure-store": "~56.0.4",
     "expo-sharing": "~56.0.19",
     "expo-status-bar": "~56.0.4",
     "expo-system-ui": "~56.0.5",
+    "expo-task-manager": "~56.0.27",
+    "expo-widgets": "~56.0.27",
     "i18next": "^26.3.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -73,5 +78,14 @@
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.62.0"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": [
+          "expo-calendar"
+        ]
+      }
+    }
+  }
 }

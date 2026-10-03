@@ -1,3 +1,5 @@
+import { useRouter } from 'expo-router';
+import { isInternalUser } from '@/config/navigation';
 import { useTranslation } from 'react-i18next';
 import { AppButton, ChoiceGroup } from '@/components/ui';
 import { useTheme } from '@/contexts/theme-context';
@@ -5,7 +7,8 @@ import { Screen } from '@/components/screen';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function SettingsScreen() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const router = useRouter();
   const { t } = useTranslation();
   const theme = useTheme();
   return (
@@ -21,6 +24,12 @@ export default function SettingsScreen() {
           { value: 'dark', label: t('theme.dark') },
         ]}
       />
+      {user && isInternalUser(user) && (
+        <AppButton
+          title="Asistencia a visitas y widget"
+          onPress={() => router.push('/(app)/proximity' as never)}
+        />
+      )}
       <AppButton
         title={t('auth.logout')}
         onPress={() => void logout()}

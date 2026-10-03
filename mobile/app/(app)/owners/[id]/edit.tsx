@@ -1,3 +1,5 @@
+import { ContactTools } from '@/components/contact-tools';
+import type { ContactInput } from '@/api/contact-types';
 import { Text, View } from '@/components/themed-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,6 +27,7 @@ export default function EditOwnerScreen() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [contactInput, setContactInput] = useState<ContactInput>({});
 
   useEffect(() => {
     if (!ownerQuery.data) {
@@ -51,6 +54,7 @@ export default function EditOwnerScreen() {
         lastName: lastName.trim(),
         email: email.trim(),
         phone: phone.trim() || undefined,
+        ...contactInput,
       });
     },
     onSuccess: async () => {
@@ -110,6 +114,13 @@ export default function EditOwnerScreen() {
           testID="ownerEdit.submit"
         />
       </View>
+      <ContactTools
+        value={contactInput}
+        onChange={setContactInput}
+        phones={{ phone }}
+        editAddress
+        initialAddress={ownerQuery.data?.contactAddress}
+      />
     </Screen>
   );
 }

@@ -959,6 +959,8 @@ describe('WhatsappService', () => {
         userId: 'user-1',
         companyId: 'company-1',
         role: 'owner',
+        roles: undefined,
+        sourceCommunicationId: 'communication-1',
         permissions: { properties: false, ai: true },
         mutationApprovalMode: 'staff_queue',
         channel: 'whatsapp',
@@ -1090,7 +1092,7 @@ describe('WhatsappService', () => {
     });
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('ANY($1::text[])'),
-      [['5491112345678', '541112345678']],
+      [['5491112345678', '0111512345678', '111512345678']],
     );
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining("AND channel = 'whatsapp'"),

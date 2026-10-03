@@ -1,4 +1,8 @@
 import {
+  ContactNormalizationDto,
+  contactInputShape,
+} from '../../contact-data/contact-data.dto';
+import {
   IsEmail,
   IsIn,
   IsObject,
@@ -18,6 +22,7 @@ import { z } from 'zod';
 
 export const updateUserZodSchema = z
   .object({
+    ...contactInputShape,
     email: z.email().max(USER_EMAIL_MAX_LENGTH).optional(),
     firstName: z.string().min(1).optional(),
     lastName: z.string().min(1).optional(),
@@ -34,7 +39,7 @@ export const updateUserZodSchema = z
   })
   .strict();
 
-export class UpdateUserDto {
+export class UpdateUserDto extends ContactNormalizationDto {
   static readonly zodSchema = updateUserZodSchema;
 
   @IsEmail()

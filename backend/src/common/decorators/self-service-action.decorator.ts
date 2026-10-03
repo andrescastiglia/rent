@@ -12,6 +12,8 @@ const externalRoles = [UserRole.OWNER, UserRole.TENANT, UserRole.BUYER];
  */
 export const SELF_SERVICE_ACTIONS = {
   'ai.read': { method: 'POST', roles: externalRoles },
+  'phone.preview': { method: 'POST', roles: externalRoles },
+  'geo.eta': { method: 'POST', roles: [UserRole.OWNER, UserRole.TENANT] },
   'profile.update': { method: 'PATCH', roles: externalRoles },
   'profile.change-password': { method: 'POST', roles: externalRoles },
   'maintenance.request': {

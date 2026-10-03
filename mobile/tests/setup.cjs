@@ -42,6 +42,7 @@ jest.mock('react-native', () => {
           : props.ListEmptyComponent,
         props.ListFooterComponent,
       ),
+    AppState: { addEventListener: jest.fn(() => ({ remove: jest.fn() })) },
     Platform: {
       OS: 'android',
       select: (values) => values.android ?? values.default,
@@ -67,6 +68,7 @@ jest.mock('react-native', () => {
     Linking: { openURL: jest.fn(async () => true) },
     useColorScheme: jest.fn(() => 'light'),
     useWindowDimensions: () => ({ width: 390, height: 844 }),
+    Dimensions: { get: () => ({ width: 390, height: 844 }) },
   };
 });
 jest.mock('react-native-safe-area-context', () => ({
@@ -114,6 +116,8 @@ jest.mock('expo-router/react-navigation', () => ({
   HeaderHeightContext: require('react').createContext(undefined),
 }));
 jest.mock('expo-secure-store', () => ({
+  AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 5,
+  WHEN_UNLOCKED: 0,
   getItemAsync: jest.fn(async () => null),
   setItemAsync: jest.fn(async () => undefined),
   deleteItemAsync: jest.fn(async () => undefined),
@@ -151,7 +155,12 @@ jest.mock('expo-localization', () => ({
 }));
 jest.mock('expo-constants', () => ({
   __esModule: true,
-  default: { expoConfig: { extra: {} }, manifest: { extra: {} } },
+  ExecutionEnvironment: { StoreClient: 'storeClient' },
+  default: {
+    executionEnvironment: 'storeClient',
+    expoConfig: { extra: {} },
+    manifest: { extra: {} },
+  },
 }));
 jest.mock('@/i18n', () => ({
   i18n: { language: 'es', t: (key) => key, changeLanguage: jest.fn() },
@@ -184,3 +193,45 @@ jest.mock('react-native-gesture-handler', () => ({
   GestureHandlerRootView: 'GestureHandlerRootView',
 }));
 jest.mock('expo-status-bar', () => ({ StatusBar: 'StatusBar' }));
+
+// Native calendar integration is disabled by default in component tests.
+jest.mock('expo-calendar', () => ({
+  getCalendarPermissions: jest.fn(async () => ({ granted: false })),
+  requestCalendarPermissions: jest.fn(async () => ({ granted: false })),
+  getCalendars: jest.fn(async () => []),
+  AlarmMethod: { ALERT: 'alert' },
+  EntityTypes: { EVENT: 'event' },
+  SourceType: { LOCAL: 'local' },
+  CalendarAccessLevel: { OWNER: 'owner' },
+}));
+jest.mock('expo-file-system', () => ({
+  Paths: { document: 'test-documents' },
+  File: class {
+    exists = false;
+    async text() {
+      return '{}';
+    }
+    write() {}
+  },
+}));
+
+jest.mock('expo-location', () => ({
+  Accuracy: { High: 4, Balanced: 3 },
+  requestForegroundPermissionsAsync: jest.fn(async () => ({
+    status: 'denied',
+  })),
+  getCurrentPositionAsync: jest.fn(),
+  hasStartedLocationUpdatesAsync: jest.fn(async () => false),
+  hasStartedGeofencingAsync: jest.fn(async () => false),
+  stopLocationUpdatesAsync: jest.fn(),
+  stopGeofencingAsync: jest.fn(),
+  startLocationUpdatesAsync: jest.fn(),
+  startGeofencingAsync: jest.fn(),
+  requestBackgroundPermissionsAsync: jest.fn(async () => ({
+    status: 'denied',
+  })),
+}));
+jest.mock('expo-task-manager', () => ({
+  defineTask: jest.fn(),
+  isAvailableAsync: jest.fn(async () => false),
+}));

@@ -199,9 +199,7 @@ it('renders real overview categories and sends proposal approval to the authenti
   const app = await renderApp(<Dashboard />);
   expect(textContent(app)).toContain('Review source and total');
   await click(app, 'channels.proposalReview');
-  expect(Linking.openURL).toHaveBeenCalledWith(
-    'https://rent.maese.com.ar/es/dashboard#pending-actions',
-  );
+  expect(router.push).toHaveBeenCalledWith('/(app)/agenda/proposals');
   expect(approve).not.toHaveBeenCalled();
   await click(app, 'Ver propiedades');
   expect(router.push).toHaveBeenCalledWith('/(app)/(tabs)/properties');

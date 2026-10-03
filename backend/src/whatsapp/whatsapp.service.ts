@@ -1,4 +1,9 @@
 import {
+  incomingPhoneCandidates,
+  whatsappFromRecord,
+  whatsappPhone,
+} from '../contact-data/phone';
+import {
   BadRequestException,
   BadGatewayException,
   ConflictException,
@@ -31,6 +36,7 @@ type AiRagRollout = {
     prompt: string;
     conversationId?: string;
     context: {
+      sourceCommunicationId?: string;
       userId: string;
       companyId: string;
       role: UserRole;
@@ -299,7 +305,7 @@ export class WhatsappService implements OnApplicationBootstrap {
       const recipientRows =
         input.personType === 'tenant'
           ? await manager.query(
-              `SELECT tenant.id AS profile_id, account.phone,
+              `SELECT tenant.id AS profile_id, account.phone, tenant.contact_data, account.contact_data AS account_contact_data,
                       account.whatsapp_enabled AS consented
                  FROM tenants tenant
                  JOIN users account ON account.id = tenant.user_id
@@ -311,7 +317,7 @@ export class WhatsappService implements OnApplicationBootstrap {
               [input.personId, actor.companyId],
             )
           : await manager.query(
-              `SELECT profile.id AS profile_id, profile.phone,
+              `SELECT profile.id AS profile_id, profile.phone, profile.contact_data,
                       profile.consent_contact AS consented
                  FROM interested_profiles profile
                 WHERE profile.id = $1::uuid
@@ -321,7 +327,17 @@ export class WhatsappService implements OnApplicationBootstrap {
               [input.personId, actor.companyId],
             );
       const recipient = recipientRows[0] as
-        | { profile_id: string; phone: string | null; consented: boolean }
+        | {
+            profile_id: string;
+            phone: string | null;
+            contact_data?: Parameters<
+              typeof whatsappFromRecord
+            >[0]['contact_data'];
+            account_contact_data?: Parameters<
+              typeof whatsappFromRecord
+            >[0]['account_contact_data'];
+            consented: boolean;
+          }
         | undefined;
       if (!recipient)
         throw new NotFoundException('WhatsApp recipient not found');
@@ -330,7 +346,7 @@ export class WhatsappService implements OnApplicationBootstrap {
           'The recipient has not consented to WhatsApp',
         );
       }
-      const phone = this.normalizePhone(recipient.phone ?? '');
+      const phone = whatsappFromRecord(recipient);
       if (!phone)
         throw new BadRequestException('Invalid WhatsApp phone number');
 
@@ -589,11 +605,18 @@ export class WhatsappService implements OnApplicationBootstrap {
     input: QueueWhatsappMessageInput,
     normalizedPhone: string,
   ): Promise<void> {
-    let rows: Array<{ phone: string | null; consented: boolean }>;
+    let rows: Array<{
+      phone: string | null;
+      contact_data?: Parameters<typeof whatsappFromRecord>[0]['contact_data'];
+      account_contact_data?: Parameters<
+        typeof whatsappFromRecord
+      >[0]['account_contact_data'];
+      consented: boolean;
+    }>;
     if (input.recipientRole === 'tenant' || input.recipientRole === 'owner') {
       const table = input.recipientRole === 'tenant' ? 'tenants' : 'owners';
       rows = await this.dataSource!.query(
-        `SELECT u.phone, u.whatsapp_enabled AS consented
+        `SELECT u.phone, profile.contact_data, u.contact_data AS account_contact_data, u.whatsapp_enabled AS consented
            FROM ${table} profile
            JOIN users u ON u.id = profile.user_id AND u.deleted_at IS NULL
           WHERE profile.id = $1::uuid AND profile.company_id = $2::uuid
@@ -602,14 +625,14 @@ export class WhatsappService implements OnApplicationBootstrap {
       );
     } else if (input.recipientRole === 'interested') {
       rows = await this.dataSource!.query(
-        `SELECT phone, consent_contact AS consented
+        `SELECT phone, contact_data, consent_contact AS consented
            FROM interested_profiles
           WHERE id = $1::uuid AND company_id = $2::uuid AND deleted_at IS NULL`,
         [input.recipientId, input.companyId],
       );
     } else {
       rows = await this.dataSource!.query(
-        `SELECT phone, whatsapp_enabled AS consented
+        `SELECT phone, contact_data, whatsapp_enabled AS consented
            FROM users
           WHERE id = $1::uuid AND company_id = $2::uuid AND role = $3::user_role
             AND deleted_at IS NULL`,
@@ -623,7 +646,7 @@ export class WhatsappService implements OnApplicationBootstrap {
         'The recipient has not consented to WhatsApp',
       );
     }
-    if (this.normalizePhone(recipient.phone ?? '') !== normalizedPhone) {
+    if (whatsappFromRecord(recipient) !== normalizedPhone) {
       throw new BadRequestException(
         'Recipient phone does not match the record',
       );
@@ -1130,16 +1153,17 @@ export class WhatsappService implements OnApplicationBootstrap {
     const parsedMessage = this.parseIncomingMessage(message);
     if (!parsedMessage) return;
     const { whatsappMessageId, from } = parsedMessage;
-    const senderPhones = [from];
-    if (/^549\d{10}$/.test(from)) senderPhones.push(`54${from.slice(3)}`);
-    else if (/^54\d{10}$/.test(from)) senderPhones.push(`549${from.slice(2)}`);
+    const senderPhones = incomingPhoneCandidates(from);
 
     const users = await this.dataSource.query(
       `SELECT id, company_id, role, roles, permissions, language, phone
          FROM users
         WHERE is_active = true AND deleted_at IS NULL
           AND whatsapp_enabled = true
-          AND regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])
+          AND (regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])
+           OR (contact_data->'phones'->'phone'->>'original'=phone AND ltrim(contact_data->'phones'->'phone'->>'e164','+')=ANY($1::text[]))
+           OR EXISTS(SELECT 1 FROM owners o WHERE o.user_id=users.id AND o.company_id=users.company_id AND o.deleted_at IS NULL AND o.contact_data->'phones'->'phone'->>'original'=users.phone AND ltrim(o.contact_data->'phones'->'phone'->>'e164','+')=ANY($1::text[]))
+           OR EXISTS(SELECT 1 FROM tenants t WHERE t.user_id=users.id AND t.company_id=users.company_id AND t.deleted_at IS NULL AND t.contact_data->'phones'->'phone'->>'original'=users.phone AND ltrim(t.contact_data->'phones'->'phone'->>'e164','+')=ANY($1::text[])))
         LIMIT 2`,
       [senderPhones],
     );
@@ -1272,6 +1296,7 @@ export class WhatsappService implements OnApplicationBootstrap {
           role: user.role,
           roles: user.roles,
           permissions: user.permissions,
+          sourceCommunicationId: inserted[0].id,
           mutationApprovalMode: 'staff_queue',
           channel: 'whatsapp',
         },
@@ -1937,11 +1962,7 @@ export class WhatsappService implements OnApplicationBootstrap {
   }
 
   private normalizePhone(phone: string): string {
-    const digits = phone.replaceAll(/\D+/g, '');
-    if (digits.length < 8 || digits.length > 16) {
-      return '';
-    }
-    return digits;
+    return whatsappPhone(phone);
   }
 
   private hashLogSubject(value: string): string {

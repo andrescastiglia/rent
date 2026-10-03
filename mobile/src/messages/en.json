@@ -58,7 +58,8 @@
     "users": "Users",
     "templates": "Templates",
     "reports": "Reports",
-    "owners": "Owners"
+    "owners": "Owners",
+    "agenda": "Company agenda"
   },
   "breadcrumbs": {
     "home": "Home",
@@ -1380,5 +1381,96 @@
     "system": "Use system settings",
     "light": "Light",
     "dark": "Dark"
+  },
+  "agenda": {
+    "heading": "Company agenda",
+    "internalOnly": "Agenda is for internal staff",
+    "title": "Title",
+    "description": "Description",
+    "kind": "Type",
+    "person": "Person",
+    "findPerson": "Find person",
+    "noPerson": "No linked person",
+    "responsible": "Responsible",
+    "unassigned": "Unassigned",
+    "schedule": "Schedule",
+    "date": "Date",
+    "dateTime": "Date and time",
+    "end": "Optional end",
+    "reminderMinutes": "Notify minutes before",
+    "reminderHour": "Reminder hour",
+    "requiredDate": "Enter a date",
+    "taskForm": "Task form",
+    "save": "Save",
+    "saving": "Saving…",
+    "error": "Could not complete the operation",
+    "close": "Close",
+    "newTask": "New task",
+    "view": "View",
+    "today": "Today",
+    "unscheduled": "To schedule",
+    "refresh": "Refresh",
+    "search": "Search",
+    "all": "All",
+    "status": "Status",
+    "loading": "Loading…",
+    "previous": "Previous",
+    "next": "Next",
+    "items": "commitments",
+    "followup": "Follow-up",
+    "openPerson": "Open person record",
+    "personUnavailable": "The linked person is no longer available",
+    "edit": "Edit",
+    "complete": "Complete",
+    "derived": "Date and status are updated in the source module",
+    "newFollowup": "Create follow-up",
+    "history": "History",
+    "notifications": "Notifications",
+    "enablePush": "Enable browser notifications",
+    "disablePush": "Disable browser notifications",
+    "pushDenied": "Permission denied. Notifications remain available in Rent",
+    "markRead": "Mark as read",
+    "preferences": "Notification preferences",
+    "cancelTask": "Cancel task",
+    "openSource": "Open source module",
+    "empty": "No commitments match these filters",
+    "kinds": {
+      "task": "Task",
+      "call": "Call",
+      "visit": "Visit",
+      "maintenance": "Maintenance",
+      "invoice": "Payment due",
+      "lease": "Contract",
+      "sale": "Sale installment"
+    },
+    "views": {
+      "list": "List",
+      "day": "Day",
+      "week": "Week",
+      "month": "Month"
+    },
+    "statuses": {
+      "pending": "Pending",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "all": "All"
+    },
+    "scheduleKinds": {
+      "none": "No date",
+      "date": "Date without time",
+      "time": "Date and time"
+    },
+    "events": {
+      "created": "Created",
+      "updated": "Updated"
+    },
+    "noticeEvents": {
+      "assigned": "Assignment",
+      "rescheduled": "Date changed",
+      "changed": "Task changed",
+      "reminder": "Reminder",
+      "overdue": "Overdue",
+      "proposal": "Proposal for review"
+    }
   }
 }

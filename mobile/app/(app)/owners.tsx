@@ -1,3 +1,4 @@
+import { GeoCard } from '@/components/geo-card';
 import { Text, View } from '@/components/themed-native';
 import { useRouter } from 'expo-router';
 import { AppButton } from '@/components/ui';
@@ -31,6 +32,10 @@ export default function OwnersScreen() {
             style={styles.title}
           >{`${owner.firstName} ${owner.lastName}`}</Text>
           <Text style={styles.detail}>{owner.email}</Text>
+          <Text>
+            {owner.contactData?.phones?.phone?.international || owner.phone}
+          </Text>
+          <GeoCard location={{ type: 'owner', id: owner.id }} />
           {user && canUserAccessPath(user, `/owners/${owner.id}/edit`) ? (
             <AppButton
               title={t('common.edit')}

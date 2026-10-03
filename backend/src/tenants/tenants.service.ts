@@ -1,3 +1,4 @@
+import { applyContactNormalization } from '../contact-data/normalization';
 import { DomainMutationScope } from '../common/helpers/domain-mutation-scope';
 import {
   Injectable,
@@ -139,7 +140,34 @@ export class TenantsService {
       existingUser,
     );
 
-    const profileFields = this.tenantProfileFields(createTenantDto);
+    const normalizedContact = {
+      companyId: context.companyId,
+      ...createTenantDto,
+    };
+    applyContactNormalization(normalizedContact, createTenantDto, 'tenant', {
+      phone: savedUser.phone,
+      emergencyContactPhone:
+        createTenantDto.emergencyContactPhone ?? createTenantDto.emergencyPhone,
+      emergencyPhone:
+        createTenantDto.emergencyContactPhone ?? createTenantDto.emergencyPhone,
+    });
+    const profileFields = [
+      ...this.tenantProfileFields(createTenantDto),
+      ...['contactAddress', 'contactData', 'latitude', 'longitude']
+        .map(
+          (key) =>
+            [
+              (
+                {
+                  contactAddress: 'contact_address',
+                  contactData: 'contact_data',
+                } as Record<string, string>
+              )[key] ?? key,
+              (normalizedContact as Record<string, unknown>)[key],
+            ] as [string, unknown],
+        )
+        .filter(([, v]) => v !== undefined),
+    ];
     const tenantRows = await this.usersRepository.query(
       `INSERT INTO tenants (
         user_id, company_id, dni, emergency_contact_name,
@@ -163,6 +191,7 @@ export class TenantsService {
 
     return this.tenantResponse(savedUser, {
       ...createTenantDto,
+      ...normalizedContact,
       id: tenantRows?.[0]?.id,
       emergencyContactName:
         createTenantDto.emergencyContactName ??
@@ -409,6 +438,13 @@ export class TenantsService {
     await this.usersRepository.save(user);
 
     await this.updateTenantProfile(id, updateTenantDto, context.companyId);
+    const contactProfile = await this.findTenantByUserId(id, context.companyId);
+    applyContactNormalization(contactProfile, updateTenantDto, 'tenant', {
+      phone: user.phone,
+      emergencyContactPhone: contactProfile.emergencyContactPhone,
+      emergencyPhone: contactProfile.emergencyContactPhone,
+    });
+    await this.tenantsRepository.save(contactProfile);
 
     return this.findOne(id, context);
   }
@@ -477,6 +513,10 @@ export class TenantsService {
     const profile = tenant ?? ({} as Tenant);
     Object.assign(response, {
       tenantEntityId: profile.id,
+      contactAddress: profile.contactAddress,
+      contactData: profile.contactData,
+      latitude: profile.latitude,
+      longitude: profile.longitude,
       dni: profile.dni,
       cuil: profile.cuil,
       dateOfBirth: profile.dateOfBirth,

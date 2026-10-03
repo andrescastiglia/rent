@@ -1,3 +1,4 @@
+import type { ContactInput, ContactRecord } from '../../../shared/contact-data';
 import { Property } from './property';
 
 export type InterestedOperation = 'rent' | 'sale';
@@ -26,7 +27,7 @@ export type InterestedMatchStatus =
   | 'rejected'
   | 'expired';
 
-export interface InterestedProfile {
+export interface InterestedProfile extends ContactRecord {
   id: string;
   firstName?: string;
   lastName?: string;
@@ -64,7 +65,7 @@ export interface InterestedProfile {
   updatedAt: string;
 }
 
-export interface CreateInterestedProfileInput {
+export interface CreateInterestedProfileInput extends ContactInput {
   firstName?: string;
   lastName?: string;
   phone: string;

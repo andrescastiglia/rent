@@ -1,3 +1,4 @@
+import { applyContactNormalization } from '../contact-data/normalization';
 import {
   BadRequestException,
   ConflictException,
@@ -40,6 +41,9 @@ export class UsersService {
       roles: Array.from(
         new Set([createUserDto.role, ...(createUserDto.roles ?? [])]),
       ),
+    });
+    applyContactNormalization(user, createUserDto, 'user', {
+      phone: user.phone,
     });
     return this.usersRepository.save(user);
   }
@@ -232,6 +236,9 @@ export class UsersService {
       user.phone = updateUserDto.phone.trim();
     }
 
+    applyContactNormalization(user, updateUserDto, 'user', {
+      phone: user.phone,
+    });
     this.applyWhatsappConsent(user, updateUserDto, allowWhatsappConsent);
 
     if (updateUserDto.language !== undefined) {

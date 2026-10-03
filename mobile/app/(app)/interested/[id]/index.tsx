@@ -1,3 +1,4 @@
+import { GeoCard } from '@/components/geo-card';
 import { Text, View } from '@/components/themed-native';
 import { useConfirmationDialog } from '@/components/use-confirmation-dialog';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -57,12 +58,15 @@ export default function InterestedDetailScreen() {
         <Text>{t('interested.noResults')}</Text>
       ) : null}
 
+      {profile && <GeoCard location={{ type: 'interested', id: profile.id }} />}
       {profile ? (
         <View style={styles.card}>
           <Text
             style={styles.title}
           >{`${profile.firstName ?? ''} ${profile.lastName ?? ''}`}</Text>
-          <Text style={styles.detail}>{profile.phone}</Text>
+          <Text style={styles.detail}>
+            {profile.contactData?.phones?.phone?.international || profile.phone}
+          </Text>
           <Text style={styles.detail}>{profile.email ?? '-'}</Text>
           <Text
             style={styles.detail}

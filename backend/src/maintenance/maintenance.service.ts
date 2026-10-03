@@ -168,6 +168,13 @@ export class MaintenanceService {
             priority: dto.priority ?? MaintenanceTicketPriority.MEDIUM,
             source: this.resolveTicketSource(actor, dto.source),
             scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
+            metadata: {
+              agendaScheduleKind:
+                typeof dto.scheduledAt === 'string' &&
+                /^\d{4}-\d{2}-\d{2}$/.test(dto.scheduledAt)
+                  ? 'date'
+                  : 'time',
+            },
             estimatedCost: dto.estimatedCost ?? null,
             costCurrency: dto.costCurrency ?? 'ARS',
             status: MaintenanceTicketStatus.OPEN,
@@ -318,8 +325,17 @@ export class MaintenanceService {
     if (dto.area !== undefined) ticket.area = dto.area!;
     if (dto.priority !== undefined) ticket.priority = dto.priority!;
     if (dto.source !== undefined) ticket.source = dto.source!;
-    if (dto.scheduledAt !== undefined)
+    if (dto.scheduledAt !== undefined) {
       ticket.scheduledAt = dto.scheduledAt ? new Date(dto.scheduledAt) : null;
+      ticket.metadata = {
+        ...ticket.metadata,
+        agendaScheduleKind:
+          typeof dto.scheduledAt === 'string' &&
+          /^\d{4}-\d{2}-\d{2}$/.test(dto.scheduledAt)
+            ? 'date'
+            : 'time',
+      };
+    }
     if (dto.estimatedCost !== undefined)
       ticket.estimatedCost = dto.estimatedCost ?? null;
     if (dto.costCurrency !== undefined)

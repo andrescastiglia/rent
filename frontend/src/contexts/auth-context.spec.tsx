@@ -47,6 +47,7 @@ function getAuthContext() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  sessionStorage.clear();
   (getToken as jest.Mock).mockReturnValue(null);
   (getUser as jest.Mock).mockReturnValue(null);
   (useRouter as jest.Mock).mockReturnValue({ push: mockPush });
@@ -143,6 +144,35 @@ describe("AuthProvider", () => {
       expect(setToken).toHaveBeenCalledWith("tok");
       expect(mockPush).toHaveBeenCalledWith(destination);
     });
+
+    it.each([
+      [
+        "/es/notifications/00000000-0000-4000-8000-000000000001",
+        "/es/notifications/00000000-0000-4000-8000-000000000001",
+      ],
+      [
+        "/es/agenda/people/interested/person?entry=task%3Aid",
+        "/es/agenda/people/interested/person?entry=task%3Aid",
+      ],
+      ["https://foreign.test/es/agenda", "/es/dashboard"],
+      ["//foreign.test/es/notifications", "/es/dashboard"],
+    ])(
+      "restores only a local agenda destination: %s",
+      async (target, destination) => {
+        (usePathname as jest.Mock).mockReturnValue("/es/login");
+        sessionStorage.setItem("rent.returnTo", target);
+        (apiClient.post as jest.Mock).mockResolvedValue({
+          accessToken: "tok",
+          user: { role: "admin", id: "1" },
+        });
+        const ctx = getAuthContext();
+        await act(async () => {
+          await ctx.login({ email: "a@b.com", password: "pass" });
+        });
+        expect(mockPush).toHaveBeenCalledWith(destination);
+        expect(sessionStorage.getItem("rent.returnTo")).toBeNull();
+      },
+    );
 
     it('uses "es" fallback when locale in path is invalid', async () => {
       (usePathname as jest.Mock).mockReturnValue("/xyz/something");

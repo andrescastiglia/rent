@@ -1,3 +1,9 @@
+import { AgendaService } from '../agenda/agenda.service';
+import {
+  taskSchema,
+  updateTaskSchema,
+  agendaQuerySchema,
+} from '../agenda/agenda.dto';
 import { ReviewAmendmentDto } from '../leases/dto/review-amendment.dto';
 import {
   settlementFiltersSchema,
@@ -129,6 +135,7 @@ import { UpdateBuyerDto } from '../buyers/dto/update-buyer.dto';
 import { CommunicationsService } from '../communications/communications.service';
 
 export type AiToolRegistryDeps = {
+  agendaService?: AgendaService;
   authService: AuthService;
   usersService: UsersService;
   currenciesService: CurrenciesService;
@@ -227,6 +234,72 @@ export function buildAiToolDefinitions(
   deps: AiToolRegistryDeps,
 ): AiToolDefinition[] {
   const definitions: AiToolDefinition[] = [
+    ...(deps.agendaService
+      ? [
+          {
+            name: 'get_agenda',
+            description:
+              'Consulta la agenda única de empresa: tareas, llamadas, visitas, mantenimiento y vencimientos.',
+            mutability: 'readonly' as const,
+            allowedRoles: ADMIN_STAFF,
+            parameters: agendaQuerySchema,
+            execute: async (args: unknown, context: AiExecutionContext) =>
+              deps.agendaService!.entries(
+                toScopedUser(context) as any,
+                agendaQuerySchema.parse(args),
+              ),
+          },
+          {
+            name: 'get_agenda_people',
+            description:
+              'Busca personas existentes por nombre, teléfono o email. Resolver coincidencias ambiguas antes de proponer una llamada.',
+            mutability: 'readonly' as const,
+            allowedRoles: ADMIN_STAFF,
+            parameters: z.object({ search: z.string().max(200) }).strict(),
+            execute: async (args: unknown, context: AiExecutionContext) =>
+              deps.agendaService!.people(
+                toScopedUser(context) as any,
+                z.object({ search: z.string() }).parse(args).search,
+              ),
+          },
+          {
+            name: 'post_agenda_tasks',
+            description:
+              'Propone una llamada o tarea en la agenda común. Ante llamar a un cliente, usar kind call. Persona, fecha y responsable son opcionales; no inventarlos. No envía mensajes. Requiere aprobación de otra persona.',
+            mutability: 'mutable' as const,
+            supportsIdempotentRecovery: true,
+            allowedRoles: ADMIN_STAFF,
+            parameters: taskSchema,
+            execute: async (args: unknown, context: AiExecutionContext) =>
+              deps.agendaService!.create(
+                toScopedUser(context) as any,
+                taskSchema.parse(args),
+                context.idempotencyKey!,
+              ),
+          },
+          {
+            name: 'patch_agenda_task',
+            description: 'Propone un cambio de tarea con su versión vigente.',
+            mutability: 'mutable' as const,
+            supportsIdempotentRecovery: true,
+            allowedRoles: ADMIN_STAFF,
+            parameters: updateTaskSchema.extend({
+              id: z.string().regex(/^task:[0-9a-f-]{36}$/i),
+            }),
+            execute: async (args: unknown, context: AiExecutionContext) => {
+              const { id, ...patch } = updateTaskSchema
+                .extend({ id: z.string() })
+                .parse(args);
+              return deps.agendaService!.update(
+                toScopedUser(context) as any,
+                id,
+                patch,
+                context.idempotencyKey!,
+              );
+            },
+          },
+        ]
+      : []),
     {
       name: 'get_root',
       description:

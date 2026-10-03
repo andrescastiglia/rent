@@ -66,6 +66,22 @@ async function handleMockGet(endpoint: string): Promise<any> {
     return MOCK_DASHBOARD_STATS;
   }
 
+  const [path, query] = endpoint.split("?");
+  if (path === "/notifications/web") {
+    return {
+      data: [],
+      unread: 0,
+      total: 0,
+      page: Number(new URLSearchParams(query).get("page") || 1),
+    };
+  }
+  if (path === "/notifications/web/config") {
+    return { publicKey: null, enabled: false };
+  }
+  if (path === "/notifications/web/preferences") {
+    return [];
+  }
+
   return null;
 }
 

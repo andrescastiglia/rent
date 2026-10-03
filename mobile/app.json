@@ -23,14 +23,50 @@
     },
     "scheme": "rent",
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "onDemandFilesystem": false
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
       "expo-localization",
       "expo-sharing",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Rent necesita acceso para mantener la agenda de empresa y sus recordatorios."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Rent usa tu ubicaci\u00f3n para calcular la llegada a una visita.",
+          "locationAlwaysAndWhenInUsePermission": "Si activ\u00e1s asistencia a visitas, Rent usa tu ubicaci\u00f3n en segundo plano para mostrar contactos cercanos.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "widgets": [
+            {
+              "name": "RentProximity",
+              "displayName": "Asistencia a visitas",
+              "description": "Lugares cercanos y comunicaciones del CRM.",
+              "supportedFamilies": [
+                "systemSmall",
+                "systemMedium",
+                "systemLarge"
+              ],
+              "contentMarginsDisabled": false,
+              "android": null
+            }
+          ]
+        }
+      ]
     ],
     "extra": {
       "router": {},

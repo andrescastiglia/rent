@@ -1,5 +1,6 @@
+import type { ContactRecord } from '../../../shared/contact-data';
 import type { LoginDto, RegisterDto } from '@/generated/openapi';
-export interface User {
+export interface User extends ContactRecord {
   id: string;
   email: string | null;
   firstName: string;

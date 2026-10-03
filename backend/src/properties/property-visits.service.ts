@@ -333,6 +333,10 @@ export class PropertyVisitsService {
       propertyId: property.id,
       kind: input.kind,
       visitedAt,
+      agendaScheduleKind:
+        input.visitedAt && /^\d{4}-\d{2}-\d{2}$/.test(input.visitedAt)
+          ? 'date'
+          : 'time',
       interestedName: input.interestedName?.trim() || undefined,
       interestedProfileId: input.interestedProfileId,
       comments: input.comments,

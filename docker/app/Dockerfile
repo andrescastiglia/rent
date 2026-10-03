@@ -6,7 +6,7 @@ WORKDIR /src
 COPY ${APP}/package*.json ./
 RUN npm ci
 COPY ${APP}/ ./
-COPY shared/database-tls.cjs shared/database-tls.d.cts /shared/
+COPY shared/database-tls.cjs shared/database-tls.d.cts shared/agenda.ts shared/contact-data.ts shared/proximity.ts /shared/
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ENV NEXT_PUBLIC_API_URL=/api API_PROXY_URL=http://backend.rent.svc.cluster.local:3001
 RUN npm run build
@@ -41,7 +41,7 @@ FROM server AS backend
 ENV RENT_TRACING_MODULE=./dist/tracing.js
 
 FROM runtime AS frontend
-COPY --from=build --chown=node:node /src/.next/standalone/ ./
+COPY --from=build --chown=node:node /src/.next/standalone/src/ ./
 COPY --from=build --chown=node:node /src/.next/static ./.next/static
 COPY --from=build --chown=node:node /src/public ./public
 COPY --from=build /src/newrelic.js ./newrelic.js

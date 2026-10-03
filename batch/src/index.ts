@@ -70,6 +70,17 @@ let closeDatabase: () => Promise<void> = async () => {
 export const program = new Command();
 const tracer = trace.getTracer("rent-batch-cli");
 
+function previousArgentineMonth(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(now);
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  return new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 7);
+}
+
 function positiveInteger(value: string): number {
   if (!/^\d+$/.test(value)) {
     throw new InvalidArgumentError("Must be a positive integer");
@@ -983,9 +994,10 @@ program
   .description(
     "Fetch and store latest exchange rates (USD/ARS, BRL/ARS, USD/BRL)",
   )
+  .option("-d, --dry-run", "Fetch and validate without saving rates", false)
   .option("--log <file>", "Write logs to the given file (no rotation)")
   .action(
-    withTracedAction("sync-rates", async () => {
+    withTracedAction("sync-rates", async (options) => {
       const { ExchangeRateService } =
         await import("./services/exchange-rate.service");
 
@@ -1004,10 +1016,14 @@ program
         billingJobService = newBillingJobService();
 
         // Start job logging
-        jobId = await billingJobService.startJob("exchange_rates", {}, false);
+        jobId = await billingJobService.startJob(
+          "exchange_rates",
+          {},
+          options.dryRun,
+        );
 
         const exchangeService = new ExchangeRateService();
-        const result = await exchangeService.syncRates();
+        const result = await exchangeService.syncRates(options.dryRun);
         metricsSummary = {
           recordsTotal: result.processed,
           recordsProcessed: result.inserted,
@@ -1019,7 +1035,7 @@ program
         logger.info("Sync-rates process completed");
         await batchMetrics.recordJobRun({
           job: "exchange_rates",
-          status: "success",
+          status: result.errors.length > 0 ? "failed" : "success",
           startedAtNs,
           summary: metricsSummary,
         });
@@ -1326,10 +1342,7 @@ program
         );
 
         const settlementService = new SettlementService();
-        const now = new Date();
-        const period =
-          options.period ||
-          `${now.getFullYear()}-${String(now.getMonth()).padStart(2, "0")}`;
+        const period = options.period || previousArgentineMonth();
 
         const summary = await resolveSettlementsSummary(
           settlementService,

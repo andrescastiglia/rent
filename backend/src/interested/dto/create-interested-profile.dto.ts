@@ -1,4 +1,8 @@
 import {
+  ContactNormalizationDto,
+  contactInputShape,
+} from '../../contact-data/contact-data.dto';
+import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -25,6 +29,7 @@ import { CommunicationChannel } from '../../communications/entities/communicatio
 
 export const createInterestedProfileZodSchema = z
   .object({
+    ...contactInputShape,
     firstName: z.string().optional(),
     lastName: z.string().optional(),
     phone: z.string().min(1),
@@ -114,7 +119,7 @@ export const createInterestedProfileZodSchema = z
   })
   .strict();
 
-export class CreateInterestedProfileDto {
+export class CreateInterestedProfileDto extends ContactNormalizationDto {
   static readonly zodSchema = createInterestedProfileZodSchema;
 
   @IsString()

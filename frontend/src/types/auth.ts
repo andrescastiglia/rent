@@ -1,3 +1,4 @@
+import type { ContactRecord } from "../../../shared/contact-data";
 export type UserModulePermissionKey =
   | "dashboard"
   | "properties"
@@ -22,7 +23,7 @@ export type UserModulePermissions = Partial<
   Record<UserModulePermissionKey, boolean>
 >;
 
-export interface User {
+export interface User extends ContactRecord {
   id: string;
   email: string | null;
   firstName: string;

@@ -1,3 +1,4 @@
+import type { ContactInput, ContactRecord } from '../../../shared/contact-data';
 export type PropertyType =
   | 'APARTMENT'
   | 'HOUSE'
@@ -63,7 +64,7 @@ export interface PropertyVisit {
   updatedAt: string;
 }
 
-export interface Property {
+export interface Property extends ContactRecord {
   id: string;
   name: string;
   description?: string;
@@ -87,7 +88,7 @@ export interface Property {
   updatedAt: string;
 }
 
-export interface CreatePropertyInput {
+export interface CreatePropertyInput extends ContactInput {
   name: string;
   description?: string;
   type: PropertyType;

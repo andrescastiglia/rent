@@ -62,6 +62,7 @@ export function resolveAiToolPermission(
   const policies: ReadonlyArray<readonly [RegExp, AuthenticatedPolicy]> = [
     [/^(users|auth_|staff)/, 'users'],
     [/^currenc/, 'self-service'],
+    [/^agenda/, 'self-service'],
     [/^dashboard/, 'dashboard'],
     [/^documents/, 'leases'],
     [/^(properties|property_|units|unit_)/, 'properties'],

@@ -7,6 +7,7 @@ import {
 } from '@/api/pagination';
 import { ApiError, apiClient } from '@/api/client';
 import { IS_MOCK_MODE } from '@/api/env';
+import { propertyImageUrl } from '@/api/property-images';
 import type {
   CreatePropertyInput,
   CreatePropertyMaintenanceTaskInput,
@@ -49,6 +50,9 @@ type BackendProperty = {
   addressCountry?: string | null;
   ownerId?: string | null;
   ownerWhatsapp?: string | null;
+  contactData?: import('../../../shared/contact-data').ContactData;
+  latitude?: number | null;
+  longitude?: number | null;
   rentPrice?: number | string | null;
   salePrice?: number | string | null;
   saleCurrency?: string | null;
@@ -269,8 +273,13 @@ const mapProperty = (raw: BackendProperty): Property => ({
       }))
     : [],
   units: [],
-  images: Array.isArray(raw.images) ? raw.images : [],
+  images: Array.isArray(raw.images)
+    ? raw.images.map((url) => propertyImageUrl(url))
+    : [],
   ownerId: raw.ownerId ?? '',
+  contactData: raw.contactData,
+  latitude: raw.latitude,
+  longitude: raw.longitude,
   ownerWhatsapp: raw.ownerWhatsapp ?? undefined,
   rentPrice:
     raw.rentPrice === null || raw.rentPrice === undefined
@@ -346,6 +355,7 @@ const toCreatePayload = (value: CreatePropertyInput) => ({
   addressCountry: value.address.country,
   ownerId: value.ownerId,
   ownerWhatsapp: value.ownerWhatsapp,
+  normalization: value.normalization,
   images: value.images,
   features: value.features,
   rentPrice: value.rentPrice,
@@ -371,6 +381,7 @@ const toUpdatePayload = (value: UpdatePropertyInput) => ({
   addressCountry: value.address?.country,
   ownerId: value.ownerId,
   ownerWhatsapp: value.ownerWhatsapp,
+  normalization: value.normalization,
   images: value.images,
   features: value.features,
   rentPrice: value.rentPrice,

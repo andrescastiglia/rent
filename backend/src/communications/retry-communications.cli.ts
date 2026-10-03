@@ -16,6 +16,7 @@ export async function processQueues() {
     '/settlements/internal/process-payouts',
     '/settlements/internal/process-payout-receipts',
     '/communications/internal/retry-due',
+    '/notifications/internal/process-agenda',
   ]) {
     const response = await fetch(`${baseUrl}${path}`, {
       method: 'POST',
@@ -25,7 +26,10 @@ export async function processQueues() {
     if (!response.ok)
       throw new Error(`Queue processing failed (${response.status}): ${body}`);
     process.stdout.write(`${path}: ${body}\n`);
-    if (path !== '/communications/internal/retry-due') {
+    if (
+      path !== '/communications/internal/retry-due' &&
+      path !== '/notifications/internal/process-agenda'
+    ) {
       const counts = JSON.parse(body) as { failed: number; deadLetter: number };
       documentEffectsFailed ||= counts.failed > 0 || counts.deadLetter > 0;
     }

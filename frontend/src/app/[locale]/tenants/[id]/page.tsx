@@ -1,4 +1,5 @@
 "use client";
+import { GeoCard } from "@/components/contact-data/GeoCard";
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -286,6 +287,7 @@ export default function TenantDetailPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <GeoCard location={{ type: "tenant", id: tenantToRender.id }} />
       {readFailed && (
         <StatePanel
           error

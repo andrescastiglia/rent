@@ -1,3 +1,4 @@
+import type { ContactData } from '../../contact-data/normalization';
 import {
   Entity,
   Column,
@@ -48,6 +49,9 @@ export const USER_EMAIL_MAX_LENGTH = 255;
 
 @Entity('users')
 export class User {
+  @Column({ name: 'contact_data', type: 'jsonb', default: {} })
+  contactData: ContactData;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

@@ -21,3 +21,16 @@ export async function clearAuth(): Promise<void> {
     SecureStore.deleteItemAsync(USER_KEY),
   ]);
 }
+
+// The user grants background location before enabling this device-only access.
+export async function setTokenBackgroundAccess(
+  enabled: boolean,
+): Promise<void> {
+  const token = await getToken();
+  if (token)
+    await SecureStore.setItemAsync(TOKEN_KEY, token, {
+      keychainAccessible: enabled
+        ? SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY
+        : SecureStore.WHEN_UNLOCKED,
+    });
+}

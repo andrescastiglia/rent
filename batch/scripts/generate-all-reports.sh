@@ -10,8 +10,13 @@ BATCH_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$BATCH_DIR"
 
 LOG_ARG=()
+MODE_ARG=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --dry-run)
+            MODE_ARG=(--dry-run)
+            shift
+            ;;
         --log)
             if [[ -z "${2:-}" ]]; then
                 echo "Missing value for --log" >&2
@@ -48,10 +53,10 @@ for OWNER_ID in $OWNERS; do
     fi
     
     echo "Generating monthly summary for owner: $OWNER_ID"
-    node dist/index.js reports "${LOG_ARG[@]}" --type monthly --owner-id "$OWNER_ID" --month "$PREV_MONTH" || FAILED=$((FAILED + 1))
+    node dist/index.js reports "${LOG_ARG[@]}" "${MODE_ARG[@]}" --type monthly --owner-id "$OWNER_ID" --month "$PREV_MONTH" || FAILED=$((FAILED + 1))
     
     echo "Generating settlement for owner: $OWNER_ID"
-    node dist/index.js reports "${LOG_ARG[@]}" --type settlement --owner-id "$OWNER_ID" --month "$PREV_MONTH" || FAILED=$((FAILED + 1))
+    node dist/index.js reports "${LOG_ARG[@]}" "${MODE_ARG[@]}" --type settlement --owner-id "$OWNER_ID" --month "$PREV_MONTH" || FAILED=$((FAILED + 1))
 done
 
 if [ "$FAILED" -gt 0 ]; then

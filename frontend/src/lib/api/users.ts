@@ -1,3 +1,7 @@
+import type {
+  ContactInput,
+  ContactRecord,
+} from "../../../../shared/contact-data";
 import { apiClient, IS_MOCK_MODE } from "../api";
 import { getToken, getUser, setUser } from "../auth";
 import type { User, UserModulePermissions } from "@/types/auth";
@@ -8,7 +12,7 @@ let mockTemporaryCredentialCounter = 0;
 const createMockTemporaryCredential = () =>
   `tmp-${Date.now().toString(36)}-${(++mockTemporaryCredentialCounter).toString(36).padStart(4, "0")}`;
 
-export type UpdateMyProfileInput = {
+export type UpdateMyProfileInput = ContactInput & {
   email?: string;
   firstName?: string;
   lastName?: string;
@@ -18,7 +22,7 @@ export type UpdateMyProfileInput = {
   whatsappEnabled?: boolean;
 };
 
-type BackendUser = {
+type BackendUser = ContactRecord & {
   id: string;
   email: string | null;
   firstName: string;
@@ -55,7 +59,7 @@ export type UsersPage = {
   limit: number;
 };
 
-export type CreateManagedUserInput = {
+export type CreateManagedUserInput = ContactInput & {
   email: string;
   password: string;
   firstName: string;
@@ -66,7 +70,7 @@ export type CreateManagedUserInput = {
   permissions?: UserModulePermissions;
 };
 
-export type UpdateManagedUserInput = {
+export type UpdateManagedUserInput = ContactInput & {
   email?: string;
   firstName?: string;
   lastName?: string;
@@ -96,6 +100,7 @@ const mapUser = (raw: BackendUser): User => ({
   firstName: raw.firstName,
   lastName: raw.lastName,
   phone: raw.phone ?? null,
+  ...(raw.contactData ? { contactData: raw.contactData } : {}),
   ...(raw.whatsappEnabled === undefined
     ? {}
     : {

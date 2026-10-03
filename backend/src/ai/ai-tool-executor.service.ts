@@ -98,7 +98,14 @@ export class AiToolExecutorService {
     this.assertRoleAllowed(definition, context);
     this.assertContext(context);
 
-    const parsed = this.parseArguments(definition, args ?? {});
+    const toolArgs =
+      toolName === 'post_agenda_tasks' && context.sourceCommunicationId
+        ? {
+            ...(args as Record<string, unknown>),
+            sourceCommunicationId: context.sourceCommunicationId,
+          }
+        : args;
+    const parsed = this.parseArguments(definition, toolArgs ?? {});
     if (context.channel === 'web' && definition.mutability === 'mutable') {
       throw new ForbiddenException(
         'Los cambios desde el asistente web se completan y guardan en el formulario correspondiente.',
@@ -321,10 +328,10 @@ export class AiToolExecutorService {
       `INSERT INTO pending_actions (
          company_id, requested_by, conversation_id, source_confirmation_id,
          tool_name, action_type, entity_type, summary, payload, payload_hash,
-         expires_at, review
+         expires_at, review, source_communication_id
        )
        SELECT $1::uuid, $2::uuid, $3::uuid, confirmation.id, $5, $6, $7,
-              $8, $9::jsonb, confirmation.payload_hash, confirmation.expires_at, confirmation.review
+              $8, $9::jsonb, confirmation.payload_hash, confirmation.expires_at, confirmation.review, $10::uuid
          FROM ai_tool_mutation_confirmations confirmation
         WHERE confirmation.id = $4::uuid
        ON CONFLICT (source_confirmation_id) WHERE source_confirmation_id IS NOT NULL
@@ -339,6 +346,7 @@ export class AiToolExecutorService {
         entityType,
         definition.description,
         JSON.stringify(safePayload),
+        context.sourceCommunicationId ?? null,
       ],
     );
   }

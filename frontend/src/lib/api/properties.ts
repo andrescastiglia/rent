@@ -1,3 +1,8 @@
+import type { ContactInput, ContactRecord } from "../contact-types";
+import {
+  normalizePropertyImages,
+  normalizePropertyImageUrl,
+} from "../property-images";
 import {
   Property,
   PropertyFeature,
@@ -32,7 +37,7 @@ type BackendUnit = {
   baseRent?: number | null;
 };
 
-type BackendProperty = {
+type BackendProperty = ContactRecord & {
   id: string;
   name: string;
   description?: string | null;
@@ -78,7 +83,7 @@ type BackendPropertyVisit = {
   updatedAt?: string | Date;
 };
 
-type BackendCreatePropertyPayload = {
+type BackendCreatePropertyPayload = ContactInput & {
   companyId?: string;
   ownerId?: string;
   name: string;
@@ -109,7 +114,6 @@ type BackendUpdatePropertyPayload = Partial<
   status?: "active" | "inactive" | "under_maintenance";
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
 let mockIdCounter = 0;
 
 const createMockId = (prefix: string): string => {
@@ -143,90 +147,6 @@ const toOptionalNumber = (
 
 const toIsoDate = (value?: string | Date): string => {
   return value ? new Date(value).toISOString() : new Date().toISOString();
-};
-
-const isApiRelativeImagePath = (value: string): boolean =>
-  value.startsWith("/uploads/") ||
-  value.startsWith("uploads/") ||
-  value.startsWith("/properties/images/") ||
-  value.startsWith("properties/images/");
-
-const shouldForceHttps = (): boolean =>
-  typeof globalThis !== "undefined" &&
-  globalThis.location.protocol === "https:";
-
-const forceHttpsWhenNeeded = (url: URL): string => {
-  if (shouldForceHttps()) {
-    url.protocol = "https:";
-  }
-  return url.toString();
-};
-
-const normalizeImages = (images: any[] | null | undefined): string[] => {
-  if (!Array.isArray(images)) return [];
-  return images
-    .map((img) => {
-      if (typeof img === "string") return img;
-      if (img && typeof img === "object") {
-        if (typeof img.url === "string") return img.url;
-        if (typeof img.path === "string") return img.path;
-      }
-      return null;
-    })
-    .filter((v): v is string => typeof v === "string" && v.length > 0)
-    .map(normalizePropertyImageUrl);
-};
-
-const normalizePropertyImageUrl = (url: string): string => {
-  if (!url) return url;
-  const normalizeApiPathWithBase = (path: string): string => {
-    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-    if (!API_BASE_URL) return normalizedPath;
-
-    try {
-      const base = API_BASE_URL.endsWith("/")
-        ? API_BASE_URL
-        : `${API_BASE_URL}/`;
-      const resolved = new URL(normalizedPath.replace(/^\/+/, ""), base);
-      return forceHttpsWhenNeeded(resolved);
-    } catch {
-      return normalizedPath;
-    }
-  };
-
-  if (isApiRelativeImagePath(url)) {
-    return normalizeApiPathWithBase(url);
-  }
-
-  if (!url.startsWith("http://") && !url.startsWith("https://")) {
-    return url;
-  }
-
-  try {
-    const parsed = new URL(url);
-    return normalizeAbsoluteImageUrl(parsed, normalizeApiPathWithBase);
-  } catch {
-    return url;
-  }
-};
-
-const normalizeAbsoluteImageUrl = (
-  parsed: URL,
-  normalizeApiPathWithBase: (path: string) => string,
-): string => {
-  if (
-    parsed.pathname.startsWith("/uploads/") ||
-    parsed.pathname.startsWith("/properties/images/")
-  ) {
-    return normalizeApiPathWithBase(`${parsed.pathname}${parsed.search}`);
-  }
-
-  if (parsed.hostname === "rent.maese.com.ar") {
-    parsed.protocol = "https:";
-    return parsed.toString();
-  }
-
-  return forceHttpsWhenNeeded(parsed);
 };
 
 const mapPropertyType = (
@@ -315,6 +235,7 @@ const serializeCreatePayload = (
     ownerId,
     name: data.name,
     ownerWhatsapp: data.ownerWhatsapp,
+    normalization: data.normalization,
     propertyType: backendType,
     addressStreet: data.address.street,
     addressNumber: data.address.number,
@@ -342,6 +263,7 @@ const serializeUpdatePayload = (
   data: UpdatePropertyInput,
 ): BackendUpdatePropertyPayload => {
   const payload: BackendUpdatePropertyPayload = {};
+  if (data.normalization) payload.normalization = data.normalization;
   const setIfDefined = <K extends keyof BackendUpdatePropertyPayload>(
     key: K,
     value: BackendUpdatePropertyPayload[K] | undefined,
@@ -537,8 +459,11 @@ const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
     },
     features: mapBackendFeatures(raw.features),
     units: Array.isArray(raw.units) ? raw.units.map(mapBackendUnitToUnit) : [],
-    images: normalizeImages(raw.images),
+    images: normalizePropertyImages(raw.images),
     ownerId: raw.ownerId ?? "",
+    contactData: raw.contactData,
+    latitude: raw.latitude,
+    longitude: raw.longitude,
     ownerWhatsapp: raw.ownerWhatsapp ?? undefined,
     rentPrice: toOptionalNumber(raw.rentPrice),
     salePrice: toOptionalNumber(raw.salePrice),

@@ -1,3 +1,4 @@
+import type { ContactInput, ContactRecord } from '../../../shared/contact-data';
 export type TenantStatus = 'ACTIVE' | 'INACTIVE' | 'PROSPECT';
 export type EmploymentStatus =
   'employed' | 'self_employed' | 'unemployed' | 'retired' | 'student';
@@ -5,7 +6,7 @@ export type TenantActivityType =
   'call' | 'task' | 'note' | 'email' | 'whatsapp' | 'visit';
 export type TenantActivityStatus = 'pending' | 'completed' | 'cancelled';
 
-export interface Tenant {
+export interface Tenant extends ContactRecord {
   id: string;
   firstName: string;
   lastName: string;
@@ -40,7 +41,7 @@ export interface Tenant {
   updatedAt: string;
 }
 
-export interface CreateTenantInput {
+export interface CreateTenantInput extends ContactInput {
   companyId?: string;
   password?: string;
   firstName: string;

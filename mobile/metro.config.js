@@ -10,8 +10,8 @@ const escapePathForRegex = (filePath) =>
     .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     .join('[/\\\\]');
 
-// Excluir carpetas android/ios del file watcher para evitar ENOSPC
-config.watchFolders = [];
+// Compartir fechas de agenda; excluir carpetas nativas del watcher.
+config.watchFolders = [path.join(__dirname, '..', 'shared')];
 config.resolver.blockList = [
   new RegExp(`${escapePathForRegex(path.join(__dirname, 'android'))}[/\\\\].*`),
   new RegExp(`${escapePathForRegex(path.join(__dirname, 'ios'))}[/\\\\].*`),

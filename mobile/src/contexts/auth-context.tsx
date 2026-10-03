@@ -1,3 +1,6 @@
+import { disableProximity, ensureProximityScope } from '@/proximity/service';
+import { Alert } from 'react-native';
+import { disableAgendaCalendar } from '@/calendar/agenda-calendar';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -51,6 +54,7 @@ export function AuthProvider({
       try {
         const session = await restoreSession();
         if (!mounted) return;
+        await ensureProximityScope(session?.user ?? null);
         setToken(session?.token ?? null);
         setUser(session?.user ?? null);
         if (session?.user.language) {
@@ -79,7 +83,9 @@ export function AuthProvider({
   const login = useCallback(
     async (payload: LoginRequest) => {
       const response: AuthResponse = await authApi.login(payload);
+      await ensureProximityScope(response.user);
       await persistToken(response.accessToken);
+      await ensureProximityScope(response.user);
       setToken(response.accessToken);
       setUser(response.user);
       if (response.user.language) {
@@ -97,12 +103,24 @@ export function AuthProvider({
   );
 
   const logout = useCallback(async () => {
+    if (user)
+      try {
+        await disableAgendaCalendar(user);
+      } catch (error) {
+        Alert.alert(
+          'Calendario de Rent',
+          error instanceof Error
+            ? error.message
+            : 'No se pudo retirar el calendario del dispositivo',
+        );
+      }
+    await disableProximity();
     await Promise.all([clearAuth(), queryClient.cancelQueries()]);
     queryClient.clear();
     setToken(null);
     setUser(null);
     router.replace('/(auth)/login');
-  }, [queryClient, router]);
+  }, [queryClient, router, user]);
 
   useEffect(() => {
     const unsubscribe = setSessionExpiredHandler(() => {
@@ -113,6 +131,7 @@ export function AuthProvider({
   }, [logout]);
 
   const updateUser = useCallback(async (nextUser: User) => {
+    await ensureProximityScope(nextUser);
     setUser(nextUser);
     if (nextUser.language) {
       await i18n.changeLanguage(nextUser.language);

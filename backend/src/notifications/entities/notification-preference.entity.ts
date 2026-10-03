@@ -11,6 +11,12 @@ import { User } from '../../users/entities/user.entity';
 import { Company } from '../../companies/entities/company.entity';
 
 export enum NotificationType {
+  AGENDA_ASSIGNED = 'agenda_assigned',
+  AGENDA_RESCHEDULED = 'agenda_rescheduled',
+  AGENDA_CHANGED = 'agenda_changed',
+  AGENDA_REMINDER = 'agenda_reminder',
+  AGENDA_OVERDUE = 'agenda_overdue',
+  AGENDA_PROPOSAL = 'agenda_proposal',
   INVOICE_ISSUED = 'invoice_issued',
   PAYMENT_REMINDER = 'payment_reminder',
   PAYMENT_RECEIVED = 'payment_received',

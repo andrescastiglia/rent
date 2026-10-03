@@ -22,6 +22,7 @@ export type AiUiAction = {
 };
 
 export interface AiExecutionContext {
+  sourceCommunicationId?: string;
   userId: string;
   companyId?: string;
   conversationId?: string;

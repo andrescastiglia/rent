@@ -1,4 +1,6 @@
 "use client";
+import { ContactTools } from "../contact-data/ContactTools";
+import type { ContactInput } from "../../../../shared/contact-data";
 
 import React, { useEffect, useMemo, useRef } from "react";
 import {
@@ -92,6 +94,7 @@ export function PropertyForm({
   initialData,
   isEditing = false,
 }: PropertyFormProps) {
+  const [contactInput, setContactInput] = React.useState<ContactInput>({});
   const router = useLocalizedRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -132,6 +135,7 @@ export function PropertyForm({
 
   const {
     register,
+    watch,
     control,
     handleSubmit,
     setValue,
@@ -277,7 +281,7 @@ export function PropertyForm({
 
     setIsSubmitting(true);
     try {
-      const payload =
+      const formPayload =
         isOwnerLocked && activeOwner
           ? {
               ...data,
@@ -285,6 +289,7 @@ export function PropertyForm({
               ownerWhatsapp: activeOwner.phone ?? undefined,
             }
           : data;
+      const payload = { ...formPayload, ...contactInput };
 
       if (isEditing && initialData) {
         await propertiesApi.update(initialData.id, payload);
@@ -895,6 +900,20 @@ export function PropertyForm({
           )}
         </button>
       </div>
+      <ContactTools
+        value={contactInput}
+        onChange={setContactInput}
+        phones={{ ownerWhatsapp: watch("ownerWhatsapp") ?? "" }}
+        address={{
+          street: watch("address.street") ?? "",
+          number: watch("address.number") ?? "",
+          city: watch("address.city") ?? "",
+          state: watch("address.state") ?? "",
+          country: watch("address.country") ?? "Argentina",
+          postalCode: watch("address.zipCode") ?? "",
+          confidential: false,
+        }}
+      />
     </form>
   );
 }

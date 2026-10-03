@@ -36,7 +36,8 @@ complementan este índice y documentan sus propias restricciones y evidencias.
   `auditoria-integral-2026-08-27.md`,
   `technical/frontend-wcag22-nielsen-audit.md` y
   `deployment/rag-production-readiness.md` y
-  [validación del plan 2026-10-02](technical/validacion-plan-2026-10-02.md).
+  [validación del plan 2026-10-02](technical/validacion-plan-2026-10-02.md) y
+  [revisión de batch y reportes 2026-10-03](technical/revision-batch-reportes-2026-10-03.md).
 - **Histórico — owner Producto e Ingeniería — reemplazado:**
   `functional/drf-original.md` por `functional/requisitos-producto.md`;
   `technical/c4-model.md`, `technical/der.md` y `technical/sequence.md` por

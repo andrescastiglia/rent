@@ -1,4 +1,5 @@
 "use client";
+import { disableWebPush } from "@/lib/web-push";
 
 import React, {
   createContext,
@@ -165,7 +166,13 @@ export function AuthProvider({
       emitAuthStoreChange();
 
       const locale = getLocaleFromPath();
-      router.push(`/${locale}${getLandingPathForUser(response.user)}`);
+      const target = sessionStorage.getItem("rent.returnTo");
+      sessionStorage.removeItem("rent.returnTo");
+      router.push(
+        target && /^\/(es|en|pt)\/(agenda|notifications)(\/|$)/.test(target)
+          ? target
+          : `/${locale}${getLandingPathForUser(response.user)}`,
+      );
     },
     [getLocaleFromPath, router],
   );
@@ -179,6 +186,8 @@ export function AuthProvider({
   }, []);
 
   const logout = useCallback(() => {
+    void disableWebPush().catch(() => undefined);
+    sessionStorage.removeItem("rent.returnTo");
     clearAuth();
     emitAuthStoreChange();
     const locale = getLocaleFromPath();

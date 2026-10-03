@@ -1,3 +1,5 @@
+import { ContactTools } from '@/components/contact-tools';
+import type { ContactInput } from '@/api/contact-types';
 import { View } from '@/components/themed-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -18,6 +20,7 @@ export default function NewOwnerScreen() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [contactInput, setContactInput] = useState<ContactInput>({});
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -30,6 +33,7 @@ export default function NewOwnerScreen() {
         lastName: lastName.trim(),
         email: email.trim() || undefined,
         phone: phone.trim() || undefined,
+        ...contactInput,
       });
     },
     onSuccess: async () => {
@@ -83,6 +87,12 @@ export default function NewOwnerScreen() {
           testID="ownerCreate.submit"
         />
       </View>
+      <ContactTools
+        value={contactInput}
+        onChange={setContactInput}
+        phones={{ phone }}
+        editAddress
+      />
     </Screen>
   );
 }

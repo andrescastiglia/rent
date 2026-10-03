@@ -33,6 +33,13 @@ export interface NavItem {
 
 export const navigationItems: NavItem[] = [
   {
+    labelKey: "agenda",
+    href: "/agenda",
+    roles: ["admin", "staff"],
+    icon: LayoutDashboard,
+    group: "operations",
+  },
+  {
     labelKey: "buyerPortal",
     href: "/portal/buyer",
     roles: ["buyer"],

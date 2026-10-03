@@ -23,12 +23,14 @@ export class NotificationsService {
     frequency: NotificationFrequency;
     isEnabled: boolean;
   }> {
-    return Object.values(NotificationType).map((type) => ({
-      notificationType: type,
-      channel: DEFAULT_CHANNEL,
-      frequency: NotificationFrequency.IMMEDIATE,
-      isEnabled: true,
-    }));
+    return Object.values(NotificationType)
+      .filter((type) => !type.startsWith('agenda_'))
+      .map((type) => ({
+        notificationType: type,
+        channel: DEFAULT_CHANNEL,
+        frequency: NotificationFrequency.IMMEDIATE,
+        isEnabled: true,
+      }));
   }
 
   async getPreferences(
@@ -36,7 +38,7 @@ export class NotificationsService {
     companyId: string,
   ): Promise<NotificationPreference[]> {
     const existing = await this.preferencesRepo.find({
-      where: { userId, companyId },
+      where: { userId, companyId, channel: DEFAULT_CHANNEL },
       order: { notificationType: 'ASC' },
     });
 
@@ -56,7 +58,10 @@ export class NotificationsService {
     dto: UpdateNotificationPreferencesDto,
   ): Promise<NotificationPreference[]> {
     for (const item of dto.preferences) {
-      if (item.channel.toLowerCase() !== DEFAULT_CHANNEL) {
+      if (
+        item.channel.toLowerCase() !== DEFAULT_CHANNEL ||
+        item.notificationType.startsWith('agenda_')
+      ) {
         throw new BadRequestException(
           'Email and SMS notifications are disabled; only WhatsApp is available',
         );

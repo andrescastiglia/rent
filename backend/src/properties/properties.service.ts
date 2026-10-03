@@ -1,3 +1,4 @@
+import { applyContactNormalization } from '../contact-data/normalization';
 import {
   Injectable,
   NotFoundException,
@@ -109,6 +110,9 @@ export class PropertiesService {
       images: normalizedImages,
       companyId: user.companyId,
       ownerId: owner.id,
+    });
+    applyContactNormalization(property, createPropertyDto, 'property', {
+      ownerWhatsapp: property.ownerWhatsapp,
     });
     const createdProperty = await this.propertiesRepository.save(property);
     await this.attachPropertyImagesToProperty(
@@ -365,7 +369,15 @@ export class PropertiesService {
       );
     }
 
+    const previousContact = structuredClone(property);
     Object.assign(property, updatePropertyDto);
+    applyContactNormalization(
+      property,
+      updatePropertyDto,
+      'property',
+      { ownerWhatsapp: property.ownerWhatsapp },
+      previousContact,
+    );
     const updatedProperty = await this.propertiesRepository.save(property);
 
     if (updatePropertyDto.images !== undefined) {

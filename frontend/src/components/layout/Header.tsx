@@ -1,5 +1,6 @@
 "use client";
 
+import NotificationBell from "@/components/agenda/NotificationBell";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/contexts/auth-context";
@@ -101,6 +102,11 @@ export default function Header({
 
           {/* Language Selector and User Menu */}
           <div className="flex items-center gap-2">
+            {user &&
+              (user.roles?.length ? user.roles : [user.role]).some(
+                (role) => role === "admin" || role === "staff",
+              ) && <NotificationBell key={`${user.companyId}:${user.id}`} />}
+
             {user ? (
               <button
                 type="button"

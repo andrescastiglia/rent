@@ -12,6 +12,21 @@ import { FrontendMetricDto } from './dto/frontend-metric.dto';
 export class MetricsService {
   private readonly registry = new Registry();
 
+  private readonly geoRequests = new Counter({
+    name: 'geo_provider_requests_total',
+    help: 'Geographic service reservations, limits and failures without personal data',
+    labelNames: ['provider', 'outcome'] as const,
+    registers: [this.registry],
+  });
+  recordGeo(
+    provider: string,
+    outcome:
+      'reserved' | 'rate_limited' | 'quota_exhausted' | 'cache_hit' | 'error',
+  ) {
+    if (['nominatim', 'osrm', 'arcgis-static'].includes(provider))
+      this.geoRequests.inc({ provider, outcome });
+  }
+
   private readonly httpRequestsTotal = new Counter({
     name: 'http_requests_total',
     help: 'Total number of HTTP requests',

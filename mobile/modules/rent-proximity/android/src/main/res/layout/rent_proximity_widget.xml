@@ -1,0 +1,7 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/rent_proximity_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="12dp" android:background="#FFFFFFFF">
+ <TextView android:id="@+id/rent_proximity_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Asistencia a visitas" android:textColor="#FF162B3A" android:textSize="16sp" android:textStyle="bold"/>
+ <TextView android:id="@+id/rent_proximity_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Abrí Rent para activar" android:textColor="#FF162B3A" android:textSize="13sp" android:maxLines="2"/>
+ <TextView android:id="@+id/rent_proximity_list" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:textColor="#FF162B3A" android:textSize="12sp"/>
+ <Button android:id="@+id/rent_proximity_arrival" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Avisar que llegué" android:visibility="gone"/>
+ <TextView android:id="@+id/rent_proximity_updated" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FF4C6370" android:textSize="10sp"/>
+</LinearLayout>
