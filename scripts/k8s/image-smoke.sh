@@ -6,7 +6,9 @@ case "$app" in
   backend)
     docker run --rm --read-only --entrypoint node "$image" -e "require('node:fs').accessSync('dist/main.js'); require('node:fs').accessSync('dist/tracing.js'); require('bcrypt').hashSync('container-check',4); require('@napi-rs/canvas').createCanvas(8,8); require('pdfkit'); require('./dist/config/database-tls'); console.log('Native ARM64 modules loaded')" ;;
   frontend)
-    docker run --rm --read-only --entrypoint node "$image" -e "require('next'); require('newrelic/package.json'); require('node:fs').accessSync('server.js'); console.log('Next standalone complete')" ;;
+    docker run --rm --read-only --network none --tmpfs /tmp --tmpfs /app/src/.next/cache \
+      -v "$PWD/scripts/k8s/tests/frontend-image-smoke.spec.cjs:/tmp/frontend-image-smoke.cjs:ro" \
+      --entrypoint node "$image" /tmp/frontend-image-smoke.cjs ;;
   batch)
     docker run --rm --read-only --tmpfs /tmp -e LOG_TO_FILE=false --entrypoint node "$image" -e "require('node:fs').accessSync('dist/index.js'); require('./dist/shared/logger').logger.info('Console-only batch'); require('pdfkit'); require('node:fs').accessSync('scripts/generate-all-reports.sh')" ;;
   maintenance)
