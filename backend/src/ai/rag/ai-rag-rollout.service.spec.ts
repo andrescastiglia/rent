@@ -36,6 +36,7 @@ describe('AiRagRolloutService', () => {
   const classifier = { classify: jest.fn().mockReturnValue('semantic') };
   const repo = { create: jest.fn((value) => value), save: jest.fn() };
   const dataSource = { query: jest.fn() };
+  const application = { respond: jest.fn().mockResolvedValue(undefined) };
   const params = {
     prompt: 'consulta',
     context: {
@@ -52,6 +53,7 @@ describe('AiRagRolloutService', () => {
     classifier as never,
     repo as never,
     dataSource as never,
+    application as never,
   );
 
   beforeEach(() => {
@@ -210,5 +212,34 @@ describe('AiRagRolloutService', () => {
       expect.objectContaining({ role: UserRole.STAFF }),
       expect.any(Array),
     );
+  });
+
+  it('serves application help before RAG or external-role data retrieval', async () => {
+    process.env.AI_RETRIEVAL_MODE = 'HYBRID';
+    application.respond.mockResolvedValueOnce({
+      outputText: 'Ayuda',
+      uiAction: { type: 'navigate', path: '/settings', guide: 'password' },
+    });
+    const result = await service.respond({
+      ...params,
+      prompt: 'quiero cambiar password',
+      context: { ...params.context, role: UserRole.TENANT, channel: 'web' },
+    });
+    expect(result.outputText).toBe('Ayuda');
+    expect(dataSource.query).not.toHaveBeenCalled();
+    expect(legacy.respond).not.toHaveBeenCalled();
+    expect(rag.respond).not.toHaveBeenCalled();
+  });
+
+  it('keeps filtered collections on live tools instead of an unfiltered RAG page', async () => {
+    process.env.AI_RETRIEVAL_MODE = 'HYBRID';
+    classifier.classify.mockReturnValueOnce('structured');
+    await service.respond({ ...params, prompt: 'cobranza de hoy de Juan' });
+    expect(legacy.respond).toHaveBeenCalledWith(
+      'cobranza de hoy de Juan',
+      expect.objectContaining({ mutationIntent: false }),
+      expect.any(Array),
+    );
+    expect(rag.respond).not.toHaveBeenCalled();
   });
 });

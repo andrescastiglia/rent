@@ -59,6 +59,7 @@ export const aiApi = {
     return apiClient.post<AiRespondResponse>('/ai/tools/respond', {
       prompt,
       conversationId: params?.conversationId,
+      channel: 'mobile',
     });
   },
 

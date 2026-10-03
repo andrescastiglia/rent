@@ -15,9 +15,9 @@ assert pv['spec']['local']['path']=='/srv/k3s/rent/postgresql'
 stateful=by_kind['StatefulSet'][0]['spec']
 assert stateful['replicas']==1
 assert set(stateful['persistentVolumeClaimRetentionPolicy'].values())=={'Retain'}
-assert len(by_kind['CronJob'])==13
+assert len(by_kind['CronJob'])==15
 names={c['metadata']['name'] for c in by_kind['CronJob']}
-assert len(names)==13 and 'rag-purge-audit' in names
+assert len(names)==15 and {'rag-purge-audit', 'process-whatsapp-inbox', 'apply-whatsapp-retention'} <= names
 for job in by_kind['CronJob']:
     if job['metadata']['name'] in {'billing','sync-indices','process-settlements'}:
         assert job['spec']['suspend'] is True, 'Financial schedules require explicit data validation before activation'

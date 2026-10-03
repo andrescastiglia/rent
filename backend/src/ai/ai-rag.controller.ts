@@ -55,6 +55,8 @@ export class AiRagController {
         role: req.user.role,
         roles: req.user.roles,
         permissions: req.user.permissions,
+        channel: dto.channel ?? 'web',
+        currentPath: dto.currentPath,
       },
     });
   }

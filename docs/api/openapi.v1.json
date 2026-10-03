@@ -20117,6 +20117,18 @@
             "items": {
               "type": "string"
             }
+          },
+          "channel": {
+            "enum": [
+              "web",
+              "mobile"
+            ],
+            "type": "string"
+          },
+          "currentPath": {
+            "type": "string",
+            "maxLength": 300,
+            "pattern": "^\\/(?:es|en|pt)(?:\\/[a-zA-Z0-9/_-]*)?$"
           }
         },
         "required": [

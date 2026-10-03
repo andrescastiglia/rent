@@ -301,6 +301,7 @@ export default function SettingsPage() {
             <label className="text-sm text-gray-700 dark:text-gray-300">
               {tAuth("email")}
               <input
+                data-guide="email"
                 type="email"
                 value={profileForm.email}
                 onChange={(event) =>
@@ -316,6 +317,7 @@ export default function SettingsPage() {
             <label className="text-sm text-gray-700 dark:text-gray-300">
               {tCommon("selectLanguage")}
               <select
+                data-guide="language"
                 value={profileForm.language}
                 onChange={(event) => {
                   const nextLanguage = event.target.value;
@@ -338,6 +340,7 @@ export default function SettingsPage() {
             <label className="text-sm text-gray-700 dark:text-gray-300">
               {tAuth("firstName")}
               <input
+                data-guide="firstName"
                 type="text"
                 value={profileForm.firstName}
                 onChange={(event) =>
@@ -353,6 +356,7 @@ export default function SettingsPage() {
             <label className="text-sm text-gray-700 dark:text-gray-300">
               {tAuth("lastName")}
               <input
+                data-guide="lastName"
                 type="text"
                 value={profileForm.lastName}
                 onChange={(event) =>
@@ -368,6 +372,7 @@ export default function SettingsPage() {
             <label className="text-sm text-gray-700 dark:text-gray-300">
               {tAuth("phone")}
               <input
+                data-guide="phone"
                 type="text"
                 value={profileForm.phone}
                 onChange={(event) =>
@@ -383,6 +388,7 @@ export default function SettingsPage() {
             <label className="text-sm text-gray-700 dark:text-gray-300">
               {t("avatarUrl")}
               <input
+                data-guide="avatarUrl"
                 type="url"
                 value={profileForm.avatarUrl}
                 onChange={(event) =>
@@ -418,6 +424,7 @@ export default function SettingsPage() {
               type="checkbox"
               aria-label={t("whatsappOptIn")}
               checked={profileForm.whatsappEnabled}
+              data-guide="whatsappEnabled"
               disabled={!profileForm.phone.trim()}
               onChange={(event) =>
                 setProfileForm((prev) => ({
@@ -470,6 +477,8 @@ export default function SettingsPage() {
             {t("currentPassword")}
             <input
               type="password"
+              data-guide="password-current"
+              autoComplete="current-password"
               value={passwordForm.currentPassword}
               onChange={(event) =>
                 setPasswordForm((prev) => ({
@@ -485,6 +494,8 @@ export default function SettingsPage() {
             {t("newPassword")}
             <input
               type="password"
+              data-guide="password-new"
+              autoComplete="new-password"
               value={passwordForm.newPassword}
               onChange={(event) =>
                 setPasswordForm((prev) => ({
@@ -500,6 +511,8 @@ export default function SettingsPage() {
             {tAuth("confirmPassword")}
             <input
               type="password"
+              data-guide="password-confirm"
+              autoComplete="new-password"
               value={passwordForm.confirmPassword}
               onChange={(event) =>
                 setPasswordForm((prev) => ({
@@ -514,6 +527,7 @@ export default function SettingsPage() {
           <button
             type="submit"
             disabled={savingPassword}
+            data-guide="password-submit"
             className="action-link action-link-primary disabled:opacity-60"
           >
             {savingPassword ? (

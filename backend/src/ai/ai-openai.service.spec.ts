@@ -32,11 +32,137 @@ describe('AiOpenAiService', () => {
     delete process.env.OPENAI_API_KEY;
     delete process.env.OPENAI_MODEL;
     delete process.env.OPENAI_BASE_URL;
+    delete process.env.OPENAI_REASONING_EFFORT;
   });
 
   afterAll(() => {
     process.env = originalEnv;
   });
+
+  it.each([
+    ['/properties/10000000-0000-4000-8000-000000000001/edit', 'rentPrice'],
+    ['/tenants/10000000-0000-4000-8000-000000000001/edit', 'phone'],
+    ['/leases/10000000-0000-4000-8000-000000000001/edit', 'rentAmount'],
+    ['/payments/10000000-0000-4000-8000-000000000001', 'edit-payment-notes'],
+  ])(
+    'opens %s with real field guidance without executing any mutation',
+    async (path, field) => {
+      process.env.OPENAI_API_KEY = 'key';
+      process.env.OPENAI_MODEL = 'test';
+      const read = jest
+        .fn()
+        .mockResolvedValue({ id: '10000000-0000-4000-8000-000000000001' });
+      const registry = {
+        getOpenAiTools: jest.fn().mockReturnValue([
+          {
+            type: 'function',
+            function: { name: 'get_record', parameters: { type: 'object' } },
+            $callback: read,
+          },
+        ]),
+      } as unknown as AiToolsRegistryService;
+      const action = {
+        path,
+        field,
+        recordId: null,
+        intent: 'edit',
+        instruction:
+          'Revisá y modificá este dato. Guardá vos desde el formulario.',
+      };
+      const call = (name: string, args: unknown) => ({
+        id: 'response',
+        model: 'test',
+        output: [
+          {
+            type: 'function_call',
+            name,
+            call_id: name,
+            arguments: JSON.stringify(args),
+          },
+        ],
+      });
+      responsesCreateMock
+        .mockResolvedValueOnce(call('get_record', {}))
+        .mockResolvedValueOnce(call('show_application_page', action))
+        .mockResolvedValueOnce({
+          id: 'final',
+          model: 'test',
+          output: [],
+          output_text: 'Abrí el formulario para que revises el cambio.',
+        });
+      const result = await new AiOpenAiService(registry).respond(
+        'quiero modificar el dato',
+        {
+          userId: 'u',
+          companyId: 'c',
+          role: UserRole.ADMIN,
+          channel: 'web',
+          mutationIntent: true,
+        },
+      );
+      expect(result.uiAction).toEqual({
+        type: 'navigate',
+        guide: 'screen',
+        path,
+        field,
+        intent: 'edit',
+        instruction: action.instruction,
+      });
+      expect(read).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['web', 'whatsapp'] as const)(
+    'returns arbitrary authorized queries directly in %s chat',
+    async (channel) => {
+      process.env.OPENAI_API_KEY = 'key';
+      process.env.OPENAI_MODEL = 'test';
+      const read = jest.fn().mockResolvedValue({
+        data: [{ firstName: 'Ana', phone: '123' }],
+        total: 1,
+      });
+      const registry = {
+        getOpenAiTools: jest.fn().mockReturnValue([
+          {
+            type: 'function',
+            function: { name: 'get_tenants', parameters: { type: 'object' } },
+            $callback: read,
+          },
+        ]),
+      } as unknown as AiToolsRegistryService;
+      responsesCreateMock
+        .mockResolvedValueOnce({
+          id: 'read',
+          model: 'test',
+          output: [
+            {
+              type: 'function_call',
+              name: 'get_tenants',
+              call_id: 'read',
+              arguments: '{}',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          id: 'final',
+          model: 'test',
+          output: [],
+          output_text: '**Inquilinos**\n\n- Ana · 123',
+        });
+      const result = await new AiOpenAiService(registry).respond(
+        'mostrame los inquilinos',
+        { userId: 'u', companyId: 'c', role: UserRole.ADMIN, channel },
+      );
+      expect(result.outputText).toContain('Ana');
+      expect(result).not.toHaveProperty('uiAction');
+      if (channel === 'whatsapp')
+        expect(
+          responsesCreateMock.mock.calls[0][0].tools.some(
+            (tool: { name: string }) => tool.name === 'show_application_page',
+          ),
+        ).toBe(false);
+    },
+  );
 
   it('respond throws when OPENAI_API_KEY is missing', async () => {
     const service = new AiOpenAiService({} as AiToolsRegistryService);
@@ -114,7 +240,6 @@ describe('AiOpenAiService', () => {
     expect(responsesCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'gpt-test',
-        reasoning: { effort: 'none' },
         tools: [
           expect.objectContaining({ type: 'function', name: 'get_test' }),
         ],
@@ -124,6 +249,31 @@ describe('AiOpenAiService', () => {
       model: 'gpt-test',
       outputText: 'ok',
       usage: { input_tokens: 6, output_tokens: 4, total_tokens: 10 },
+    });
+    expect(responsesCreateMock.mock.calls[0][0]).not.toHaveProperty(
+      'reasoning',
+    );
+  });
+
+  it('only sends reasoning effort when explicitly configured for a compatible model', async () => {
+    process.env.OPENAI_API_KEY = 'key';
+    process.env.OPENAI_MODEL = 'gpt-test';
+    process.env.OPENAI_REASONING_EFFORT = 'low';
+    responsesCreateMock.mockResolvedValue({
+      id: 'response',
+      model: 'gpt-test',
+      output_text: 'ok',
+      output: [],
+    });
+    await new AiOpenAiService({
+      getOpenAiTools: jest.fn().mockReturnValue([]),
+    } as never).respond('consulta', {
+      userId: 'user',
+      companyId: 'company',
+      role: UserRole.ADMIN,
+    });
+    expect(responsesCreateMock.mock.calls[0][0].reasoning).toEqual({
+      effort: 'low',
     });
   });
 
@@ -197,6 +347,12 @@ describe('AiOpenAiService', () => {
       lastName: 'Pérez',
     });
     expect(result.outputText).toBe('La solicitud quedó pendiente de revisión.');
+    const first = responsesCreateMock.mock.calls[0][0];
+    const next = responsesCreateMock.mock.calls[1][0];
+    expect(next.instructions).toBe(first.instructions);
+    expect(first.instructions).toContain(
+      'Current date in America/Argentina/Buenos_Aires:',
+    );
   });
 
   it('does not claim a mutation was queued when no tool persisted it', async () => {

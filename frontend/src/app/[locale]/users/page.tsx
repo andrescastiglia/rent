@@ -1,4 +1,5 @@
 "use client";
+import { useAssistantRecord } from "@/hooks/useAssistantRecord";
 
 import { SyntheticEvent, useCallback, useEffect, useState } from "react";
 import {
@@ -151,12 +152,15 @@ function UserFormPanel({
 
   return (
     <form
+      data-assistant-ready
+      data-assistant-record={editingUser?.id}
       onSubmit={onSubmit}
       className="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-white p-4 md:grid-cols-2"
     >
       <label className="text-sm text-gray-700">
         {tAuth("email")}
         <input
+          data-guide="email"
           required
           type="email"
           value={form.email}
@@ -170,6 +174,7 @@ function UserFormPanel({
       <label className="text-sm text-gray-700">
         {tAuth("role")}
         <select
+          data-guide="role"
           value={form.role}
           onChange={(event) =>
             setForm((prev) => ({
@@ -217,6 +222,7 @@ function UserFormPanel({
       <label className="text-sm text-gray-700">
         {tAuth("firstName")}
         <input
+          data-guide="firstName"
           required
           type="text"
           value={form.firstName}
@@ -230,6 +236,7 @@ function UserFormPanel({
       <label className="text-sm text-gray-700">
         {tAuth("lastName")}
         <input
+          data-guide="lastName"
           required
           type="text"
           value={form.lastName}
@@ -243,6 +250,7 @@ function UserFormPanel({
       <label className="text-sm text-gray-700">
         {tAuth("phone")}
         <input
+          data-guide="phone"
           type="text"
           value={form.phone}
           onChange={(event) =>
@@ -258,6 +266,7 @@ function UserFormPanel({
         <label className="text-sm text-gray-700">
           {tAuth("password")}
           <input
+            data-guide="password"
             required
             minLength={8}
             type="password"
@@ -271,7 +280,10 @@ function UserFormPanel({
       )}
 
       {form.roles.includes("staff") ? (
-        <div className="md:col-span-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+        <div
+          data-guide="permissions"
+          className="md:col-span-2 rounded-md border border-gray-200 bg-gray-50 p-3"
+        >
           <p className="text-sm font-medium text-gray-800">Permisos de staff</p>
           <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
             {STAFF_PERMISSION_OPTIONS.map((permission) => (
@@ -464,6 +476,8 @@ function ResetPasswordDialog({
       <form
         onSubmit={onSubmit}
         className="relative z-10 w-full max-w-md rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-800"
+        data-assistant-ready
+        data-assistant-record={user.id}
       >
         <div className="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white">
@@ -596,6 +610,10 @@ export default function UsersPage() {
     setShowForm(true);
   };
 
+  useAssistantRecord(usersApi.getOne, (record, action) => {
+    if (action.openControl === "user-password") openResetPasswordDialog(record);
+    else openEdit(record);
+  });
   const closeForm = () => {
     setShowForm(false);
     setEditingUser(null);
@@ -694,6 +712,8 @@ export default function UsersPage() {
       <button
         type="button"
         data-guide="user-open"
+        data-assistant-intent="edit"
+        data-assistant-record={user.id}
         onClick={() => openEdit(user)}
         className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
       >
@@ -703,6 +723,9 @@ export default function UsersPage() {
       <button
         type="button"
         onClick={() => openResetPasswordDialog(user)}
+        data-assistant-intent="edit"
+        data-assistant-record={user.id}
+        data-assistant-open="user-password"
         className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700"
       >
         <RotateCcw className="h-3.5 w-3.5" />
@@ -739,6 +762,7 @@ export default function UsersPage() {
             type="button"
             onClick={openCreate}
             data-guide="user-new"
+            data-assistant-intent="create"
             className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
             <Plus className="h-4 w-4" />

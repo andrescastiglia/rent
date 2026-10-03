@@ -25,6 +25,7 @@ jest.mock("next-intl", () => ({
 }));
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mockReplace }),
+  usePathname: () => "/es/maintenance",
 }));
 jest.mock("@/contexts/auth-context", () => ({
   useAuth: () => ({ user: mockUser, loading: false }),
@@ -32,6 +33,7 @@ jest.mock("@/contexts/auth-context", () => ({
 jest.mock("@/lib/api/maintenance", () => ({
   maintenanceApi: {
     getAll: jest.fn(),
+    getOne: jest.fn(),
     getComments: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),

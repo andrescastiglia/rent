@@ -66,6 +66,20 @@ export type PaymentConfirmationTransactionResult = {
   settledInvoices: Invoice[];
 };
 
+export type CollectionSummary = {
+  fromDate: string;
+  toDate: string;
+  totalCount: number;
+  totals: Array<{ currency: string; amount: string; count: number }>;
+  details: Array<{
+    id: string;
+    paymentNumber: string | null;
+    tenantName: string;
+    currency: string;
+    amount: string;
+  }>;
+};
+
 /**
  * Servicio para gestionar pagos de inquilinos.
  */
@@ -705,6 +719,55 @@ export class PaymentsService {
     const [data, total] = await query.getManyAndCount();
 
     return { data, total, page, limit };
+  }
+
+  async collectionSummary(
+    filters: { fromDate: string; toDate: string },
+    user: RequestUser,
+  ): Promise<CollectionSummary> {
+    this.requireCompanyScope(user);
+    if (!isAdminOrStaff(user))
+      throw new ForbiddenException('Collection summary requires staff access');
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (
+      !datePattern.test(filters.fromDate) ||
+      !datePattern.test(filters.toDate) ||
+      filters.fromDate > filters.toDate
+    )
+      throw new BadRequestException('Invalid collection date range');
+    // One statement keeps the full totals and the bounded detail in the same
+    // snapshot. Aggregate before joining any one-to-many payment relations.
+    const [result] = await this.dataSource.query(
+      `WITH eligible AS (
+         SELECT p.id, p.payment_number, p.tenant_id, p.payment_date, p.currency,
+                p.amount - COALESCE(p.refunded_amount, 0) AS net_amount
+           FROM payments p
+          WHERE p.company_id = $1::uuid AND p.deleted_at IS NULL
+            AND p.status = 'completed'
+            AND p.payment_date BETWEEN $2::date AND $3::date
+       ), totals AS (
+         SELECT currency, SUM(net_amount)::text AS amount, COUNT(*)::int AS count
+           FROM eligible GROUP BY currency ORDER BY currency
+       ), detail AS (
+         SELECT e.id, e.payment_number AS "paymentNumber", e.currency,
+                e.net_amount::text AS amount,
+                concat_ws(' ', u.first_name, u.last_name) AS "tenantName"
+           FROM (SELECT * FROM eligible ORDER BY payment_date DESC, id DESC LIMIT 20) e
+           LEFT JOIN tenants t ON t.id = e.tenant_id AND t.company_id = $1::uuid AND t.deleted_at IS NULL
+           LEFT JOIN users u ON u.id = t.user_id AND u.company_id = $1::uuid AND u.deleted_at IS NULL
+          ORDER BY e.payment_date DESC, e.id DESC
+       )
+       SELECT (SELECT COUNT(*)::int FROM eligible) AS "totalCount",
+              COALESCE((SELECT jsonb_agg(totals) FROM totals), '[]'::jsonb) AS totals,
+              COALESCE((SELECT jsonb_agg(detail) FROM detail), '[]'::jsonb) AS details`,
+      [user.companyId, filters.fromDate, filters.toDate],
+    );
+    return {
+      ...filters,
+      totalCount: result.totalCount,
+      totals: result.totals,
+      details: result.details,
+    };
   }
 
   private applyVisibilityScope(

@@ -1,0 +1,1144 @@
+[
+  {
+    "path": "/buyers",
+    "title": "Compradores",
+    "permission": "self-service",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/dashboard",
+    "title": "Panel de gestión",
+    "permission": "dashboard",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "attention",
+      "dashboard-activity-comment",
+      "dashboard-activity-limit",
+      "pending-actions",
+      "review-password"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/dashboard/rentals",
+    "title": "Panel de gestión",
+    "permission": "dashboard",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "rentals-search"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/dashboard/sales",
+    "title": "Panel de gestión",
+    "permission": "dashboard",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "sales-search"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/data-deletion",
+    "title": "Eliminación de datos",
+    "permission": "self-service",
+    "roles": [
+      "admin",
+      "staff",
+      "owner",
+      "tenant",
+      "buyer"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/interested",
+    "title": "Interesados",
+    "permission": "interested",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "interested-operation-filter",
+      "interested-search",
+      "interested-status-filter",
+      "person-open"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/interested/[id]/activities/new",
+    "title": "Interesados",
+    "permission": "interested",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/interested/[id]/edit",
+    "title": "Interesados",
+    "permission": "interested",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/interested/new",
+    "title": "Interesados",
+    "permission": "interested",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "interested-desired-features",
+      "interested-email",
+      "interested-first-name",
+      "interested-last-name",
+      "interested-max-amount",
+      "interested-min-amount",
+      "interested-notes",
+      "interested-people-count",
+      "interested-phone",
+      "interested-preferred-city",
+      "interested-property-type",
+      "interested-verified-income"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/interested/workflow",
+    "title": "Interesados",
+    "permission": "interested",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "crm-import-csv",
+      "crm-merge-source",
+      "crm-merge-target",
+      "crm-pipeline-person",
+      "crm-pipeline-stage",
+      "crm-pipeline-stages"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/invoices",
+    "title": "Facturas",
+    "permission": "invoices",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "invoice-open",
+      "invoices-search",
+      "invoices-status-filter"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/invoices/[id]",
+    "title": "Facturas",
+    "permission": "invoices",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "rent-calculation-title"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/leases",
+    "title": "Contratos",
+    "permission": "leases",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "leases-search",
+      "leases-status"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/leases/[id]",
+    "title": "Contratos",
+    "permission": "leases",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/leases/[id]/edit",
+    "title": "Contratos",
+    "permission": "leases",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "adjustmentFrequencyMonths",
+      "adjustmentType",
+      "adjustmentValue",
+      "autoGenerateInvoices",
+      "billingDay",
+      "billingFrequency",
+      "buyerId",
+      "contractType",
+      "depositAmount",
+      "endDate",
+      "fiscalValue",
+      "inflation-index-lag-error",
+      "inflation-index-lag-help",
+      "inflationIndexLagMonths",
+      "inflationIndexType",
+      "lateFeeGraceDays",
+      "lateFeeMax",
+      "lateFeeType",
+      "lateFeeValue",
+      "nextAdjustmentDate",
+      "ownerId",
+      "paymentDueDay",
+      "paymentFrequency",
+      "propertyId",
+      "quickInterestedEmail",
+      "quickInterestedFirstName",
+      "quickInterestedLastName",
+      "quickInterestedPhone",
+      "renewalAlertCustomDays",
+      "renewalAlertEnabled",
+      "renewalAlertPeriodicity",
+      "rentAmount",
+      "startDate",
+      "status",
+      "templateId",
+      "tenantId",
+      "terms"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/leases/import",
+    "title": "Contratos",
+    "permission": "leases",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "import-contract-file",
+      "import-contract-type",
+      "import-currency",
+      "import-deposit-amount",
+      "import-end-date",
+      "import-fiscal-value",
+      "import-notes",
+      "import-owner",
+      "import-party",
+      "import-property",
+      "import-rent-amount",
+      "import-start-date",
+      "quick-interested-email",
+      "quick-interested-first-name",
+      "quick-interested-last-name",
+      "quick-interested-phone"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/leases/new",
+    "title": "Contratos",
+    "permission": "leases",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "adjustmentFrequencyMonths",
+      "adjustmentType",
+      "adjustmentValue",
+      "autoGenerateInvoices",
+      "billingDay",
+      "billingFrequency",
+      "buyerId",
+      "contractType",
+      "depositAmount",
+      "endDate",
+      "fiscalValue",
+      "inflation-index-lag-error",
+      "inflation-index-lag-help",
+      "inflationIndexLagMonths",
+      "inflationIndexType",
+      "lateFeeGraceDays",
+      "lateFeeMax",
+      "lateFeeType",
+      "lateFeeValue",
+      "nextAdjustmentDate",
+      "ownerId",
+      "paymentDueDay",
+      "paymentFrequency",
+      "propertyId",
+      "quickInterestedEmail",
+      "quickInterestedFirstName",
+      "quickInterestedLastName",
+      "quickInterestedPhone",
+      "renewalAlertCustomDays",
+      "renewalAlertEnabled",
+      "renewalAlertPeriodicity",
+      "rentAmount",
+      "startDate",
+      "status",
+      "templateId",
+      "tenantId",
+      "terms"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/leases/templates",
+    "title": "Contratos",
+    "permission": "leases",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/maintenance",
+    "title": "Mantenimiento",
+    "permission": "maintenance",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "maintenance-open",
+      "maintenance-priority-filter",
+      "maintenance-search",
+      "maintenance-status-filter",
+      "maintenance-ticket-status"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/owners",
+    "title": "Propietarios",
+    "permission": "owners",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "owner-open",
+      "owner-row-main",
+      "owner-row-toggle",
+      "owner-search"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/payments",
+    "title": "Cobranza",
+    "permission": "payments",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "payment-open",
+      "payments-activity",
+      "payments-search",
+      "payments-status"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/payments/[id]",
+    "title": "Cobranza",
+    "permission": "payments",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "correction-amount",
+      "correction-reason",
+      "edit-payment-activity-type",
+      "edit-payment-date",
+      "edit-payment-method",
+      "edit-payment-notes",
+      "edit-payment-reference",
+      "payment-edit",
+      "receipt-download",
+      "review"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/payments/new",
+    "title": "Cobranza",
+    "permission": "payments",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "currencyCode",
+      "paymentActivityType",
+      "paymentAmount",
+      "paymentDate",
+      "paymentMethod",
+      "paymentNotes",
+      "paymentReference",
+      "tenantLeaseId"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/portal/buyer",
+    "title": "Portal personal",
+    "permission": "self-service",
+    "roles": [
+      "buyer"
+    ],
+    "fields": [
+      "buyer-sales-search",
+      "correction-amount",
+      "correction-reason",
+      "review",
+      "sale-receipt-amount",
+      "sale-receipt-date"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/portal/owner",
+    "title": "Portal personal",
+    "permission": "self-service",
+    "roles": [
+      "owner"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/portal/owner/maintenance",
+    "title": "Portal personal",
+    "permission": "self-service",
+    "roles": [
+      "owner"
+    ],
+    "fields": [
+      "tenant-maintenance-area",
+      "tenant-maintenance-description",
+      "tenant-maintenance-priority",
+      "tenant-maintenance-property",
+      "tenant-maintenance-title"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/portal/owner/properties",
+    "title": "Portal personal",
+    "permission": "self-service",
+    "roles": [
+      "owner"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/portal/owner/settlements",
+    "title": "Portal personal",
+    "permission": "self-service",
+    "roles": [
+      "owner"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/portal/tenant",
+    "title": "Portal personal",
+    "permission": "self-service",
+    "roles": [
+      "tenant"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/portal/tenant/contract",
+    "title": "Portal personal",
+    "permission": "self-service",
+    "roles": [
+      "tenant"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/portal/tenant/maintenance",
+    "title": "Portal personal",
+    "permission": "self-service",
+    "roles": [
+      "tenant"
+    ],
+    "fields": [
+      "tenant-maintenance-area",
+      "tenant-maintenance-description",
+      "tenant-maintenance-priority",
+      "tenant-maintenance-property",
+      "tenant-maintenance-title"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/portal/tenant/payments",
+    "title": "Portal personal",
+    "permission": "self-service",
+    "roles": [
+      "tenant"
+    ],
+    "fields": [
+      "tenant-invoices-title",
+      "tenant-payment-history-title"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/privacy",
+    "title": "Privacidad",
+    "permission": "self-service",
+    "roles": [
+      "admin",
+      "staff",
+      "owner",
+      "tenant",
+      "buyer"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/properties",
+    "title": "Propiedades",
+    "permission": "properties",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "properties-search",
+      "property-city",
+      "property-open",
+      "property-operation",
+      "property-order",
+      "property-state"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/properties/[id]",
+    "title": "Propiedades",
+    "permission": "properties",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "maintenance-tasks"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/properties/[id]/edit",
+    "title": "Propiedades",
+    "permission": "properties",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "acceptedGuaranteeTypes",
+      "address.city",
+      "address.country",
+      "address.number",
+      "address.state",
+      "address.street",
+      "address.unit",
+      "address.zipCode",
+      "allowsPets",
+      "city",
+      "country",
+      "description",
+      "maxOccupants",
+      "name",
+      "number",
+      "operationState",
+      "ownerId",
+      "ownerWhatsapp",
+      "rentPrice",
+      "saleCurrency",
+      "salePrice",
+      "state",
+      "status",
+      "street",
+      "type",
+      "unit",
+      "zipCode"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/properties/[id]/maintenance/new",
+    "title": "Propiedades",
+    "permission": "properties",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "maintenanceDate",
+      "maintenanceNotes",
+      "maintenanceTitle"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/properties/[id]/portals",
+    "title": "Propiedades",
+    "permission": "properties",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/properties/[id]/portals/editor",
+    "title": "Propiedades",
+    "permission": "properties",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/properties/[id]/visits/[visitId]/result",
+    "title": "Propiedades",
+    "permission": "properties",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "resultReason",
+      "visitResult"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/properties/[id]/visits/new",
+    "title": "Propiedades",
+    "permission": "properties",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "interestedName",
+      "interestedProfileId",
+      "offerAmount",
+      "offerCurrency",
+      "visitComments",
+      "visitDate",
+      "visitHasOffer"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/properties/new",
+    "title": "Propiedades",
+    "permission": "properties",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "acceptedGuaranteeTypes",
+      "address.city",
+      "address.country",
+      "address.number",
+      "address.state",
+      "address.street",
+      "address.unit",
+      "address.zipCode",
+      "allowsPets",
+      "city",
+      "country",
+      "description",
+      "maxOccupants",
+      "name",
+      "number",
+      "operationState",
+      "ownerId",
+      "ownerWhatsapp",
+      "rentPrice",
+      "saleCurrency",
+      "salePrice",
+      "state",
+      "status",
+      "street",
+      "type",
+      "unit",
+      "zipCode"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/properties/owners/[id]/edit",
+    "title": "Propiedades",
+    "permission": "owners",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "email",
+      "firstName",
+      "lastName",
+      "ownerPreferredContactChannel",
+      "phone",
+      "taxId"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/properties/owners/[id]/payments/new",
+    "title": "Propiedades",
+    "permission": "owners",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/properties/owners/new",
+    "title": "Propiedades",
+    "permission": "owners",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "email",
+      "firstName",
+      "lastName",
+      "ownerPreferredContactChannel",
+      "phone",
+      "taxId"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/prospect",
+    "title": "Prospectos",
+    "permission": "interested",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "interested-operation-filter",
+      "interested-search",
+      "interested-status-filter",
+      "person-open"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/reports",
+    "title": "Reportes",
+    "permission": "reports",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "report-next",
+      "reports-refresh"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/sales",
+    "title": "Ventas",
+    "permission": "sales",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "correction-amount",
+      "correction-reason",
+      "folder-description",
+      "folder-name",
+      "sale-buyer",
+      "sale-count",
+      "sale-currency",
+      "sale-due-day",
+      "sale-folder",
+      "sale-installment",
+      "sale-new",
+      "sale-open",
+      "sale-property",
+      "sale-receipt-amount",
+      "sale-receipt-date",
+      "sale-search",
+      "sale-start",
+      "sale-total",
+      "sales-folder",
+      "sales-search"
+    ],
+    "openers": [
+      "sale-folder"
+    ]
+  },
+  {
+    "path": "/settings",
+    "title": "Configuración",
+    "permission": "self-service",
+    "roles": [
+      "admin",
+      "staff",
+      "owner",
+      "tenant",
+      "buyer"
+    ],
+    "fields": [
+      "avatarUrl",
+      "commission-tax-date",
+      "commission-tax-rate",
+      "commission-tax-source",
+      "email",
+      "firstName",
+      "language",
+      "lastName",
+      "password-confirm",
+      "password-current",
+      "password-new",
+      "password-submit",
+      "phone",
+      "whatsappEnabled"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/settings/communications",
+    "title": "Configuración",
+    "permission": "communications",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/settings/mercadolibre",
+    "title": "Configuración",
+    "permission": "properties",
+    "roles": [
+      "admin"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/staff",
+    "title": "Personal",
+    "permission": "users",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "currency",
+      "email",
+      "firstName",
+      "hourlyRate",
+      "lastName",
+      "notes",
+      "phone",
+      "specialization"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/templates",
+    "title": "Plantillas",
+    "permission": "templates",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "templates-scope"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/templates/editor",
+    "title": "Plantillas",
+    "permission": "templates",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "template-editor-body",
+      "template-editor-name",
+      "template-editor-scope",
+      "template-save"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/tenants",
+    "title": "Inquilinos",
+    "permission": "tenants",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "person-open",
+      "tenant-detail-link",
+      "tenant-list-search"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/tenants/[id]",
+    "title": "Inquilinos",
+    "permission": "tenants",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "activities"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/tenants/[id]/activities/new",
+    "title": "Inquilinos",
+    "permission": "tenants",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/tenants/[id]/edit",
+    "title": "Inquilinos",
+    "permission": "tenants",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "contactConsent",
+      "creditScore",
+      "cuil",
+      "dateOfBirth",
+      "dni",
+      "email",
+      "emergencyContactName",
+      "emergencyContactPhone",
+      "emergencyContactRelationship",
+      "employer",
+      "employmentStatus",
+      "firstName",
+      "lastName",
+      "monthlyIncome",
+      "nationality",
+      "notes",
+      "occupation",
+      "phone",
+      "preferredContactChannel",
+      "tenant-credit-score",
+      "tenant-cuil",
+      "tenant-date-of-birth",
+      "tenant-dni",
+      "tenant-email",
+      "tenant-emergency-contact-name",
+      "tenant-emergency-contact-phone",
+      "tenant-emergency-contact-relationship",
+      "tenant-employer",
+      "tenant-employment-status",
+      "tenant-first-name",
+      "tenant-last-name",
+      "tenant-monthly-income",
+      "tenant-nationality",
+      "tenant-notes",
+      "tenant-occupation",
+      "tenant-phone"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/tenants/[id]/payments",
+    "title": "Inquilinos",
+    "permission": "tenants",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/tenants/[id]/payments/new",
+    "title": "Inquilinos",
+    "permission": "tenants",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "tenantPaymentCurrencyCode"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/tenants/new",
+    "title": "Inquilinos",
+    "permission": "tenants",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "contactConsent",
+      "creditScore",
+      "cuil",
+      "dateOfBirth",
+      "dni",
+      "email",
+      "emergencyContactName",
+      "emergencyContactPhone",
+      "emergencyContactRelationship",
+      "employer",
+      "employmentStatus",
+      "firstName",
+      "lastName",
+      "monthlyIncome",
+      "nationality",
+      "notes",
+      "occupation",
+      "phone",
+      "preferredContactChannel",
+      "tenant-credit-score",
+      "tenant-cuil",
+      "tenant-date-of-birth",
+      "tenant-dni",
+      "tenant-email",
+      "tenant-emergency-contact-name",
+      "tenant-emergency-contact-phone",
+      "tenant-emergency-contact-relationship",
+      "tenant-employer",
+      "tenant-employment-status",
+      "tenant-first-name",
+      "tenant-last-name",
+      "tenant-monthly-income",
+      "tenant-nationality",
+      "tenant-notes",
+      "tenant-occupation",
+      "tenant-phone"
+    ],
+    "openers": []
+  },
+  {
+    "path": "/terms",
+    "title": "Términos",
+    "permission": "self-service",
+    "roles": [
+      "admin",
+      "staff",
+      "owner",
+      "tenant",
+      "buyer"
+    ],
+    "fields": [],
+    "openers": []
+  },
+  {
+    "path": "/users",
+    "title": "Usuarios",
+    "permission": "users",
+    "roles": [
+      "admin",
+      "staff"
+    ],
+    "fields": [
+      "email",
+      "firstName",
+      "lastName",
+      "password",
+      "permissions",
+      "phone",
+      "reset-user-password",
+      "role",
+      "user-new",
+      "user-open",
+      "users-search"
+    ],
+    "openers": [
+      "user-password"
+    ]
+  }
+]

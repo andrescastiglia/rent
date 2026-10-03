@@ -16,8 +16,10 @@ un lease de cinco minutos. Los fallos reintentan con backoff exponencial de 30 a
 
 `WHATSAPP_ENABLED` y `WHATSAPP_INBOUND_ENABLED` son opt-in y valen `false` si no
 se declaran. Mientras inbound esté deshabilitado, el endpoint verifica y conserva
-eventos pero no ejecuta IA ni respuestas. Debe mantenerse así en producción
-hasta cerrar el outbox de salida y la bandeja de propuestas.
+eventos pero no ejecuta IA ni respuestas. Para habilitar el canal, configurar
+ambas variables en `true`, las credenciales de Meta, el token interno compartido
+y el procesamiento de inbox y entregas. `AI_TOOLS_MODE=READONLY` permite consultas;
+`FULL` permite además propuestas de modificación sujetas a los permisos vigentes.
 
 ## Privacidad y abuso
 
@@ -115,6 +117,21 @@ npm start -- apply-whatsapp-retention
 
 Este comando usa el mismo canal interno autenticado y devuelve los conteos de
 filas borradas y redactadas. Las actualizaciones son idempotentes.
+
+Los manifiestos de Kubernetes incluyen `process-whatsapp-inbox` cada minuto y
+`apply-whatsapp-retention` una vez al día. Usan la URL interna del backend y la
+misma exclusión por operación que los demás jobs. La base conserva los jobs
+suspendidos; el overlay de producción los habilita junto con
+`retry-communications`. El opt-in de recepción continúa controlado por entorno.
+
+El asistente recibe `channel=whatsapp`: responde con texto, listas e importes y
+tramita propuestas autorizadas, sin navegar ni abrir páginas o globos. Conserva
+la conversación del mismo usuario y empresa durante 24 horas mediante el ID
+guardado en la comunicación entrante. Este historial no se comparte con el chat
+web. El envío convierte tablas Markdown en listas y negritas al formato de
+WhatsApp. La identificación admite las variantes argentinas `54` y `549` sin
+aceptar remitentes ambiguos ni usuarios sin consentimiento. Si falla la IA,
+el mensaje vuelve a estado `new` para revisión del equipo.
 
 Control operativo:
 

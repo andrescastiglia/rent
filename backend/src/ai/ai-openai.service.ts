@@ -8,8 +8,10 @@ import {
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import OpenAI from 'openai';
+import { z } from 'zod';
 import { AiToolsRegistryService } from './ai-tools-registry.service';
-import { AiExecutionContext } from './types/ai-tool.types';
+import { AiExecutionContext, AiUiAction } from './types/ai-tool.types';
+import { accessiblePages, validatePageAction } from './ai-page-catalog';
 import { AiChatMessage } from './dto/ai-chat-request.dto';
 import { UserRole } from '../users/entities/user.entity';
 
@@ -123,6 +125,12 @@ export class AiOpenAiService {
     const rolePreamble = this.buildRolePreamble(context.role);
 
     try {
+      // Reasoning options are model-dependent. Do not send an unsupported
+      // default to non-reasoning models or models that reject effort=none.
+      const reasoningEffort = z
+        .enum(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
+        .optional()
+        .parse(process.env.OPENAI_REASONING_EFFORT?.trim() || undefined);
       const executionContext: AiExecutionContext = {
         ...context,
         confirmMutation:
@@ -134,6 +142,69 @@ export class AiOpenAiService {
         executionContext,
         prompt,
       ) as RunnableTool[];
+      let uiAction: AiUiAction | undefined;
+      const knownIds = new Set<string>();
+      if (context.channel === 'web') {
+        const schema = z
+          .object({
+            path: z.string().max(300),
+            intent: z.enum(['help', 'edit', 'create']),
+            field: z.string().max(100).nullable(),
+            instruction: z.string().min(1).max(600),
+            recordId: z.string().uuid().nullable(),
+            openControl: z.string().max(100).nullable().optional(),
+          })
+          .strict();
+        tools.push({
+          type: 'function',
+          function: {
+            name: 'show_application_page',
+            description:
+              'Open an authorized application page and display contextual help. Use for navigation, usage help and ALL requested web changes. This ONLY opens a screen/form and highlights a control; it never fills values, saves, submits or mutates records. Resolve record names with readonly tools first. For inline editors use the list page with intent edit and recordId (users, staff, maintenance, sales). On edit routes leave recordId null. For modal creation use intent create. openControl selects an alternative registered opener from the page catalog (sale-folder, user-password); null opens the default editor. field must be a control identifier in the page catalog, or null for automatic help. Template editor accepts ?scope=contract_rental|contract_sale|receipt|invoice|credit_note&templateId=resolved-UUID. Payment creation accepts ?leaseId=resolved-UUID. Other query parameters are forbidden.',
+            parameters: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                path: { type: 'string' },
+                intent: { type: 'string', enum: ['help', 'edit', 'create'] },
+                field: { type: ['string', 'null'] },
+                instruction: { type: 'string' },
+                recordId: { type: ['string', 'null'] },
+                openControl: { type: ['string', 'null'] },
+              },
+              required: [
+                'path',
+                'intent',
+                'field',
+                'instruction',
+                'recordId',
+                'openControl',
+              ],
+            },
+          },
+          $parseRaw: (raw) => schema.parse(JSON.parse(raw)),
+          $callback: (args) => {
+            const parsed = schema.parse(args);
+            uiAction = validatePageAction(
+              {
+                type: 'navigate',
+                guide: 'screen',
+                path: parsed.path,
+                intent: parsed.intent,
+                instruction: parsed.instruction,
+                ...(parsed.field ? { field: parsed.field } : {}),
+                ...(parsed.recordId ? { recordId: parsed.recordId } : {}),
+                ...(parsed.openControl
+                  ? { openControl: parsed.openControl }
+                  : {}),
+              },
+              context,
+              knownIds,
+            );
+            return { status: 'form_guidance', saved: false, uiAction };
+          },
+        });
+      }
       const responseTools = tools.map((tool) => ({
         type: 'function' as const,
         name: tool.function.name,
@@ -145,8 +216,15 @@ export class AiOpenAiService {
         'Use the following DB relationship map as hard context for tool planning.',
         this.relationshipContext.content,
         rolePreamble,
+        `Current date in America/Argentina/Buenos_Aires: ${new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())}. Resolve today/yesterday/date ranges against this date, not your training data.`,
+        'Help users operate this application as well as query its stored data. Explain known workflows; never ask for passwords in chat. For data requests, consult authorized tools and return the results directly in concise Markdown: a heading, currency totals, and a small table or list. Never replace a data answer with navigation instructions. Never treat a paginated list as a complete collection total.',
+        context.channel === 'whatsapp'
+          ? 'Channel: WhatsApp. This channel can display authorized data and propose changes; it cannot navigate, open pages, highlight controls or show help bubbles. Never claim to do so. Use short paragraphs and lists; avoid Markdown tables, HTML and JSON.'
+          : context.channel === 'web'
+            ? `Channel: web. ALL modifications must use show_application_page and be completed manually by the user. Even if the user says confirm/save, you never execute a mutation or submit a form. Open the actual record's edit page (not just its list) whenever there is an edit route. Describe what to change in the help bubble and leave the final Save to the user. Do not collect passwords. Usage/navigation requests also use show_application_page. Return data queries in chat without navigating unless navigation is requested. Current page: ${context.currentPath ?? 'unknown'}. Available pages and control identifiers (replace [id] etc with IDs resolved by authorized reads):\n${JSON.stringify(accessiblePages(context))}`
+            : 'Channel: application chat. Do not claim to navigate or highlight controls unless an application UI action was actually supplied.',
         context.roleDataContext
-          ? `The following JSON is the complete authorized data scope for this user. Answer only from it and never request records by arbitrary IDs:\n${context.roleDataContext}`
+          ? `The following JSON is the complete authorized data scope for this user. Answer data questions only from it and never request records by arbitrary IDs. Application usage guidance may also use the documented workflows:\n${context.roleDataContext}`
           : '',
         context.mutationApprovalMode === 'staff_queue'
           ? 'Any create, update, or delete operation is only a proposal. For a mutation intent, you must call the appropriate tool. Only say it was queued for staff review when the tool result has status pending_confirmation; never claim it was executed.'
@@ -155,7 +233,7 @@ export class AiOpenAiService {
       let mutationProposalQueued = false;
       let response = await client.responses.create({
         model,
-        reasoning: { effort: 'none' },
+        ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
         instructions,
         input: [...conversationHistory, { role: 'user', content: prompt }],
         tools: responseTools,
@@ -172,7 +250,11 @@ export class AiOpenAiService {
             item.type === 'function_call',
         );
         if (calls.length === 0) {
-          if (context.mutationIntent && !mutationProposalQueued) {
+          if (
+            context.mutationIntent &&
+            context.mutationApprovalMode === 'staff_queue' &&
+            !mutationProposalQueued
+          ) {
             return {
               model: response.model,
               outputText:
@@ -184,6 +266,7 @@ export class AiOpenAiService {
             model: response.model,
             outputText: response.output_text ?? '',
             usage,
+            ...(uiAction && context.channel === 'web' ? { uiAction } : {}),
           };
         }
 
@@ -202,6 +285,8 @@ export class AiOpenAiService {
                 ? tool.$parseRaw(call.arguments)
                 : JSON.parse(call.arguments);
               const result = await tool.$callback(args);
+              if (call.name !== 'show_application_page')
+                this.collectRecordIds(result, knownIds);
               mutationProposalQueued =
                 mutationProposalQueued ||
                 this.isPendingMutationProposal(result);
@@ -219,8 +304,11 @@ export class AiOpenAiService {
 
         response = await client.responses.create({
           model,
-          reasoning: { effort: 'none' },
+          ...(reasoningEffort
+            ? { reasoning: { effort: reasoningEffort } }
+            : {}),
           previous_response_id: response.id,
+          instructions,
           input: outputs,
           tools: responseTools,
         } as OpenAI.Responses.ResponseCreateParamsNonStreaming);
@@ -236,6 +324,23 @@ export class AiOpenAiService {
     return /^\s*(?:s[ií]|confirmo|confirmar|confirmado|adelante|proced[eé]|ejecut[aá])(?:\s|[.!])*$/i.test(
       prompt,
     );
+  }
+
+  private collectRecordIds(value: unknown, ids: Set<string>): void {
+    if (Array.isArray(value)) {
+      value.forEach((item) => this.collectRecordIds(item, ids));
+    } else if (value && typeof value === 'object') {
+      for (const [key, item] of Object.entries(value)) {
+        if (
+          /(?:^id$|Id$|_id$)/.test(key) &&
+          typeof item === 'string' &&
+          z.string().uuid().safeParse(item).success
+        )
+          ids.add(item);
+        else if (item && typeof item === 'object')
+          this.collectRecordIds(item, ids);
+      }
+    }
   }
 
   private isPendingMutationProposal(value: unknown): boolean {

@@ -954,12 +954,14 @@ describe('WhatsappService', () => {
 
     expect(respond).toHaveBeenCalledWith({
       prompt: 'Crear propietario',
+      conversationId: undefined,
       context: {
         userId: 'user-1',
         companyId: 'company-1',
         role: 'owner',
         permissions: { properties: false, ai: true },
         mutationApprovalMode: 'staff_queue',
+        channel: 'whatsapp',
       },
     });
     expect(fetchMock).not.toHaveBeenCalled();
@@ -1038,6 +1040,79 @@ describe('WhatsappService', () => {
         },
       ],
     });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('reuses a company-scoped WhatsApp conversation and matches Argentine mobile variants', async () => {
+    const conversationId = '12345678-1234-4234-8234-123456789012';
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('FROM users'))
+        return [
+          {
+            id: 'admin-1',
+            company_id: 'company-1',
+            role: 'admin',
+            language: 'es',
+          },
+        ];
+      if (sql.includes('INSERT INTO person_communications'))
+        return [{ id: 'communication-1' }];
+      if (sql.includes("metadata->>'conversationId' AS"))
+        return [{ conversationId }];
+      return [];
+    });
+    const respond = jest.fn().mockResolvedValue({
+      conversationId,
+      outputText:
+        '**Total: ARS 100**\n\n| Pago | Importe |\n| --- | --- |\n| P-1 | ARS 100 |',
+    });
+    const service = buildService(undefined, buildDataSource(query), {
+      get: jest.fn(() => ({ respond })),
+    });
+    await service.handleIncomingWebhook({
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                messages: [
+                  {
+                    id: 'wamid-followup',
+                    from: '5491112345678',
+                    text: { body: 'cobranza de hoy' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('ANY($1::text[])'),
+      [['5491112345678', '541112345678']],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("AND channel = 'whatsapp'"),
+      ['company-1', 'admin-1'],
+    );
+    expect(respond).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationId,
+        context: expect.objectContaining({
+          channel: 'whatsapp',
+          mutationApprovalMode: 'staff_queue',
+        }),
+      }),
+    );
+    const deliveryCall = (query.mock.calls as unknown[][]).find(([sql]) =>
+      String(sql).includes('INSERT INTO communication_deliveries'),
+    );
+    expect(deliveryCall?.[1]).toEqual(
+      expect.arrayContaining([
+        '*Total: ARS 100*\n\n- Pago: P-1 · Importe: ARS 100',
+      ]),
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

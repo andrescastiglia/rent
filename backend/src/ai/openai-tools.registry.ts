@@ -122,6 +122,11 @@ import {
   NotificationType,
 } from '../notifications/entities/notification-preference.entity';
 import { AiExecutionContext, AiToolDefinition } from './types/ai-tool.types';
+import { BuyersService } from '../buyers/buyers.service';
+import { BuyerFiltersDto } from '../buyers/dto/buyer-filters.dto';
+import { CreateBuyerDto } from '../buyers/dto/create-buyer.dto';
+import { UpdateBuyerDto } from '../buyers/dto/update-buyer.dto';
+import { CommunicationsService } from '../communications/communications.service';
 
 export type AiToolRegistryDeps = {
   authService: AuthService;
@@ -150,6 +155,8 @@ export type AiToolRegistryDeps = {
   bankAccountsService: BankAccountsService;
   settlementsService: SettlementsService;
   notificationsService: NotificationsService;
+  buyersService: BuyersService;
+  communicationsService: CommunicationsService;
 };
 
 const emptyObjectSchema = z.object({}).strict();
@@ -1647,7 +1654,7 @@ export function buildAiToolDefinitions(
     {
       name: 'get_payments',
       description:
-        'Lists payments with optional filters: tenantId, leaseId, status, page, limit. Role-scoped by user permissions.',
+        'Lists payments with optional filters: tenantId, leaseId, status, fromDate, toDate (YYYY-MM-DD), page, limit. Role-scoped by user permissions. For collection totals use get_payments_collection_summary; a page is not the full total.',
       responseDescription:
         'Paginated list of payment records with total count.',
       mutability: 'readonly',
@@ -1656,6 +1663,25 @@ export function buildAiToolDefinitions(
       execute: async (args, context) =>
         deps.paymentsService.findAll(
           PaymentFiltersDto.zodSchema.parse(args),
+          toRequestUser(context) as any,
+        ),
+    },
+    {
+      name: 'get_payments_collection_summary',
+      description:
+        'Returns collection totals for an inclusive payment-date range (fromDate/toDate YYYY-MM-DD), grouped by currency, from completed payments net of refunds. Totals cover every matching record; detail is limited to 20. Use for cobranza, cobros, daily totals.',
+      responseDescription:
+        'fromDate, toDate, totalCount, totals [{currency,amount,count}], details [{id,paymentNumber,tenantName,currency,amount}].',
+      mutability: 'readonly',
+      allowedRoles: [UserRole.ADMIN, UserRole.STAFF],
+      parameters: z
+        .object({ fromDate: z.iso.date(), toDate: z.iso.date() })
+        .strict(),
+      execute: async (args, context) =>
+        deps.paymentsService.collectionSummary(
+          z
+            .object({ fromDate: z.iso.date(), toDate: z.iso.date() })
+            .parse(args),
           toRequestUser(context) as any,
         ),
     },
@@ -3477,6 +3503,101 @@ export function buildAiToolDefinitions(
       },
     },
 
+    {
+      name: 'get_buyers',
+      description:
+        'Lists buyers with name, email, phone and pagination filters. Returns data, total, page and limit; resolve names before modifying.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_STAFF,
+      parameters: BuyerFiltersDto.zodSchema,
+      execute: async (args, context) =>
+        deps.buyersService.findAll(
+          BuyerFiltersDto.zodSchema.parse(args),
+          context.companyId ?? '',
+        ),
+    },
+    {
+      name: 'get_buyer_by_id',
+      description:
+        'Returns a buyer profile and contact details by authorized company UUID.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_STAFF,
+      parameters: z.object({ id: uuidSchema }).strict(),
+      execute: async (args, context) =>
+        deps.buyersService.findOne(
+          z.object({ id: uuidSchema }).parse(args).id,
+          context.companyId ?? '',
+        ),
+    },
+    {
+      name: 'post_buyers',
+      description:
+        'Proposes creating a buyer with personal and contact details.',
+      mutability: 'mutable',
+      supportsIdempotentRecovery: true,
+      allowedRoles: ADMIN_STAFF,
+      parameters: CreateBuyerDto.zodSchema,
+      execute: async (args, context) =>
+        deps.buyersService.create(
+          CreateBuyerDto.zodSchema.parse(args),
+          context.companyId ?? '',
+          context.idempotencyKey,
+        ),
+    },
+    {
+      name: 'patch_buyer_by_id',
+      description:
+        'Proposes updating buyer personal or contact details by UUID.',
+      mutability: 'mutable',
+      supportsIdempotentRecovery: true,
+      allowedRoles: ADMIN_STAFF,
+      parameters: withParams(UpdateBuyerDto.zodSchema, { id: uuidSchema }),
+      execute: async (args, context) => {
+        const { id } = z.object({ id: uuidSchema }).parse(args);
+        const dto = UpdateBuyerDto.zodSchema.parse(
+          Object.fromEntries(
+            Object.entries(args as Record<string, unknown>).filter(
+              ([key]) => key !== 'id',
+            ),
+          ),
+        );
+        return deps.buyersService.update(
+          id,
+          dto,
+          context.companyId ?? '',
+          context.idempotencyKey,
+        );
+      },
+    },
+    {
+      name: 'get_communications_templates',
+      description: 'Lists saved communication templates for this company.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_STAFF,
+      parameters: emptyObjectSchema,
+      execute: async (_args, context) =>
+        deps.communicationsService.listTemplates(context.companyId ?? ''),
+    },
+    {
+      name: 'get_communications_deliveries',
+      description:
+        'Lists the latest 200 communication deliveries and their status. This bounded result is not a full-history total.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_STAFF,
+      parameters: emptyObjectSchema,
+      execute: async (_args, context) =>
+        deps.communicationsService.listDeliveries(context.companyId ?? ''),
+    },
+    {
+      name: 'get_communications_inbox',
+      description:
+        'Lists the latest 200 inbound communications for this company, unread first. This bounded result is not a full-history total.',
+      mutability: 'readonly',
+      allowedRoles: ADMIN_STAFF,
+      parameters: emptyObjectSchema,
+      execute: async (_args, context) =>
+        deps.communicationsService.listInbox(context.companyId ?? ''),
+    },
     // ── Notifications ────────────────────────────────────────────────────
     {
       name: 'get_notification_preferences',

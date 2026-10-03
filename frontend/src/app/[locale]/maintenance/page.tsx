@@ -1,4 +1,5 @@
 "use client";
+import { useAssistantRecord } from "@/hooks/useAssistantRecord";
 
 import {
   SyntheticEvent,
@@ -305,7 +306,11 @@ function TicketDetailPanel({
     dateStr ? new Date(dateStr).toLocaleDateString("es-AR") : "—";
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+    <div
+      data-assistant-ready
+      data-assistant-record={ticket.id}
+      className="rounded-lg border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800"
+    >
       <div className="mb-4 flex items-start justify-between gap-3">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
           {t("ticketDetails")}
@@ -606,6 +611,7 @@ export default function MaintenancePage() {
 
   const [selectedTicket, setSelectedTicket] =
     useState<MaintenanceTicket | null>(null);
+  useAssistantRecord(maintenanceApi.getOne, setSelectedTicket);
   const currentLoad = useRef(0);
 
   const canManage = Boolean(
@@ -712,6 +718,7 @@ export default function MaintenancePage() {
             <button
               type="button"
               onClick={openCreate}
+              data-assistant-intent="create"
               className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               <Plus className="h-4 w-4" />
@@ -862,6 +869,8 @@ export default function MaintenancePage() {
                             <button
                               type="button"
                               data-guide="maintenance-open"
+                              data-assistant-intent="edit"
+                              data-assistant-record={tk.id}
                               aria-expanded={selectedTicket?.id === tk.id}
                               className="min-h-11 text-left"
                             >

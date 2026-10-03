@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Lightbulb, Pause, X } from "lucide-react";
@@ -12,6 +13,14 @@ import {
   screenGuidance,
   type GuidanceSuggestion,
 } from "@/lib/contextual-guidance";
+import {
+  ASSISTANT_GUIDANCE_EVENT,
+  clearAssistantGuidance,
+  chooseAssistantGuidance,
+  pendingAssistantGuidance,
+  type AiUiAction,
+  assistantEditorTrigger,
+} from "@/lib/assistant-guidance";
 
 const PREFERENCE_KEY = "rent:guidance:paused";
 const EVENTS = ["input", "change", "pointerdown", "keydown", "scroll"] as const;
@@ -25,6 +34,7 @@ export default function ContextualGuidance({
   const t = useTranslations("guidance");
   const [paused, setPaused] = useState(false);
   const [suggestion, setSuggestion] = useState<GuidanceSuggestion>();
+  const [manualRequest, setManualRequest] = useState<AiUiAction>();
   const seen = useRef(new Set<string>());
   const active = useRef<GuidanceSuggestion | undefined>(undefined);
   const restart = useRef<() => void>(() => {});
@@ -43,7 +53,7 @@ export default function ContextualGuidance({
     seen.current.clear();
     active.current = undefined;
     setSuggestion(undefined);
-    if (!root || !rule || paused) return;
+    if (!root || !rule || paused || manualRequest) return;
     let started = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const hide = () => {
@@ -151,9 +161,108 @@ export default function ContextualGuidance({
       window.removeEventListener("resize", interaction);
       root.removeEventListener("rent:task-completed", completed);
     };
-  }, [pathname, paused, rootId, entryDelay, taskDelay]);
+  }, [pathname, paused, rootId, entryDelay, taskDelay, manualRequest]);
+
+  useEffect(() => {
+    const requested = () => {
+      const action = pendingAssistantGuidance(pathname);
+      setManualRequest(action);
+    };
+    requested();
+    window.addEventListener(ASSISTANT_GUIDANCE_EVENT, requested);
+    return () =>
+      window.removeEventListener(ASSISTANT_GUIDANCE_EVENT, requested);
+  }, [pathname]);
+
+  useEffect(() => {
+    const root = document.getElementById(rootId);
+    if (!root || !manualRequest) return;
+    let editorOpened = false;
+    const hide = () => {
+      if (active.current) delete active.current.target.dataset.guidanceTarget;
+      active.current = undefined;
+      setSuggestion(undefined);
+    };
+    const show = () => {
+      if (document.hidden) {
+        hide();
+        return;
+      }
+      if (!editorOpened) {
+        const trigger = assistantEditorTrigger(root, manualRequest);
+        if (trigger) {
+          editorOpened = true;
+          trigger.click();
+          return;
+        }
+      }
+      if (root.querySelector('[aria-busy="true"]')) return;
+      if (
+        manualRequest.recordId &&
+        !editorOpened &&
+        !Array.from(
+          root.querySelectorAll<HTMLElement>("[data-assistant-ready]"),
+        ).some(
+          (element) =>
+            element.dataset.assistantRecord === manualRequest.recordId,
+        )
+      )
+        return;
+      const next = chooseAssistantGuidance(root, manualRequest);
+      if (!next) {
+        hide();
+        return;
+      }
+      if (
+        active.current?.id === next.id &&
+        active.current.target === next.target
+      )
+        return;
+      hide();
+      next.target.scrollIntoView?.({ block: "center", behavior: "smooth" });
+      next.target.dataset.guidanceTarget = "";
+      active.current = next;
+      setSuggestion(next);
+      clearAssistantGuidance();
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        hide();
+        setManualRequest(undefined);
+      }
+    };
+    // A destination can render after navigation or profile loading. Keep the
+    // request until its actual control appears; never guess a generic button.
+    const observer = new MutationObserver(show);
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["disabled", "aria-busy", "hidden", "open"],
+    });
+    root.addEventListener("input", show);
+    document.addEventListener("keydown", escape);
+    document.addEventListener("visibilitychange", show);
+    const expiry = setTimeout(() => {
+      clearAssistantGuidance();
+      setManualRequest(undefined);
+    }, 60000);
+    show();
+    return () => {
+      clearTimeout(expiry);
+      observer.disconnect();
+      hide();
+      root.removeEventListener("input", show);
+      document.removeEventListener("keydown", escape);
+      document.removeEventListener("visibilitychange", show);
+    };
+  }, [manualRequest, pathname, rootId]);
 
   const setPreference = (value: boolean) => {
+    if (value) {
+      clearAssistantGuidance();
+      setManualRequest(undefined);
+    }
     setPaused(value);
     try {
       localStorage.setItem(PREFERENCE_KEY, String(value));
@@ -165,11 +274,12 @@ export default function ContextualGuidance({
     if (suggestion) delete suggestion.target.dataset.guidanceTarget;
     active.current = undefined;
     setSuggestion(undefined);
+    setManualRequest(undefined);
     restart.current();
   };
 
   const bottom = rootId === "portal-content" ? 96 : 16;
-  if (paused)
+  if (paused && !manualRequest)
     return (
       <button
         type="button"
@@ -187,7 +297,7 @@ export default function ContextualGuidance({
   const rect = suggestion.target.getBoundingClientRect();
   const width = Math.min(352, window.innerWidth - 32);
   const nearTarget = rect.bottom + 220 < window.innerHeight;
-  return (
+  const bubble = (
     <aside
       data-guidance-ui
       aria-label={t("title")}
@@ -211,7 +321,8 @@ export default function ContextualGuidance({
             aria-atomic="true"
             className="mt-1 text-sm text-foreground"
           >
-            {t(suggestion.message, { field: suggestion.field ?? "" })}
+            {suggestion.text ??
+              t(suggestion.message, { field: suggestion.field ?? "" })}
           </output>
         </div>
         <button
@@ -230,7 +341,7 @@ export default function ContextualGuidance({
           onClick={() => {
             if (isAvailableControl(suggestion.target)) {
               suggestion.target.focus();
-              close();
+              if (!manualRequest) close();
             }
           }}
         >
@@ -247,4 +358,6 @@ export default function ContextualGuidance({
       </div>
     </aside>
   );
+  const dialog = suggestion.target.closest("dialog[open]");
+  return dialog ? createPortal(bubble, dialog) : bubble;
 }

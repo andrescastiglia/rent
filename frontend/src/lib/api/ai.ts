@@ -1,5 +1,6 @@
 import { apiClient, IS_MOCK_MODE } from "../api";
 import { getToken } from "../auth";
+import type { AiUiAction } from "../assistant-guidance";
 
 export type AiToolsMode = "NONE" | "READONLY" | "FULL";
 
@@ -23,6 +24,7 @@ type AiRespondResponse = {
   outputText: string;
   toolState?: Record<string, unknown>;
   usage?: Record<string, unknown>;
+  uiAction?: AiUiAction;
 };
 
 export type AiConversationMessage = {
@@ -60,12 +62,17 @@ export const aiApi = {
 
   respond: async (
     prompt: string,
-    params?: { conversationId?: string },
+    params?: { conversationId?: string; currentPath?: string },
   ): Promise<AiRespondResponse> => {
     const token = getToken();
     return apiClient.post<AiRespondResponse>(
       "/ai/tools/respond",
-      { prompt, conversationId: params?.conversationId },
+      {
+        prompt,
+        conversationId: params?.conversationId,
+        channel: "web",
+        currentPath: params?.currentPath,
+      },
       token ?? undefined,
     );
   },

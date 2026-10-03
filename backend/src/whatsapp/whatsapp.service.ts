@@ -24,10 +24,12 @@ import { AI_RAG_ROLLOUT } from '../ai/ai.tokens';
 import { UserModulePermissions, UserRole } from '../users/entities/user.entity';
 import { CreateWhatsappActivityDto } from './dto/create-whatsapp-activity.dto';
 import { isAdminOrStaff } from '../common/helpers/role-scope.helper';
+import { formatWhatsappAssistantText } from './whatsapp-assistant-format';
 
 type AiRagRollout = {
   respond(params: {
     prompt: string;
+    conversationId?: string;
     context: {
       userId: string;
       companyId: string;
@@ -35,6 +37,7 @@ type AiRagRollout = {
       roles?: UserRole[];
       permissions?: UserModulePermissions;
       mutationApprovalMode: 'staff_queue';
+      channel: 'whatsapp';
     };
   }): Promise<{
     conversationId: string;
@@ -1127,15 +1130,18 @@ export class WhatsappService implements OnApplicationBootstrap {
     const parsedMessage = this.parseIncomingMessage(message);
     if (!parsedMessage) return;
     const { whatsappMessageId, from } = parsedMessage;
+    const senderPhones = [from];
+    if (/^549\d{10}$/.test(from)) senderPhones.push(`54${from.slice(3)}`);
+    else if (/^54\d{10}$/.test(from)) senderPhones.push(`549${from.slice(2)}`);
 
     const users = await this.dataSource.query(
       `SELECT id, company_id, role, roles, permissions, language, phone
          FROM users
         WHERE is_active = true AND deleted_at IS NULL
           AND whatsapp_enabled = true
-          AND regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = $1
+          AND regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])
         LIMIT 2`,
-      [from],
+      [senderPhones],
     );
     if (users.length !== 1) {
       this.logger.warn('Ignored unconsented or ambiguous WhatsApp sender', {
@@ -1239,8 +1245,27 @@ export class WhatsappService implements OnApplicationBootstrap {
       });
       if (!rollout)
         throw new ServiceUnavailableException('AI service is unavailable');
+      const previous = await this.dataSource.query(
+        `SELECT metadata->>'conversationId' AS "conversationId"
+           FROM person_communications
+          WHERE company_id = $1::uuid AND user_id = $2::uuid
+            AND channel = 'whatsapp' AND direction = 'inbound'
+            AND metadata->>'conversationId' IS NOT NULL
+            AND created_at > NOW() - INTERVAL '24 hours'
+          ORDER BY created_at DESC, id DESC LIMIT 1`,
+        [user.company_id, user.id],
+      );
+      const previousId = previous[0]?.conversationId;
+      const conversationId =
+        typeof previousId === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          previousId,
+        )
+          ? previousId
+          : undefined;
       const response = await rollout.respond({
         prompt: content.body,
+        conversationId,
         context: {
           userId: user.id,
           companyId: user.company_id,
@@ -1248,11 +1273,13 @@ export class WhatsappService implements OnApplicationBootstrap {
           roles: user.roles,
           permissions: user.permissions,
           mutationApprovalMode: 'staff_queue',
+          channel: 'whatsapp',
         },
       });
-      const answer =
+      const answer = formatWhatsappAssistantText(
         response.outputText?.trim() ||
-        'Recibimos tu mensaje. Si requiere una acción, quedó pendiente de revisión.';
+          'No pude resolver tu consulta. Intentá precisar los datos de la operación.',
+      );
       await this.queueAssistantResponse(
         {
           id: inserted[0].id,
@@ -1269,6 +1296,10 @@ export class WhatsappService implements OnApplicationBootstrap {
         },
       );
     } catch (error) {
+      await this.dataSource.query(
+        `UPDATE person_communications SET status = 'new', updated_at = NOW() WHERE id = $1::uuid`,
+        [inserted[0].id],
+      );
       await this.queueAssistantResponse(
         {
           id: inserted[0].id,

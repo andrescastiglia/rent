@@ -2158,7 +2158,14 @@
     "invoiceOpen": "Open the matching invoice to review its due date, balance and related payments.",
     "userOpen": "Open the matching user to review their roles and permissions.",
     "templateOpen": "Open the template to review its content and document fields.",
-    "templateName": "Review the template name so it is recognizable when issuing the document."
+    "templateName": "Review the template name so it is recognizable when issuing the document.",
+    "passwordCurrent": "Enter your current password in this field.",
+    "passwordNew": "Enter a new password with at least 8 characters.",
+    "passwordConfirm": "Repeat the new password to confirm it.",
+    "passwordSave": "Review the fields and select Change password.",
+    "assistantField": "Complete this field and review the data before saving.",
+    "assistantEdit": "Edit this value. Save the changes yourself in the form.",
+    "assistantPage": "Start here to use this page."
   },
   "propertyList": {
     "title": "Properties",

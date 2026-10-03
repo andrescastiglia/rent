@@ -142,7 +142,7 @@ describe('AiToolsRegistryService', () => {
     ).toBeTruthy();
   });
 
-  it('exposes only mutable tools for a classified mutation intent', () => {
+  it('keeps reads available during mutations to resolve the record first', () => {
     const catalog = {
       getDefinitions: jest.fn().mockReturnValue([
         {
@@ -178,7 +178,21 @@ describe('AiToolsRegistryService', () => {
       mutationIntent: true,
     }) as any[];
 
-    expect(tools.map((tool) => tool.function.name)).toEqual(['post_owners']);
+    expect(tools.map((tool) => tool.function.name)).toEqual([
+      'get_owners',
+      'post_owners',
+    ]);
+    const webTools = new AiToolsRegistryService(
+      catalog,
+      executor,
+    ).getOpenAiTools({
+      userId: 'user-1',
+      companyId: 'company-1',
+      role: UserRole.ADMIN,
+      mutationIntent: true,
+      channel: 'web',
+    }) as any[];
+    expect(webTools.map((tool) => tool.function.name)).toEqual(['get_owners']);
   });
 
   it('limits buyers to safe profile reads', () => {

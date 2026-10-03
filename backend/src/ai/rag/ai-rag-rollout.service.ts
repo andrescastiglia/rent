@@ -8,6 +8,9 @@ import {
 } from '../../users/entities/user.entity';
 import { AiConversationsService } from '../ai-conversations.service';
 import { AiOpenAiService } from '../ai-openai.service';
+import { AiApplicationService } from '../ai-application.service';
+import { AiChannel } from '../types/ai-tool.types';
+import { normalizePrompt } from '../ai-application-guidance';
 import { AiChatMessage } from '../dto/ai-chat-request.dto';
 import { AiRagShadowComparison } from '../entities/ai-rag-shadow-comparison.entity';
 import { AiIntentClassifierService } from './ai-intent-classifier.service';
@@ -27,6 +30,8 @@ type RolloutContext = {
   permissions?: UserModulePermissions;
   mutationApprovalMode?: 'conversation' | 'staff_queue';
   roleDataContext?: string;
+  channel?: AiChannel;
+  currentPath?: string;
 };
 
 type RolloutParams = {
@@ -60,11 +65,49 @@ export class AiRagRolloutService {
     @InjectRepository(AiRagShadowComparison)
     private readonly comparisons: Repository<AiRagShadowComparison>,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly application: AiApplicationService,
   ) {}
 
   async respond(params: RolloutParams) {
     params = this.withEffectivePrimaryRole(params);
+    const applicationResponse = await this.application.respond(
+      params.prompt,
+      params.context,
+      params.conversationId,
+    );
+    if (applicationResponse) return applicationResponse;
     params = await this.withRoleDataContext(params);
+    const strategy = this.classifier.classify(params.prompt);
+    if (strategy === 'mutation') {
+      return this.respondTools(
+        params,
+        this.getEffectiveMode(params.context.companyId),
+        true,
+      );
+    }
+    // Preserve retrieval of saved document contents when that rollout is
+    // enabled; usage help and ordinary record queries use application tools.
+    const text = normalizePrompt(params.prompt);
+    const documentContents =
+      (strategy === 'semantic' || strategy === 'hybrid') &&
+      (/\b(?:clausulas?|contenido|texto)\b/u.test(text) ||
+        /\b(?:dice|resum\w*)\b.*\b(?:contratos?|documentos?|adjuntos?|pdf)\b/u.test(
+          text,
+        ));
+    // Interactive channels use the full authorized tool catalog for all
+    // resources, filters and application pages, not a fixed set of examples.
+    if (
+      !documentContents &&
+      (params.context.channel === 'web' ||
+        params.context.channel === 'whatsapp' ||
+        strategy === 'structured' ||
+        strategy === 'hybrid')
+    ) {
+      return this.respondTools(
+        params,
+        this.getEffectiveMode(params.context.companyId),
+      );
+    }
     if (
       !isAdminOrStaff(params.context) &&
       process.env.AI_RAG_EXTERNAL_READ_ENABLED !== 'true'
@@ -72,10 +115,6 @@ export class AiRagRolloutService {
       return this.respondTools(params, 'TOOLS');
     }
     const mode = this.getEffectiveMode(params.context.companyId);
-    const strategy = this.classifier.classify(params.prompt);
-    if (strategy === 'mutation') {
-      return this.respondTools(params, mode, true);
-    }
     if (mode === 'TOOLS') return this.respondTools(params, mode);
 
     if (mode === 'RAG_SHADOW') {

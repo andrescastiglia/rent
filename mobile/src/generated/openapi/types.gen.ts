@@ -2357,6 +2357,8 @@ export type AiChatRequestDto = {
   prompt: string;
   conversationId?: string;
   messages?: Array<string>;
+  channel?: 'web' | 'mobile';
+  currentPath?: string;
 };
 
 export type ApprovePendingActionDto = {

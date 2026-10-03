@@ -7,7 +7,7 @@ const MUTATION_VERBS = new Set(
   ),
 );
 const STRUCTURED_WORDS = new Set(
-  `saldo deuda debe factura facturas pago pagos vencido vencida vencidos vencidas monto montos importe importes total cuanto cuanta cuantos cuantas estado vigencia contrato contratos alquiler disponible disponibles ocupado ocupada ocupados ocupadas cartera portfolio dashboard`.split(
+  `saldo deuda debe factura facturas pago pagos cobro cobros cobranza cobranzas vencido vencida vencidos vencidas monto montos importe importes total cuanto cuanta cuantos cuantas estado vigencia contrato contratos alquiler disponible disponibles ocupado ocupada ocupados ocupadas cartera portfolio dashboard`.split(
     ' ',
   ),
 );

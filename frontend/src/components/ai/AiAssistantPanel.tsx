@@ -24,6 +24,12 @@ import { useTranslations } from "next-intl";
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { aiApi, AiToolsMode } from "@/lib/api/ai";
+import { usePathname } from "next/navigation";
+import { useLocalizedRouter } from "@/hooks/useLocalizedRouter";
+import {
+  isAiUiAction,
+  requestAssistantGuidance,
+} from "@/lib/assistant-guidance";
 
 type Message = {
   id: string;
@@ -203,6 +209,8 @@ export default function AiAssistantPanel({
   conversationScope,
 }: AiAssistantPanelProps) {
   const t = useTranslations("common");
+  const pathname = usePathname();
+  const router = useLocalizedRouter();
   const [prompt, setPrompt] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -283,6 +291,7 @@ export default function AiAssistantPanel({
     try {
       const response = await aiApi.respond(trimmed, {
         conversationId: conversationId ?? undefined,
+        currentPath: pathname,
       });
 
       if (response.conversationId) {
@@ -300,6 +309,16 @@ export default function AiAssistantPanel({
           model: response.model,
         },
       ]);
+      if (isAiUiAction(response.uiAction)) {
+        requestAssistantGuidance(response.uiAction);
+        onClose();
+        if (
+          pathname.replace(/^\/(es|en|pt)(?=\/|$)/, "") !==
+          response.uiAction.path
+        ) {
+          router.push(response.uiAction.path);
+        }
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : t("error");
 
@@ -411,7 +430,7 @@ export default function AiAssistantPanel({
                   </p>
                 ) : (
                   <div
-                    className="break-words [&_a]:underline [&_code]:rounded [&_code]:bg-gray-200 [&_code]:px-1 [&_code]:py-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-gray-200 [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5 dark:[&_code]:bg-gray-700 dark:[&_pre]:bg-gray-700"
+                    className="overflow-x-auto break-words [&_a]:underline [&_code]:rounded [&_code]:bg-gray-200 [&_code]:px-1 [&_code]:py-0.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-gray-200 [&_pre]:p-2 [&_ul]:list-disc [&_ul]:pl-5 [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-gray-300 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1 dark:[&_code]:bg-gray-700 dark:[&_pre]:bg-gray-700 dark:[&_th]:border-gray-600 dark:[&_td]:border-gray-600"
                     dangerouslySetInnerHTML={{
                       __html: renderMarkdown(message.text),
                     }}

@@ -1,4 +1,5 @@
 "use client";
+import { useAssistantRecord } from "@/hooks/useAssistantRecord";
 
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
@@ -33,6 +34,7 @@ function SalesWorkspace() {
   const [folders, setFolders] = useState<SaleFolder[]>([]);
   const [agreements, setAgreements] = useState<SaleAgreement[]>([]);
   const [selected, setSelected] = useState<SaleAgreement>();
+  useAssistantRecord(salesApi.getAgreement, setSelected);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
@@ -105,6 +107,8 @@ function SalesWorkspace() {
     <Button
       variant="secondary"
       data-guide="sale-open"
+      data-assistant-intent="edit"
+      data-assistant-record={agreement.id}
       aria-pressed={selected?.id === agreement.id}
       onClick={() => setSelected(agreement)}
     >
@@ -207,10 +211,19 @@ function SalesWorkspace() {
         description={t("subtitle")}
         actions={
           <>
-            <Button variant="secondary" onClick={() => setNewFolder(true)}>
+            <Button
+              variant="secondary"
+              data-assistant-intent="create"
+              data-assistant-open="sale-folder"
+              onClick={() => setNewFolder(true)}
+            >
               {t("folders.new")}
             </Button>
-            <Button data-guide="sale-new" onClick={() => setNewSale(true)}>
+            <Button
+              data-guide="sale-new"
+              data-assistant-intent="create"
+              onClick={() => setNewSale(true)}
+            >
               {t("agreements.new")}
             </Button>
           </>

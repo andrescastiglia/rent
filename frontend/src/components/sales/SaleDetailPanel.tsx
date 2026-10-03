@@ -338,7 +338,11 @@ export default function SaleDetailPanel({
       </>
     );
   return (
-    <Surface className="space-y-6 p-4 sm:p-6">
+    <Surface
+      data-assistant-ready
+      data-assistant-record={agreement.id}
+      className="space-y-6 p-4 sm:p-6"
+    >
       <div>
         <h2 className="text-xl font-semibold">{agreement.buyerName}</h2>
         <p className="mt-1 text-sm text-muted">

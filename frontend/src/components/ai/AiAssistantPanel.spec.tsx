@@ -10,6 +10,12 @@ import AiAssistantPanel from "./AiAssistantPanel";
 import { aiApi } from "@/lib/api/ai";
 import type { ComponentProps } from "react";
 
+const mockPush = jest.fn();
+jest.mock("next/navigation", () => ({ usePathname: () => "/es/properties" }));
+jest.mock("@/hooks/useLocalizedRouter", () => ({
+  useLocalizedRouter: () => ({ push: mockPush }),
+}));
+
 jest.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
 jest.mock("@/lib/api/ai", () => ({
   aiApi: { respond: jest.fn(), getConversation: jest.fn() },
@@ -62,6 +68,7 @@ function history(contents: string[]) {
 beforeEach(() => {
   jest.clearAllMocks();
   localStorage.clear();
+  sessionStorage.clear();
   jest.mocked(aiApi.respond).mockResolvedValue({
     conversationId: "new",
     outputText: "Done",
@@ -118,6 +125,7 @@ it("rejects empty prompts and submits trimmed input while persisting the scoped 
   await waitFor(() => expect(screen.getByText("Done")).toBeInTheDocument());
   expect(aiApi.respond).toHaveBeenCalledWith("Review leases", {
     conversationId: undefined,
+    currentPath: "/es/properties",
   });
   expect(localStorage.getItem(storageKey)).toBe("new");
   expect(screen.getByRole("textbox")).toHaveValue("");
@@ -125,6 +133,7 @@ it("rejects empty prompts and submits trimmed input while persisting the scoped 
   await send("Follow up");
   expect(aiApi.respond).toHaveBeenLastCalledWith("Follow up", {
     conversationId: "new",
+    currentPath: "/es/properties",
   });
 });
 
@@ -134,6 +143,7 @@ it("hydrates once and uses the server's conversation id", async () => {
   await send();
   expect(aiApi.respond).toHaveBeenCalledWith("Review leases", {
     conversationId: "saved",
+    currentPath: "/es/properties",
   });
   await waitFor(() => expect(screen.getByText("Done")).toBeInTheDocument());
   rerender(<AiAssistantPanel {...props} isOpen={false} />);
@@ -167,6 +177,7 @@ it("starts a fresh conversation after an inaccessible or deleted history", async
   await send();
   expect(aiApi.respond).toHaveBeenCalledWith("Review leases", {
     conversationId: undefined,
+    currentPath: "/es/properties",
   });
 });
 
@@ -238,6 +249,7 @@ it("supports Enter submission, Shift+Enter newline and normal typing", async () 
   await waitFor(() => expect(screen.getByText("Done")).toBeInTheDocument());
   expect(aiApi.respond).toHaveBeenCalledWith("Keyboard request", {
     conversationId: undefined,
+    currentPath: "/es/properties",
   });
 });
 
@@ -350,4 +362,41 @@ it("handles an empty response without inventing a JSON table", async () => {
   await send();
   await waitFor(() => expect(screen.getByRole("textbox")).toBeEnabled());
   expect(screen.queryByRole("table")).not.toBeInTheDocument();
+});
+
+it("navigates to a validated application action and requests its guidance", async () => {
+  jest.mocked(aiApi.respond).mockResolvedValue({
+    conversationId: "new",
+    model: "application",
+    mode: "READONLY",
+    outputText: "Cambiar contraseña",
+    uiAction: { type: "navigate", path: "/settings", guide: "password" },
+  });
+  await openPanel();
+  await send("quiero cambiar password");
+  await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/settings"));
+  expect(mockClose).toHaveBeenCalled();
+  expect(sessionStorage.getItem("rent:assistant-guidance")).toContain(
+    "password",
+  );
+  expect(localStorage.getItem(storageKey)).toBe("new");
+});
+
+it("keeps data answers in the chat and rejects arbitrary navigation targets", async () => {
+  jest.mocked(aiApi.respond).mockResolvedValue({
+    conversationId: "new",
+    model: "application",
+    mode: "READONLY",
+    outputText: "ARS 100",
+    uiAction: {
+      type: "navigate",
+      path: "javascript:alert(1)",
+      guide: "screen",
+    },
+  });
+  await openPanel();
+  await send("cobranza de hoy");
+  await waitFor(() => expect(screen.getByText("ARS 100")).toBeInTheDocument());
+  expect(mockPush).not.toHaveBeenCalled();
+  expect(mockClose).not.toHaveBeenCalled();
 });
