@@ -1,3 +1,4 @@
+import { normalizePropertyImages } from "../property-images";
 import { collectPages } from "../pagination";
 import {
   Tenant,
@@ -271,11 +272,7 @@ const mapBackendLeaseToLease = (raw: BackendLease): Lease => {
           },
           features: [],
           units: [],
-          images: Array.isArray(property.images)
-            ? property.images
-                .map((img: any) => (typeof img === "string" ? img : img?.url))
-                .filter((v: any) => typeof v === "string" && v.length > 0)
-            : [],
+          images: normalizePropertyImages(property.images),
           ownerId: property.ownerId ?? raw.ownerId,
           createdAt: property.createdAt
             ? new Date(property.createdAt).toISOString()

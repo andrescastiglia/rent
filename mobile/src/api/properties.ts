@@ -7,6 +7,7 @@ import {
 } from '@/api/pagination';
 import { ApiError, apiClient } from '@/api/client';
 import { IS_MOCK_MODE } from '@/api/env';
+import { propertyImageUrl } from '@/api/property-images';
 import type {
   CreatePropertyInput,
   CreatePropertyMaintenanceTaskInput,
@@ -269,7 +270,9 @@ const mapProperty = (raw: BackendProperty): Property => ({
       }))
     : [],
   units: [],
-  images: Array.isArray(raw.images) ? raw.images : [],
+  images: Array.isArray(raw.images)
+    ? raw.images.map((url) => propertyImageUrl(url))
+    : [],
   ownerId: raw.ownerId ?? '',
   ownerWhatsapp: raw.ownerWhatsapp ?? undefined,
   rentPrice:

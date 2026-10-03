@@ -1,3 +1,4 @@
+import { normalizePropertyImages } from "../property-images";
 import { collectPages } from "../pagination";
 import { importCurrentLease } from "./lease-import";
 import {
@@ -178,9 +179,6 @@ const normalizeDate = (value: string | Date | null | undefined): string => {
 const toIsoOrNow = (value?: string | Date | null): string =>
   value ? new Date(value).toISOString() : new Date().toISOString();
 
-const toOptionalString = (value: unknown): string | undefined =>
-  typeof value === "string" && value.length > 0 ? value : undefined;
-
 const getCurrentCompanyId = (): string | undefined => {
   const user = getUser();
   return user?.companyId as string | undefined;
@@ -292,20 +290,6 @@ const mapTenantFromBackend = (raw: BackendLease): Tenant | undefined => {
   };
 };
 
-const toPropertyImageUrl = (img: any): string | undefined => {
-  if (typeof img === "string") {
-    return img;
-  }
-  return toOptionalString(img?.url);
-};
-
-const mapPropertyImages = (images: any): string[] =>
-  Array.isArray(images)
-    ? images
-        .map(toPropertyImageUrl)
-        .filter((value): value is string => typeof value === "string")
-    : [];
-
 const mapPropertyFromBackendLease = (
   raw: BackendLease,
 ): Property | undefined => {
@@ -331,7 +315,7 @@ const mapPropertyFromBackendLease = (
     },
     features: [],
     units: [],
-    images: mapPropertyImages(propertyRef.images),
+    images: normalizePropertyImages(propertyRef.images),
     ownerId: propertyRef.ownerId ?? raw.ownerId,
     createdAt: toIsoOrNow(propertyRef.createdAt),
     updatedAt: toIsoOrNow(propertyRef.updatedAt),

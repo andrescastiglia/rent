@@ -56,6 +56,24 @@ class ManualJobTests(unittest.TestCase):
         job = json.loads(create.call_args.kwargs["input"])
         self.assertNotIn("--dry-run", job["spec"]["template"]["spec"]["containers"][0]["args"])
 
+    def test_report_preview_runs_both_reports_for_all_owners(self):
+        _, create, _ = self.invoke("reports")
+        job = json.loads(create.call_args.kwargs["input"])
+        container = job["spec"]["template"]["spec"]["containers"][0]
+        self.assertEqual(container["args"][:3], ["/app/deploy/run-exclusive.cjs", "reports", "-e"])
+        self.assertIn('"scripts/generate-all-reports.sh", "--dry-run"', container["args"][3])
+        self.assertEqual(job["spec"]["template"]["metadata"]["labels"]["app"], "reports")
+
+    def test_reconciliation_has_its_own_monitoring_label(self):
+        _, create, _ = self.invoke("reconcile-bank")
+        job = json.loads(create.call_args.kwargs["input"])
+        self.assertEqual(job["spec"]["template"]["metadata"]["labels"]["app"], "reconcile-bank")
+
+    def test_unsupported_index_preview_creates_no_job(self):
+        with patch("subprocess.run") as create, self.assertRaisesRegex(SystemExit, "does not support"):
+            self.invoke("sync-indices")
+        create.assert_not_called()
+
     def test_no_writes_during_maintenance_or_before_activation(self):
         for options in [{"active": False}, {"maintenance": True}]:
             with self.subTest(options=options), self.assertRaises(SystemExit):

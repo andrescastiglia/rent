@@ -70,6 +70,15 @@ const propertyInput: CreatePropertyInput = {
   acceptedGuaranteeTypes: ['insurance'],
   maxOccupants: 3,
 };
+it('resolves stored property image paths to the mobile API origin', async () => {
+  jest.mocked(apiClient.get).mockResolvedValue({
+    ...property,
+    images: ['/properties/images/photo'],
+  });
+  expect((await propertiesApi.getById('property'))?.images).toEqual([
+    'https://rent.example/api/properties/images/photo',
+  ]);
+});
 it('retains property money, address, owner, images and suitability fields', async () => {
   jest.mocked(apiClient.get).mockResolvedValue(property);
   expect(await propertiesApi.getById('property')).toEqual(

@@ -1,13 +1,16 @@
 # =============================================================================
 # Batch Billing System - Crontab Configuration
 # =============================================================================
-# Add these entries to the system crontab: sudo crontab -e
+# Historical native deployment example; production uses Kubernetes CronJobs.
+# Do not install alongside Kubernetes: this would duplicate executions.
 # Adjust paths according to your deployment environment
 # =============================================================================
 
 # Environment
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CRON_TZ=Etc/UTC
+TZ=Etc/UTC
 BATCH_DIR=/var/www/rent/current/batch
 LOG_DIR=/var/log/rent
 
@@ -16,13 +19,14 @@ LOG_DIR=/var/log/rent
 # -----------------------------------------------------------------------------
 
 # Billing: Generate invoices for due leases (03:00 AM)
-0 3 * * * cd $BATCH_DIR && node dist/index.js billing --log $LOG_DIR/billing.log
+# Suspended pending validation of historical billing data.
+# 0 7 * * * cd $BATCH_DIR && node dist/index.js billing --log $LOG_DIR/billing.log
 
 # Overdue: Mark overdue invoices (09:00 AM)
-0 9 * * * cd $BATCH_DIR && node dist/index.js overdue --log $LOG_DIR/overdue.log
+0 8 * * * cd $BATCH_DIR && node dist/index.js overdue --log $LOG_DIR/overdue.log
 
 # Reminders: Send payment reminders via WhatsApp (10:00 AM)
-0 10 * * * cd $BATCH_DIR && node dist/index.js reminders --log $LOG_DIR/reminders.log
+0 9 * * * cd $BATCH_DIR && node dist/index.js reminders --log $LOG_DIR/reminders.log
 
 # Lease renewals: Alert upcoming rental expirations (11:00 AM)
 0 11 * * * cd $BATCH_DIR && node dist/index.js lease-renewal-alerts --log $LOG_DIR/lease-renewal-alerts.log
@@ -31,20 +35,31 @@ LOG_DIR=/var/log/rent
 30 2 * * * cd $BATCH_DIR && node dist/index.js rag-reconcile --entity all --log $LOG_DIR/rag-reconcile.log
 
 # RAG audit retention: purge expired audit/outbox rows every Sunday (03:30 AM)
-30 3 * * 0 cd $BATCH_DIR && node dist/index.js rag-purge-audit --log $LOG_DIR/rag-purge-audit.log
+15 3 * * 0 cd $BATCH_DIR && node dist/index.js rag-purge-audit --log $LOG_DIR/rag-purge-audit.log
+
+# Exchange rates (daily, 06:30 UTC)
+30 6 * * * cd $BATCH_DIR && node dist/index.js sync-rates --log $LOG_DIR/sync-rates.log
+
+# Process WhatsApp webhook inbox (every minute)
+* * * * * cd $BATCH_DIR && node dist/index.js process-whatsapp-inbox --log $LOG_DIR/process-whatsapp-inbox.log
+
+# WhatsApp data retention (daily, 04:15 UTC)
+15 4 * * * cd $BATCH_DIR && node dist/index.js apply-whatsapp-retention --log $LOG_DIR/apply-whatsapp-retention.log
 
 # -----------------------------------------------------------------------------
 # Monthly Jobs
 # -----------------------------------------------------------------------------
 
 # Sync Indices: Fetch inflation indices (1st of month, 01:00 AM)
-0 1 1 * * cd $BATCH_DIR && node dist/index.js sync-indices --log $LOG_DIR/sync-indices.log
+# Suspended; configured daily in Kubernetes, not monthly.
+# 0 6 * * * cd $BATCH_DIR && node dist/index.js sync-indices --log $LOG_DIR/sync-indices.log
 
 # Reports: Generate monthly owner reports (1st of month, 06:00 AM)
-0 6 1 * * cd $BATCH_DIR && node dist/index.js reports --type=monthly --log $LOG_DIR/reports.log
+0 10 1 * * cd $BATCH_DIR && bash scripts/generate-all-reports.sh --log $LOG_DIR/reports.log
 
 # Settlements: Calculate owner settlements (2nd of month, 07:00 AM)
-0 7 2 * * cd $BATCH_DIR && node dist/index.js process-settlements --log $LOG_DIR/process-settlements.log
+# Retired writer; only --dry-run preview is supported. Keep suspended.
+# 0 7 2 * * cd $BATCH_DIR && node dist/index.js process-settlements --log $LOG_DIR/process-settlements.log
 
 # -----------------------------------------------------------------------------
 # Maintenance Jobs

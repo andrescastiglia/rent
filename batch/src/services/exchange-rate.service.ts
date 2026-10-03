@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from "axios";
 import { AppDataSource } from "../shared/database";
 import { logger } from "../shared/logger";
+import { z } from "zod";
 
 /**
  * Result of a currency conversion.
@@ -46,10 +47,6 @@ export class ExchangeRateService {
   private readonly bcraClient: AxiosInstance;
   private readonly bcbClient: AxiosInstance;
 
-  /** BCRA variable IDs for exchange rates. */
-  private static readonly BCRA_USD_ARS_ID = 4;
-  private static readonly BCRA_BRL_ARS_ID = 12;
-
   /** BCB series code for USD/BRL. */
   private static readonly BCB_USD_BRL_SERIES = 1;
 
@@ -59,10 +56,13 @@ export class ExchangeRateService {
   constructor() {
     this.bcraApiUrl =
       process.env.BCRA_EXCHANGE_RATE_API_URL ||
-      "https://api.bcra.gob.ar/estadisticas/v4.0";
+      "https://api.bcra.gob.ar/estadisticascambiarias/v1.0";
 
-    this.bcbApiUrl =
-      process.env.BCB_API_URL || "https://api.bcb.gov.br/dados/serie";
+    this.bcbApiUrl = (
+      process.env.BCB_API_URL || "https://api.bcb.gov.br/dados/serie"
+    )
+      .replace(/\/+$/, "")
+      .replace(/^(https:\/\/api\.bcb\.gov\.br)$/, "$1/dados/serie");
 
     this.bcraClient = axios.create({
       baseURL: this.bcraApiUrl,
@@ -151,14 +151,14 @@ export class ExchangeRateService {
    *
    * @returns Number of rates synchronized.
    */
-  async syncRates(): Promise<SyncSummary> {
+  async syncRates(dryRun = false): Promise<SyncSummary> {
     const result: SyncSummary = { processed: 0, inserted: 0, errors: [] };
 
     const { fromDate, toDate } = this.getSyncDateRange();
     const groups = this.buildSyncGroups(fromDate, toDate);
 
     for (const group of groups) {
-      await this.syncRateGroup(group.fetcher, group.pair, result);
+      await this.syncRateGroup(group.fetcher, group.pair, result, dryRun);
     }
 
     logger.info("Exchange rates sync completed", result);
@@ -177,25 +177,11 @@ export class ExchangeRateService {
     return [
       {
         pair: "USD/ARS",
-        fetcher: () =>
-          this.fetchBcraRates(
-            "USD",
-            "ARS",
-            ExchangeRateService.BCRA_USD_ARS_ID,
-            fromDate,
-            toDate,
-          ),
+        fetcher: () => this.fetchBcraRates("USD", "ARS", fromDate, toDate),
       },
       {
         pair: "BRL/ARS",
-        fetcher: () =>
-          this.fetchBcraRates(
-            "BRL",
-            "ARS",
-            ExchangeRateService.BCRA_BRL_ARS_ID,
-            fromDate,
-            toDate,
-          ),
+        fetcher: () => this.fetchBcraRates("BRL", "ARS", fromDate, toDate),
       },
       {
         pair: "USD/BRL",
@@ -215,11 +201,15 @@ export class ExchangeRateService {
     fetcher: () => Promise<ExchangeRateData[]>,
     pair: string,
     result: SyncSummary,
+    dryRun = false,
   ): Promise<void> {
     try {
       const rates = await fetcher();
+      if (rates.length === 0)
+        throw new Error("Provider returned no exchange rates");
       for (const rateData of rates) {
         result.processed++;
+        if (dryRun) continue;
         const inserted = await this.upsertRate(rateData);
         if (inserted) {
           result.inserted++;
@@ -238,112 +228,54 @@ export class ExchangeRateService {
   private async fetchBcraRates(
     fromCurrency: string,
     toCurrency: string,
-    variableId: number,
     fromDate: Date,
     toDate: Date,
   ): Promise<ExchangeRateData[]> {
-    const from = this.formatDateBcra(fromDate);
-    const to = this.formatDateBcra(toDate);
-    const primaryEndpoint = `/Monetarias/${variableId}`;
-
+    const endpoint = `/Cotizaciones/${fromCurrency}`;
     logger.info("Fetching exchange rates from BCRA", {
       fromCurrency,
       toCurrency,
-      endpoint: primaryEndpoint,
+      endpoint,
     });
-
-    try {
-      const response = await this.bcraClient.get(primaryEndpoint, {
-        params: { desde: from, hasta: to, limit: 3000 },
-      });
-      return this.mapBcraRates(response.data.results, fromCurrency, toCurrency);
-    } catch (error) {
-      if (!this.isNotFoundOrBadRequest(error)) {
-        throw error;
-      }
-
-      const fallbackEndpoint = `/datosvariable/${variableId}/${from}/${to}`;
-      logger.warn(
-        "BCRA primary exchange rate endpoint unavailable, using fallback",
-        {
-          fromCurrency,
-          toCurrency,
-          primaryEndpoint,
-          fallbackEndpoint,
-          status: this.extractStatus(error),
-          responseData: this.extractResponseData(error),
-        },
-      );
-
-      const response = await this.bcraClient.get(fallbackEndpoint);
-
-      return this.mapBcraRates(response.data.results, fromCurrency, toCurrency);
-    }
-  }
-
-  private mapBcraRates(
-    results: unknown,
-    fromCurrency: string,
-    toCurrency: string,
-  ): ExchangeRateData[] {
-    if (!Array.isArray(results) || results.length === 0) {
-      return [];
-    }
-
-    const rows = results.flatMap((item) => {
-      const maybeGroup = item as { detalle?: unknown };
-      if (Array.isArray(maybeGroup.detalle)) {
-        return maybeGroup.detalle;
-      }
-      return item;
+    const response = await this.bcraClient.get(endpoint, {
+      params: {
+        fechaDesde: this.formatDateBcra(fromDate),
+        fechaHasta: this.formatDateBcra(toDate),
+        limit: 1000,
+      },
     });
-
-    return rows
-      .map((item) => {
-        const maybeItem = item as { fecha?: string; valor?: number | string };
-        if (!maybeItem.fecha || maybeItem.valor === undefined) {
-          return null;
-        }
-
-        const value =
-          typeof maybeItem.valor === "number"
-            ? maybeItem.valor
-            : Number.parseFloat(maybeItem.valor);
-
-        if (Number.isNaN(value)) {
-          return null;
-        }
-
-        return {
-          fromCurrency,
-          toCurrency,
-          rate: value,
-          rateDate: this.parseDateBcra(maybeItem.fecha),
-          source: "BCRA",
-        };
-      })
-      .filter((rate): rate is ExchangeRateData => rate !== null);
-  }
-
-  private isNotFoundOrBadRequest(error: unknown): boolean {
-    return (
-      axios.isAxiosError(error) &&
-      [400, 404, 410].includes(error.response?.status ?? 0)
+    const results = response.data?.results;
+    if (response.data?.status !== 200 || !Array.isArray(results))
+      throw new Error("Invalid BCRA exchange rate response");
+    if (
+      results.length >= 1000 ||
+      (response.data.metadata?.resultset?.count ?? results.length) >
+        results.length
+    )
+      throw new Error("Incomplete BCRA exchange rate response");
+    return results.map(
+      (row: {
+        fecha: string;
+        detalle: Array<{
+          codigoMoneda: string;
+          tipoCotizacion: number | string;
+        }>;
+      }) => {
+        const detail = row.detalle?.find(
+          (item) => item.codigoMoneda === fromCurrency,
+        );
+        const rate = Number(detail?.tipoCotizacion);
+        const rateDate = this.parseDateBcra(row.fecha);
+        if (
+          !detail ||
+          !Number.isFinite(rate) ||
+          rate <= 0 ||
+          !Number.isFinite(rateDate.getTime())
+        )
+          throw new Error("Invalid BCRA exchange rate observation");
+        return { fromCurrency, toCurrency, rate, rateDate, source: "BCRA" };
+      },
     );
-  }
-
-  private extractStatus(error: unknown): number | undefined {
-    if (!axios.isAxiosError(error)) {
-      return undefined;
-    }
-    return error.response?.status;
-  }
-
-  private extractResponseData(error: unknown): unknown {
-    if (!axios.isAxiosError(error)) {
-      return undefined;
-    }
-    return error.response?.data;
   }
 
   /**
@@ -371,17 +303,23 @@ export class ExchangeRateService {
       params: { formato: "json", dataInicial, dataFinal },
     });
 
-    if (!response.data || response.data.length === 0) {
+    if (!Array.isArray(response.data))
+      throw new Error("Invalid BCB exchange rate response");
+    if (response.data.length === 0) {
       return [];
     }
 
-    return response.data.map((item: { data: string; valor: string }) => ({
-      fromCurrency,
-      toCurrency,
-      rate: Number.parseFloat(item.valor),
-      rateDate: this.parseDateBcb(item.data),
-      source: "BCB",
-    }));
+    return response.data.map((item: { data: string; valor: string }) => {
+      const rate = Number(item.valor);
+      const rateDate = this.parseDateBcb(item.data);
+      if (
+        !Number.isFinite(rate) ||
+        rate <= 0 ||
+        !Number.isFinite(rateDate.getTime())
+      )
+        throw new Error("Invalid BCB exchange rate observation");
+      return { fromCurrency, toCurrency, rate, rateDate, source: "BCB" };
+    });
   }
 
   /**
@@ -416,23 +354,9 @@ export class ExchangeRateService {
       return null;
     }
 
-    const variableByCurrency: Record<string, number> = {
-      USD: ExchangeRateService.BCRA_USD_ARS_ID,
-      BRL: ExchangeRateService.BCRA_BRL_ARS_ID,
-    };
+    if (!["USD", "BRL"].includes(fromCurrency)) return null;
 
-    const variableId = variableByCurrency[fromCurrency];
-    if (!variableId) {
-      return null;
-    }
-
-    const rates = await this.fetchBcraRates(
-      fromCurrency,
-      "ARS",
-      variableId,
-      date,
-      date,
-    );
+    const rates = await this.fetchBcraRates(fromCurrency, "ARS", date, date);
 
     return rates[0]?.rate ?? null;
   }
@@ -538,9 +462,9 @@ export class ExchangeRateService {
    * Formats a date as YYYY-MM-DD for BCRA API.
    */
   private formatDateBcra(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
 
@@ -548,9 +472,9 @@ export class ExchangeRateService {
    * Formats a date as DD/MM/YYYY for BCB API.
    */
   private formatDateBcb(date: Date): string {
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const year = date.getUTCFullYear();
     return `${day}/${month}/${year}`;
   }
 
@@ -558,19 +482,17 @@ export class ExchangeRateService {
    * Parses a date string from BCRA API.
    */
   private parseDateBcra(dateStr: string): Date {
-    if (dateStr.includes("-")) {
-      const [year, month, day] = dateStr.split("-").map(Number);
-      return new Date(year, month - 1, day);
-    }
-    const [day, month, year] = dateStr.split("/").map(Number);
-    return new Date(year, month - 1, day);
+    const normalized = dateStr.includes("/")
+      ? dateStr.split("/").reverse().join("-")
+      : dateStr;
+    z.iso.date().parse(normalized);
+    return new Date(`${normalized}T00:00:00Z`);
   }
 
   /**
    * Parses a date string from BCB API (DD/MM/YYYY format).
    */
   private parseDateBcb(dateStr: string): Date {
-    const [day, month, year] = dateStr.split("/").map(Number);
-    return new Date(year, month - 1, day);
+    return this.parseDateBcra(dateStr);
   }
 }

@@ -1,6 +1,6 @@
 # Plan de mejoras de Rent
 
-**Actualizado:** 2026-10-02
+**Actualizado:** 2026-10-03
 
 **Alcance:** backend, web, aplicación móvil, batch, datos, integraciones, calidad y diseño gráfico.
 
@@ -71,6 +71,12 @@ Ejemplos de mensajes, mostrados sólo cuando corresponda:
 F02 quedó implementado y verificado con UT, HTTP/PostgreSQL y el CLI de facturación: conceptos variables, período/vencimiento, mora auditada, importación, adendas, emisión, cobro, recibo y anulación. Los datos históricos tienen inventario y [procedimiento de corrección](technical/scheduled-billing.md#revisión-de-datos-antes-de-reactivar-2026-10-02). La reactivación futura exige esas decisiones operativas; esta entrega conserva los cron financieros suspendidos. [Evidencia](technical/validacion-plan-2026-10-02.md#dominio-y-contratos).
 
 ## 6. Calidad, mantenimiento y operación
+
+- [ ] **O07 · P1. Cerrar fallas y cobertura operativa de batch.** Publicar y verificar la corrección de endpoints de cotizaciones y ejecución manual; resolver DNS de BCB y revisar procedencia de cotizaciones históricas. Validar el contrato sin próxima fecha, cargar la tabla de observaciones y decidir el tratamiento de cuatro mensajes pendientes con entrada WhatsApp deshabilitada. Conservar las suspensiones financieras hasta validar esos datos. Documentar el baseline de migraciones sin checksum y agregar alertas de antigüedad/colas.
+  **Aceptación:** ejecución real con la versión publicada y resultados funcionales comprobados; alerta de New Relic resuelta por recuperación. No considerar un Job completo o expirado como evidencia suficiente. [Revisión y evidencia](technical/revision-batch-reportes-2026-10-03.md).
+
+- [ ] **R01 · P1. Completar el acceso y definir el catálogo de reportes.** Vincular cada ejecución al PDF descargable y definir versiones/reintentos por propietario y período. Confirmar con Producto los informes ampliados del DRF histórico, filtros, Excel y envíos configurables; hoy existen sólo PDF mensual/liquidación e historial de ejecución.
+  **Aceptación:** descarga autorizada del documento correcto, datos con movimientos representativos y alcance ampliado aprobado; no afirmar que los 24 PDF productivos sin movimientos acreditan un cierre financiero.
 
 
 - [ ] **O02 · P1. Ampliar QA de recorridos y diseño.** Agregar E2E con API/PostgreSQL reales para roles, concurrencia, pagos, propuestas, uploads y PDFs; Android e iOS con evidencia por plataforma. Incorporar ventas, compradores, detalles y portales a accesibilidad, capturas de regresión visual y revisión manual de teclado/lector de pantalla. Revalidar hallazgos antiguos antes de declararlos pendientes.

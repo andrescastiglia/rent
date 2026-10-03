@@ -13,14 +13,14 @@ const raw = {
   createdAt: "2026-01-01",
   updatedAt: "2026-01-02",
 };
-async function load(mock = false) {
+async function load(mock = false, apiUrl = "http://localhost:3001/api") {
   jest.resetModules();
   process.env = {
     ...previousEnv,
     NODE_ENV: mock ? "test" : "production",
     CI: "",
     NEXT_PUBLIC_MOCK_MODE: "",
-    NEXT_PUBLIC_API_URL: "http://localhost:3001/api",
+    NEXT_PUBLIC_API_URL: apiUrl,
   };
   const client = {
     get: jest.fn().mockResolvedValue(raw),
@@ -43,6 +43,24 @@ afterEach(() => {
 });
 
 describe("Properties transport contract", () => {
+  it("keeps the production API prefix for stored photos and upload previews", async () => {
+    const { api, client } = await load(false, "/api");
+    client.get.mockResolvedValue({
+      ...raw,
+      images: ["/properties/images/photo"],
+    });
+    expect((await api.getById("property"))?.images).toEqual([
+      "/api/properties/images/photo",
+    ]);
+    client.upload.mockResolvedValue({
+      url: "/properties/images/preview?expires=123&signature=abc",
+    });
+    expect(
+      await api.uploadImage(
+        new File(["image"], "photo.png", { type: "image/png" }),
+      ),
+    ).toBe("/api/properties/images/preview?expires=123&signature=abc");
+  });
   it("preserves pagination and every server filter, including zero values", async () => {
     const { api, client } = await load();
     client.get.mockResolvedValue({

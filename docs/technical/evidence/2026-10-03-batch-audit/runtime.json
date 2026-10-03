@@ -1,0 +1,177 @@
+{
+  "observed_at": "2026-10-03T11:03:18.520799-03:00",
+  "source": "oracle Kubernetes, read-only",
+  "cronjobs": [
+    {
+      "name": "apply-whatsapp-retention",
+      "schedule": "15 4 * * *",
+      "time_zone": "Etc/UTC",
+      "suspended": false,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-batch@sha256:04a634cccfb614aa84596ab8a231106384911b19a30fa3824df334077a18fc46",
+      "last_schedule": "2026-10-03T04:15:00Z",
+      "last_success": "2026-10-03T04:15:08Z"
+    },
+    {
+      "name": "billing",
+      "schedule": "0 7 * * *",
+      "time_zone": "Etc/UTC",
+      "suspended": true,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-batch@sha256:04a634cccfb614aa84596ab8a231106384911b19a30fa3824df334077a18fc46",
+      "last_schedule": "2026-10-02T07:00:00Z",
+      "last_success": "2026-10-02T07:00:12Z"
+    },
+    {
+      "name": "database-backup",
+      "schedule": "45 3 * * *",
+      "time_zone": "Etc/UTC",
+      "suspended": false,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-maintenance@sha256:fd4a502b7d1f13fb18e8d8f29e00c0dc0970ed55097020782290661acf952044",
+      "last_schedule": "2026-10-03T03:45:00Z",
+      "last_success": "2026-10-03T03:45:36Z"
+    },
+    {
+      "name": "lease-renewal-alerts",
+      "schedule": "0 11 * * *",
+      "time_zone": "Etc/UTC",
+      "suspended": false,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-batch@sha256:04a634cccfb614aa84596ab8a231106384911b19a30fa3824df334077a18fc46",
+      "last_schedule": "2026-10-03T11:00:00Z",
+      "last_success": "2026-10-03T11:00:08Z"
+    },
+    {
+      "name": "overdue",
+      "schedule": "0 8 * * *",
+      "time_zone": "Etc/UTC",
+      "suspended": false,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-batch@sha256:04a634cccfb614aa84596ab8a231106384911b19a30fa3824df334077a18fc46",
+      "last_schedule": "2026-10-03T08:00:00Z",
+      "last_success": "2026-10-03T08:00:08Z"
+    },
+    {
+      "name": "process-settlements",
+      "schedule": "0 7 2 * *",
+      "time_zone": "Etc/UTC",
+      "suspended": true,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-batch@sha256:04a634cccfb614aa84596ab8a231106384911b19a30fa3824df334077a18fc46",
+      "last_schedule": null,
+      "last_success": null
+    },
+    {
+      "name": "process-whatsapp-inbox",
+      "schedule": "* * * * *",
+      "time_zone": "Etc/UTC",
+      "suspended": false,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-batch@sha256:04a634cccfb614aa84596ab8a231106384911b19a30fa3824df334077a18fc46",
+      "last_schedule": "2026-10-03T14:03:00Z",
+      "last_success": "2026-10-03T14:03:08Z"
+    },
+    {
+      "name": "rag-purge-audit",
+      "schedule": "15 3 * * 0",
+      "time_zone": "Etc/UTC",
+      "suspended": false,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-batch@sha256:04a634cccfb614aa84596ab8a231106384911b19a30fa3824df334077a18fc46",
+      "last_schedule": "2026-09-27T03:15:00Z",
+      "last_success": "2026-09-27T03:15:09Z"
+    },
+    {
+      "name": "rag-reconcile",
+      "schedule": "30 2 * * *",
+      "time_zone": "Etc/UTC",
+      "suspended": false,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-batch@sha256:04a634cccfb614aa84596ab8a231106384911b19a30fa3824df334077a18fc46",
+      "last_schedule": "2026-10-03T02:30:00Z",
+      "last_success": "2026-10-03T02:30:11Z"
+    },
+    {
+      "name": "reminders",
+      "schedule": "0 9 * * *",
+      "time_zone": "Etc/UTC",
+      "suspended": false,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-batch@sha256:04a634cccfb614aa84596ab8a231106384911b19a30fa3824df334077a18fc46",
+      "last_schedule": "2026-10-03T09:00:00Z",
+      "last_success": "2026-10-03T09:00:09Z"
+    },
+    {
+      "name": "reports",
+      "schedule": "0 10 1 * *",
+      "time_zone": "Etc/UTC",
+      "suspended": false,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-batch@sha256:04a634cccfb614aa84596ab8a231106384911b19a30fa3824df334077a18fc46",
+      "last_schedule": "2026-10-01T10:00:00Z",
+      "last_success": "2026-10-01T10:00:44Z"
+    },
+    {
+      "name": "restore-drill",
+      "schedule": "15 4 15 * *",
+      "time_zone": "Etc/UTC",
+      "suspended": false,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-maintenance@sha256:fd4a502b7d1f13fb18e8d8f29e00c0dc0970ed55097020782290661acf952044",
+      "last_schedule": "2026-09-15T04:15:00Z",
+      "last_success": "2026-09-15T04:15:15Z"
+    },
+    {
+      "name": "retry-communications",
+      "schedule": "* * * * *",
+      "time_zone": "Etc/UTC",
+      "suspended": false,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-backend@sha256:028f855b31416dc786ea45231ecf3bc3a83101cba2354090991bbeb913854d39",
+      "last_schedule": "2026-10-03T14:03:00Z",
+      "last_success": "2026-10-03T14:03:07Z"
+    },
+    {
+      "name": "sync-indices",
+      "schedule": "0 6 * * *",
+      "time_zone": "Etc/UTC",
+      "suspended": true,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-batch@sha256:04a634cccfb614aa84596ab8a231106384911b19a30fa3824df334077a18fc46",
+      "last_schedule": "2026-10-02T06:00:00Z",
+      "last_success": "2026-10-02T06:00:40Z"
+    },
+    {
+      "name": "sync-rates",
+      "schedule": "30 6 * * *",
+      "time_zone": "Etc/UTC",
+      "suspended": false,
+      "concurrency_policy": "Forbid",
+      "image": "ghcr.io/andrescastiglia/rent-batch@sha256:04a634cccfb614aa84596ab8a231106384911b19a30fa3824df334077a18fc46",
+      "last_schedule": "2026-10-03T06:30:00Z",
+      "last_success": "2026-10-02T06:30:11Z"
+    }
+  ],
+  "validation": {
+    "batch_suites": 32,
+    "batch_tests": 337,
+    "script_tests": 10,
+    "coverage": {
+      "statements_percent": 90.44,
+      "branches_percent": 80.76,
+      "functions_percent": 89.56,
+      "lines_percent": 90.64
+    },
+    "types": "passed",
+    "lint": "passed",
+    "build": "passed",
+    "provider_preview": {
+      "start": "2026-09-28",
+      "end": "2026-10-02",
+      "validated_observations": 10,
+      "inserted": 0,
+      "unresolved_error": "USD/BRL: ENOTFOUND api.bcb.gov.br"
+    }
+  }
+}

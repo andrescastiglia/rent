@@ -553,6 +553,12 @@ describe("batch CLI orchestration", () => {
     },
   );
 
+  it("passes exchange-rate preview through without marking the job live", async () => {
+    await execute("sync-rates", "--dry-run");
+    expect(mockRates.syncRates).toHaveBeenCalledWith(true);
+    expect(mockJob.startJob).toHaveBeenCalledWith("exchange_rates", {}, true);
+  });
+
   it.each([false, true])(
     "passes monthly-report preview through to the service and job counters",
     async (dryRun) => {
@@ -729,6 +735,31 @@ describe("batch CLI orchestration", () => {
     });
     expect(process.exitCode).toBe(1);
   });
+
+  it.each([
+    ["2027-01-15T12:00:00Z", "2026-12"],
+    ["2027-01-01T01:00:00Z", "2026-11"],
+  ])(
+    "resolves the previous settlement month in Argentina at %s",
+    async (now, period) => {
+      jest.useFakeTimers({ doNotFake: ["hrtime", "nextTick"] });
+      jest.setSystemTime(new Date(now));
+      try {
+        await execute(
+          "process-settlements",
+          "--owner-id",
+          "owner",
+          "--dry-run",
+        );
+        expect(mockSettlement.calculateSettlement).toHaveBeenCalledWith(
+          "owner",
+          period,
+        );
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
 
   it.each([
     { args: ["--dry-run"] },
