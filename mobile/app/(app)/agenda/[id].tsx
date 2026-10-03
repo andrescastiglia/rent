@@ -1,3 +1,4 @@
+import { GeoCard } from '@/components/geo-card';
 import { useState } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -86,6 +87,9 @@ export default function Page() {
               {entry.personName ?? entry.title}
             </Text>
             <Text>{entry.title}</Text>
+            {entry.kind === 'visit' && (
+              <GeoCard entryId={entry.id} autoEstimate />
+            )}
             <Text>{entry.description}</Text>
             <Text>
               {entry.scheduledDate ?? entry.scheduledAt ?? 'Por programar'} ·{' '}

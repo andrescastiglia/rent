@@ -1,4 +1,5 @@
 "use client";
+import { GeoCard } from "@/components/contact-data/GeoCard";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
@@ -98,6 +99,7 @@ export default function AgendaDetail({
         {t("heading")}
       </Link>
       {error && <p role="alert">{error}</p>}
+      {entry?.kind === "visit" && <GeoCard entryId={entry.id} />}
       {person && (
         <section className="border-b pb-4">
           <h1 className="text-2xl font-semibold">{person.name}</h1>

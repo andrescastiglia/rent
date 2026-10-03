@@ -1,3 +1,4 @@
+import { applyContactNormalization } from '../contact-data/normalization';
 import {
   BadRequestException,
   ConflictException,
@@ -280,6 +281,9 @@ export class InterestedService {
           ? new Date()
           : dto.consentRecordedAt,
     });
+    applyContactNormalization(profile, dto, 'interested', {
+      phone: profile.phone,
+    });
     const created = await this.interestedRepository.save(profile);
 
     await this.stageHistoryRepository.save(
@@ -553,7 +557,15 @@ export class InterestedService {
           )
         : null;
 
+    const previousContact = structuredClone(profile);
     Object.assign(profile, dto);
+    applyContactNormalization(
+      profile,
+      dto,
+      'interested',
+      { phone: profile.phone },
+      previousContact,
+    );
     if (normalizedOperations) {
       profile.operation = normalizedOperations.primaryOperation;
       profile.operations = normalizedOperations.operations;

@@ -1,4 +1,6 @@
 "use client";
+import { ContactTools } from "@/components/contact-data/ContactTools";
+import type { ContactInput } from "@/lib/contact-types";
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
@@ -54,6 +56,7 @@ export default function NewInterestedPage() {
   const t = useTranslations("interested");
   const tc = useTranslations("common");
   const locale = useLocale();
+  const [contactInput, setContactInput] = useState<ContactInput>({});
   const router = useLocalizedRouter();
 
   const [form, setForm] = useState<CreateInterestedProfileInput>(emptyForm);
@@ -96,6 +99,7 @@ export default function NewInterestedPage() {
         firstName: form.firstName?.trim() || undefined,
         lastName: form.lastName?.trim() || undefined,
         phone: form.phone.trim(),
+        ...contactInput,
         email: form.email?.trim() || undefined,
         preferredCity: form.preferredCity?.trim() || undefined,
         notes: form.notes?.trim() || undefined,
@@ -443,6 +447,12 @@ export default function NewInterestedPage() {
         >
           {saving ? t("actions.saving") : t("actions.save")}
         </button>
+        <ContactTools
+          value={contactInput}
+          onChange={setContactInput}
+          phones={{ phone: form.phone ?? "" }}
+          editAddress
+        />
       </form>
     </div>
   );

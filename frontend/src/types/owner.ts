@@ -1,7 +1,8 @@
+import type { ContactInput, ContactRecord } from "../../../shared/contact-data";
 export type PaymentMethod =
   "bank_transfer" | "check" | "cash" | "digital_wallet";
 
-export interface Owner {
+export interface Owner extends ContactRecord {
   id: string;
   userId: string;
   companyId: string;
@@ -74,7 +75,7 @@ export interface OwnerActivity {
   updatedAt: string;
 }
 
-export interface CreateOwnerInput {
+export interface CreateOwnerInput extends ContactInput {
   firstName: string;
   lastName: string;
   email?: string;

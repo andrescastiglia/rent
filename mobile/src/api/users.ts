@@ -1,3 +1,4 @@
+import type { ContactInput } from '../../../shared/contact-data';
 import type { CreateUserDto, UpdateUserDto } from '@/generated/openapi';
 import { ApiError, apiClient } from '@/api/client';
 import { IS_MOCK_MODE } from '@/api/env';
@@ -26,14 +27,16 @@ let MOCK_USERS: User[] = [
   },
 ];
 
-export type CreateManagedUserInput = Pick<
-  CreateUserDto,
-  'email' | 'password' | 'firstName' | 'lastName' | 'role' | 'roles' | 'phone'
->;
-export type UpdateManagedUserInput = Pick<
-  UpdateUserDto,
-  'email' | 'firstName' | 'lastName' | 'phone' | 'role' | 'roles'
->;
+export type CreateManagedUserInput = ContactInput &
+  Pick<
+    CreateUserDto,
+    'email' | 'password' | 'firstName' | 'lastName' | 'role' | 'roles' | 'phone'
+  >;
+export type UpdateManagedUserInput = ContactInput &
+  Pick<
+    UpdateUserDto,
+    'email' | 'firstName' | 'lastName' | 'phone' | 'role' | 'roles'
+  >;
 
 export type ResetUserPasswordResult = {
   message: string;

@@ -5,6 +5,8 @@ export interface AgendaEntry {
   kind: string;
   personType: string | null;
   personId: string | null;
+  locationType?: "property" | "owner" | "tenant" | "interested" | null;
+  locationId?: string | null;
   personName: string | null;
   responsibleUserId: string | null;
   responsibleName: string | null;
@@ -43,6 +45,8 @@ export interface AgendaTaskInput {
   kind?: string;
   personType?: string | null;
   personId?: string | null;
+  locationType?: "property" | "owner" | "tenant" | "interested" | null;
+  locationId?: string | null;
   responsibleUserId?: string | null;
   scheduledDate?: string | null;
   scheduledAt?: string | null;

@@ -36,6 +36,476 @@
         ]
       }
     },
+    "/contact-data/config": {
+      "get": {
+        "operationId": "ContactData_config",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoConfigDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Contact data"
+        ]
+      }
+    },
+    "/contact-data/phone-preview": {
+      "post": {
+        "operationId": "ContactData_phone",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhonePreviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhonePreviewResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Contact data"
+        ]
+      }
+    },
+    "/contact-data/address-search": {
+      "post": {
+        "operationId": "ContactData_search",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddressSearchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressSearchResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Contact data"
+        ]
+      }
+    },
+    "/contact-data/entries/{entryId}/destination": {
+      "get": {
+        "operationId": "ContactData_entry",
+        "parameters": [
+          {
+            "name": "entryId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/GeoDestinationDto"
+                    },
+                    {
+                      "type": "object",
+                      "nullable": true
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Contact data"
+        ]
+      }
+    },
+    "/contact-data/places-search": {
+      "post": {
+        "operationId": "ContactData_places",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlaceSearchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RegisteredPlaceDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Contact data"
+        ]
+      }
+    },
+    "/contact-data/locations/{type}/{id}": {
+      "get": {
+        "operationId": "ContactData_destination",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeoDestinationDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Contact data"
+        ]
+      }
+    },
+    "/contact-data/locations/{type}/{id}/image": {
+      "get": {
+        "operationId": "ContactData_image",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Contact data"
+        ]
+      }
+    },
+    "/contact-data/eta": {
+      "post": {
+        "operationId": "ContactData_eta",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EtaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtaResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Contact data"
+        ]
+      }
+    },
+    "/contact-data/nearby": {
+      "post": {
+        "operationId": "ContactData_nearby",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NearbyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NearbyResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Contact data"
+        ]
+      }
+    },
+    "/contact-data/people/{type}/{id}/history": {
+      "get": {
+        "operationId": "ContactData_history",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactHistoryDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Contact data"
+        ]
+      }
+    },
+    "/contact-data/people/{type}/{id}/arrival-opened": {
+      "post": {
+        "operationId": "ContactData_arrival",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArrivalOpenedDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Contact data"
+        ]
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "Metrics_getMetrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
+    "/frontend-metrics": {
+      "post": {
+        "operationId": "Metrics_recordFrontendMetric",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FrontendMetricDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Metrics"
+        ]
+      }
+    },
     "/agenda/config": {
       "get": {
         "operationId": "Agenda_config",
@@ -10679,7 +11149,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -10796,51 +11273,6 @@
         },
         "tags": [
           "Notifications"
-        ]
-      }
-    },
-    "/metrics": {
-      "get": {
-        "operationId": "Metrics_getMetrics",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Metrics"
-        ]
-      }
-    },
-    "/frontend-metrics": {
-      "post": {
-        "operationId": "Metrics_recordFrontendMetric",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FrontendMetricDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "202": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Metrics"
         ]
       }
     },
@@ -11989,6 +12421,630 @@
       }
     },
     "schemas": {
+      "GeoConfigDto": {
+        "type": "object",
+        "properties": {
+          "normalization": {
+            "type": "boolean"
+          },
+          "maps": {
+            "type": "boolean"
+          },
+          "proximity": {
+            "type": "boolean"
+          },
+          "radius": {
+            "type": "number"
+          },
+          "imminentRadius": {
+            "type": "number"
+          },
+          "exitRadius": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "scope": {
+            "required": [
+              "userId",
+              "companyId"
+            ],
+            "type": "object",
+            "properties": {
+              "userId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "companyId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        },
+        "required": [
+          "normalization",
+          "maps",
+          "proximity",
+          "radius",
+          "imminentRadius",
+          "exitRadius",
+          "limit"
+        ]
+      },
+      "PhonePreviewDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value"
+        ]
+      },
+      "PhonePreviewResultDto": {
+        "type": "object",
+        "properties": {
+          "original": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "possible": {
+            "type": "boolean"
+          },
+          "valid": {
+            "type": "boolean"
+          },
+          "e164": {
+            "type": "string",
+            "nullable": true
+          },
+          "international": {
+            "type": "string",
+            "nullable": true
+          },
+          "extension": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "original",
+          "country",
+          "possible",
+          "valid",
+          "e164",
+          "international",
+          "extension"
+        ]
+      },
+      "AddressSearchDto": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string"
+              },
+              "number": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "postalCode": {
+                "type": "string"
+              },
+              "floor": {
+                "type": "string"
+              },
+              "apartment": {
+                "type": "string"
+              },
+              "confidential": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "publicAddress": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "address",
+          "publicAddress"
+        ]
+      },
+      "AddressCandidateDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "precise": {
+            "type": "boolean"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "precise",
+          "token"
+        ]
+      },
+      "AddressSearchResultDto": {
+        "type": "object",
+        "properties": {
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddressCandidateDto"
+            }
+          },
+          "attribution": {
+            "type": "string"
+          },
+          "attributionUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidates",
+          "attribution",
+          "attributionUrl"
+        ]
+      },
+      "PlaceSearchDto": {
+        "type": "object",
+        "properties": {
+          "search": {
+            "type": "string"
+          }
+        }
+      },
+      "RegisteredPlaceDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "property",
+              "owner",
+              "tenant",
+              "interested"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name",
+          "address"
+        ]
+      },
+      "GeoDestinationDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "property",
+              "owner",
+              "tenant",
+              "interested"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "precise": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name",
+          "address",
+          "latitude",
+          "longitude",
+          "precise"
+        ]
+      },
+      "EtaDto": {
+        "type": "object",
+        "properties": {
+          "destination": {
+            "required": [
+              "type",
+              "id"
+            ],
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "property",
+                  "owner",
+                  "tenant",
+                  "interested"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          "origin": {
+            "required": [
+              "latitude",
+              "longitude",
+              "accuracy",
+              "timestamp"
+            ],
+            "type": "object",
+            "properties": {
+              "latitude": {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90
+              },
+              "longitude": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180
+              },
+              "accuracy": {
+                "type": "number",
+                "minimum": 0
+              },
+              "timestamp": {
+                "type": "integer"
+              }
+            }
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "driving",
+              "walking",
+              "cycling"
+            ]
+          }
+        }
+      },
+      "EtaResultDto": {
+        "type": "object",
+        "properties": {
+          "durationSeconds": {
+            "type": "number"
+          },
+          "distanceMeters": {
+            "type": "number"
+          },
+          "arrivesAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "driving",
+              "walking",
+              "cycling"
+            ]
+          },
+          "traffic": {
+            "type": "boolean"
+          },
+          "attribution": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "durationSeconds",
+          "distanceMeters",
+          "arrivesAt",
+          "mode",
+          "traffic",
+          "attribution"
+        ]
+      },
+      "NearbyDto": {
+        "type": "object",
+        "properties": {
+          "origin": {
+            "required": [
+              "latitude",
+              "longitude",
+              "accuracy",
+              "timestamp"
+            ],
+            "type": "object",
+            "properties": {
+              "latitude": {
+                "type": "number",
+                "minimum": -90,
+                "maximum": 90
+              },
+              "longitude": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180
+              },
+              "accuracy": {
+                "type": "number",
+                "minimum": 0
+              },
+              "timestamp": {
+                "type": "integer"
+              }
+            }
+          },
+          "radius": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          }
+        }
+      },
+      "NearbyContactDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "tenant",
+              "interested"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "relationship": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name",
+          "relationship"
+        ]
+      },
+      "NearbyPlaceDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "property",
+              "owner",
+              "tenant",
+              "interested"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "precise": {
+            "type": "boolean"
+          },
+          "distance": {
+            "type": "number"
+          },
+          "contacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NearbyContactDto"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "name",
+          "address",
+          "latitude",
+          "longitude",
+          "precise",
+          "distance",
+          "contacts"
+        ]
+      },
+      "NearbyResultDto": {
+        "type": "object",
+        "properties": {
+          "places": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NearbyPlaceDto"
+            }
+          },
+          "imminentRadius": {
+            "type": "number"
+          },
+          "exitRadius": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "places",
+          "imminentRadius",
+          "exitRadius"
+        ]
+      },
+      "ContactCommunicationDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "direction",
+          "summary",
+          "createdAt"
+        ]
+      },
+      "ContactHistoryDto": {
+        "type": "object",
+        "properties": {
+          "communications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContactCommunicationDto"
+            }
+          },
+          "whatsappPhone": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "communications",
+          "whatsappPhone"
+        ]
+      },
+      "ArrivalOpenedDto": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "arrival_whatsapp_opened"
+            ]
+          },
+          "sent": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          }
+        },
+        "required": [
+          "event",
+          "sent"
+        ]
+      },
+      "FrontendMetricDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "web_vital",
+              "client_error",
+              "api_error"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "value": {
+            "type": "number"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "method": {
+            "type": "string",
+            "maxLength": 12
+          },
+          "endpoint": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "statusCode": {
+            "type": "number"
+          },
+          "errorType": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
       "AgendaTaskDto": {
         "type": "object",
         "properties": {
@@ -12013,12 +13069,26 @@
             "enum": [
               "owner",
               "tenant",
-              "buyer",
               "interested",
-              "user"
+              "user",
+              "buyer"
             ]
           },
           "personId": {
+            "type": "string",
+            "nullable": true
+          },
+          "locationType": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "property",
+              "owner",
+              "tenant",
+              "interested"
+            ]
+          },
+          "locationId": {
             "type": "string",
             "nullable": true
           },
@@ -12087,13 +13157,27 @@
             "enum": [
               "owner",
               "tenant",
-              "buyer",
               "interested",
-              "user"
+              "user",
+              "buyer"
             ],
             "type": "string"
           },
           "personId": {
+            "type": "string",
+            "nullable": true
+          },
+          "locationType": {
+            "nullable": true,
+            "enum": [
+              "property",
+              "owner",
+              "tenant",
+              "interested"
+            ],
+            "type": "string"
+          },
+          "locationId": {
             "type": "string",
             "nullable": true
           },
@@ -12365,6 +13449,9 @@
       "User": {
         "type": "object",
         "properties": {
+          "contactData": {
+            "type": "object"
+          },
           "id": {
             "type": "string"
           },
@@ -12472,6 +13559,7 @@
           }
         },
         "required": [
+          "contactData",
           "id",
           "companyId",
           "company",
@@ -12502,6 +13590,21 @@
       "Tenant": {
         "type": "object",
         "properties": {
+          "contactData": {
+            "type": "object"
+          },
+          "contactAddress": {
+            "nullable": true,
+            "type": "object"
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true
+          },
           "id": {
             "type": "string"
           },
@@ -12598,6 +13701,10 @@
           }
         },
         "required": [
+          "contactData",
+          "contactAddress",
+          "latitude",
+          "longitude",
           "id",
           "userId",
           "user",
@@ -12772,6 +13879,21 @@
       "Owner": {
         "type": "object",
         "properties": {
+          "contactData": {
+            "type": "object"
+          },
+          "contactAddress": {
+            "nullable": true,
+            "type": "object"
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true
+          },
           "id": {
             "type": "string"
           },
@@ -12878,6 +14000,10 @@
           }
         },
         "required": [
+          "contactData",
+          "contactAddress",
+          "latitude",
+          "longitude",
           "id",
           "userId",
           "user",
@@ -13086,6 +14212,9 @@
       "Property": {
         "type": "object",
         "properties": {
+          "contactData": {
+            "type": "object"
+          },
           "id": {
             "type": "string"
           },
@@ -13261,6 +14390,7 @@
           }
         },
         "required": [
+          "contactData",
           "id",
           "companyId",
           "company",
@@ -13407,6 +14537,21 @@
       "InterestedProfile": {
         "type": "object",
         "properties": {
+          "contactData": {
+            "type": "object"
+          },
+          "contactAddress": {
+            "nullable": true,
+            "type": "object"
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true
+          },
           "id": {
             "type": "string"
           },
@@ -13637,6 +14782,10 @@
           }
         },
         "required": [
+          "contactData",
+          "contactAddress",
+          "latitude",
+          "longitude",
           "id",
           "companyId",
           "company",
@@ -13937,8 +15086,8 @@
           },
           "applicationStatus": {
             "enum": [
-              "none",
               "error",
+              "none",
               "pending",
               "applied",
               "legacy_review"
@@ -15700,6 +16849,63 @@
       "CreateUserDto": {
         "type": "object",
         "properties": {
+          "contactAddress": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string"
+              },
+              "number": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "postalCode": {
+                "type": "string"
+              },
+              "floor": {
+                "type": "string"
+              },
+              "apartment": {
+                "type": "string"
+              },
+              "confidential": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "normalization": {
+            "type": "object",
+            "properties": {
+              "addressToken": {
+                "type": "string",
+                "nullable": true
+              },
+              "phones": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                }
+              },
+              "phoneOriginals": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
           "email": {
             "type": "string",
             "maxLength": 255,
@@ -15756,6 +16962,63 @@
       "UpdateProfileDto": {
         "type": "object",
         "properties": {
+          "contactAddress": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string"
+              },
+              "number": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "postalCode": {
+                "type": "string"
+              },
+              "floor": {
+                "type": "string"
+              },
+              "apartment": {
+                "type": "string"
+              },
+              "confidential": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "normalization": {
+            "type": "object",
+            "properties": {
+              "addressToken": {
+                "type": "string",
+                "nullable": true
+              },
+              "phones": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                }
+              },
+              "phoneOriginals": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
           "email": {
             "type": "string"
           },
@@ -15799,6 +17062,63 @@
       "UpdateUserDto": {
         "type": "object",
         "properties": {
+          "contactAddress": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string"
+              },
+              "number": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "postalCode": {
+                "type": "string"
+              },
+              "floor": {
+                "type": "string"
+              },
+              "apartment": {
+                "type": "string"
+              },
+              "confidential": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "normalization": {
+            "type": "object",
+            "properties": {
+              "addressToken": {
+                "type": "string",
+                "nullable": true
+              },
+              "phones": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                }
+              },
+              "phoneOriginals": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
           "email": {
             "type": "string",
             "maxLength": 255,
@@ -15879,6 +17199,63 @@
       "CreatePropertyDto": {
         "type": "object",
         "properties": {
+          "contactAddress": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string"
+              },
+              "number": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "postalCode": {
+                "type": "string"
+              },
+              "floor": {
+                "type": "string"
+              },
+              "apartment": {
+                "type": "string"
+              },
+              "confidential": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "normalization": {
+            "type": "object",
+            "properties": {
+              "addressToken": {
+                "type": "string",
+                "nullable": true
+              },
+              "phones": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                }
+              },
+              "phoneOriginals": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
           "companyId": {
             "type": "string",
             "format": "uuid"
@@ -16187,8 +17564,8 @@
           },
           "agendaScheduleKind": {
             "enum": [
-              "time",
-              "date"
+              "date",
+              "time"
             ],
             "type": "string"
           },
@@ -18657,6 +20034,63 @@
       "CreateTenantDto": {
         "type": "object",
         "properties": {
+          "contactAddress": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string"
+              },
+              "number": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "postalCode": {
+                "type": "string"
+              },
+              "floor": {
+                "type": "string"
+              },
+              "apartment": {
+                "type": "string"
+              },
+              "confidential": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "normalization": {
+            "type": "object",
+            "properties": {
+              "addressToken": {
+                "type": "string",
+                "nullable": true
+              },
+              "phones": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                }
+              },
+              "phoneOriginals": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
           "companyId": {
             "type": "string",
             "format": "uuid"
@@ -18956,6 +20390,63 @@
       "CreateOwnerDto": {
         "type": "object",
         "properties": {
+          "contactAddress": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string"
+              },
+              "number": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "postalCode": {
+                "type": "string"
+              },
+              "floor": {
+                "type": "string"
+              },
+              "apartment": {
+                "type": "string"
+              },
+              "confidential": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "normalization": {
+            "type": "object",
+            "properties": {
+              "addressToken": {
+                "type": "string",
+                "nullable": true
+              },
+              "phones": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                }
+              },
+              "phoneOriginals": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
           "firstName": {
             "type": "string",
             "minLength": 1,
@@ -19893,12 +21384,12 @@
           "personType": {
             "type": "string",
             "enum": [
-              "admin",
               "owner",
               "tenant",
+              "interested",
+              "admin",
               "staff",
-              "buyer",
-              "interested"
+              "buyer"
             ]
           },
           "personId": {
@@ -20124,6 +21615,63 @@
       "CreateInterestedProfileDto": {
         "type": "object",
         "properties": {
+          "contactAddress": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "street": {
+                "type": "string"
+              },
+              "number": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "postalCode": {
+                "type": "string"
+              },
+              "floor": {
+                "type": "string"
+              },
+              "apartment": {
+                "type": "string"
+              },
+              "confidential": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "normalization": {
+            "type": "object",
+            "properties": {
+              "addressToken": {
+                "type": "string",
+                "nullable": true
+              },
+              "phones": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{2}$"
+                }
+              },
+              "phoneOriginals": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
           "firstName": {
             "type": "string"
           },
@@ -22487,48 +24035,6 @@
         },
         "required": [
           "preferences"
-        ]
-      },
-      "FrontendMetricDto": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": [
-              "web_vital",
-              "client_error",
-              "api_error"
-            ]
-          },
-          "name": {
-            "type": "string",
-            "maxLength": 32
-          },
-          "value": {
-            "type": "number"
-          },
-          "path": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "method": {
-            "type": "string",
-            "maxLength": 12
-          },
-          "endpoint": {
-            "type": "string",
-            "maxLength": 120
-          },
-          "statusCode": {
-            "type": "number"
-          },
-          "errorType": {
-            "type": "string",
-            "maxLength": 64
-          }
-        },
-        "required": [
-          "type"
         ]
       },
       "CreateSandboxBankMovementDto": {

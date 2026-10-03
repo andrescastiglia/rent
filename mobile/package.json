@@ -22,6 +22,7 @@
     "postinstall": "node scripts/patch-react-native-screens.mjs && node scripts/patch-expo-calendar.mjs"
   },
   "dependencies": {
+    "@expo/ui": "~56.0.26",
     "@expo/vector-icons": "^15.0.3",
     "@hookform/resolvers": "^5.2.2",
     "@react-native-community/datetimepicker": "9.1.0",
@@ -36,12 +37,15 @@
     "expo-image-picker": "~56.0.19",
     "expo-linking": "~56.0.14",
     "expo-localization": "~56.0.6",
+    "expo-location": "~56.0.26",
     "expo-modules-core": "~56.0.18",
     "expo-router": "~56.2.12",
     "expo-secure-store": "~56.0.4",
     "expo-sharing": "~56.0.19",
     "expo-status-bar": "~56.0.4",
     "expo-system-ui": "~56.0.5",
+    "expo-task-manager": "~56.0.27",
+    "expo-widgets": "~56.0.27",
     "i18next": "^26.3.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",

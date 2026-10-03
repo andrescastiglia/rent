@@ -1,4 +1,6 @@
 "use client";
+import { ContactTools } from "../contact-data/ContactTools";
+import type { ContactInput } from "../../../../shared/contact-data";
 
 import React, { useMemo } from "react";
 import { useForm, Resolver } from "react-hook-form";
@@ -79,6 +81,7 @@ export function TenantForm({
   initialData,
   isEditing = false,
 }: TenantFormProps) {
+  const [contactInput, setContactInput] = React.useState<ContactInput>({});
   const router = useLocalizedRouter();
   const t = useTranslations("tenants");
   const tCommon = useTranslations("common");
@@ -93,6 +96,7 @@ export function TenantForm({
 
   const {
     register,
+    watch,
     handleSubmit,
     formState: { errors },
   } = useForm<ExtendedTenantFormData>({
@@ -104,7 +108,7 @@ export function TenantForm({
   });
 
   const mutation = useWorkflowMutation(async (data: ExtendedTenantFormData) => {
-    const cleanData = { ...data };
+    const cleanData = { ...data, ...contactInput };
     if (isEditing && initialData) {
       await tenantsApi.update(
         initialData.id,
@@ -468,6 +472,16 @@ export function TenantForm({
             />
           </div>
         </div>
+        <ContactTools
+          value={contactInput}
+          onChange={setContactInput}
+          phones={{
+            phone: watch("phone") ?? "",
+            emergencyContactPhone: watch("emergencyContactPhone") ?? "",
+          }}
+          editAddress
+          initialAddress={initialData?.contactAddress}
+        />
       </fieldset>
       {/* Form Actions */}
       <div className="flex justify-end pt-4 border-t dark:border-gray-700">

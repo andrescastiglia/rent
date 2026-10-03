@@ -1,4 +1,6 @@
 "use client";
+import { LocationPicker } from "../contact-data/LocationPicker";
+import type { LocationRef } from "@/lib/contact-types";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
@@ -20,6 +22,11 @@ export default function TaskForm({
   relatedEntryId?: string;
 }) {
   const t = useTranslations("agenda");
+  const [location, setLocation] = useState<LocationRef | null>(
+    entry?.locationType && entry.locationId
+      ? { type: entry.locationType, id: entry.locationId }
+      : null,
+  );
   const [title, setTitle] = useState(entry?.title ?? "");
   const [body, setBody] = useState(entry?.description ?? "");
   const [kind, setKind] = useState(entry?.kind ?? "task");
@@ -124,6 +131,8 @@ export default function TaskForm({
         title,
         description: body || null,
         kind,
+        locationType: kind === "visit" ? (location?.type ?? null) : null,
+        locationId: kind === "visit" ? (location?.id ?? null) : null,
         responsibleUserId: responsible || null,
         scheduledDate: schedule === "date" ? date : null,
         scheduledAt:
@@ -192,6 +201,9 @@ export default function TaskForm({
           ))}
         </select>
       </label>
+      {kind === "visit" && (
+        <LocationPicker value={location} onChange={setLocation} />
+      )}
       <label>
         {t("description")}
         <textarea

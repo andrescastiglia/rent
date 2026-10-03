@@ -1,3 +1,4 @@
+import { GeoCard } from '@/components/geo-card';
 import { Text, View } from '@/components/themed-native';
 import { useConfirmationDialog } from '@/components/use-confirmation-dialog';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -61,13 +62,16 @@ export default function TenantDetailScreen() {
         <Text>{t('tenants.notFound')}</Text>
       ) : null}
 
+      {tenant && <GeoCard location={{ type: 'tenant', id: tenant.id }} />}
       {tenant ? (
         <View style={styles.card}>
           <Text
             style={styles.title}
           >{`${tenant.firstName} ${tenant.lastName}`}</Text>
           <Text style={styles.detail}>{tenant.email}</Text>
-          <Text style={styles.detail}>{tenant.phone}</Text>
+          <Text style={styles.detail}>
+            {tenant.contactData?.phones?.phone?.international || tenant.phone}
+          </Text>
           <Text
             style={styles.detail}
           >{`${t('tenants.fields.dni')}: ${tenant.dni}`}</Text>

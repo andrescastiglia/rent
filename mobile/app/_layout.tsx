@@ -1,5 +1,6 @@
 import 'react-native-reanimated';
 import '@/i18n';
+import '@/proximity/service';
 
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

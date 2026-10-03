@@ -1,4 +1,5 @@
 "use client";
+import { GeoCard } from "@/components/contact-data/GeoCard";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -441,6 +442,7 @@ export default function PropertyDetailPage() {
         </Link>
       </div>
 
+      <GeoCard location={{ type: "property", id: property.id }} />
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xs border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="relative h-64 md:h-96 bg-gray-200 dark:bg-gray-700">
           <PropertyImageGallery

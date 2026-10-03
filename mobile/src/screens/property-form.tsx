@@ -1,3 +1,5 @@
+import { ContactTools } from '@/components/contact-tools';
+import type { ContactInput } from '../../../shared/contact-data';
 import { Pressable, Text, View } from '@/components/themed-native';
 import { useGuidanceBlocker } from '@/components/guidance';
 import { randomUUID } from 'expo-crypto';
@@ -178,6 +180,7 @@ export function PropertyForm({
   submitLabel,
   testIDPrefix = 'propertyForm',
 }: Readonly<PropertyFormProps>) {
+  const [contactInput, setContactInput] = useState<ContactInput>({});
   const { t } = useTranslation();
   const [uploadingImages, setUploadingImages] = useState(false);
   const stagedImages = useRef(new Set<string>());
@@ -244,10 +247,10 @@ export function PropertyForm({
   const {
     control,
     getValues,
+    watch,
     handleSubmit,
     formState,
     setValue,
-    watch,
     clearErrors,
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -370,6 +373,7 @@ export function PropertyForm({
     }
 
     const payloadBase = {
+      ...contactInput,
       name: values.name,
       description: values.description || undefined,
       type: values.type,
@@ -932,6 +936,20 @@ export function PropertyForm({
         loading={submitting}
         disabled={submitting}
         testID={`${testIDPrefix}.submit`}
+      />
+      <ContactTools
+        value={contactInput}
+        onChange={setContactInput}
+        phones={{ ownerWhatsapp: watch('ownerWhatsapp') ?? '' }}
+        address={{
+          street: watch('street') ?? '',
+          number: watch('number') ?? '',
+          city: watch('city') ?? '',
+          state: watch('state') ?? '',
+          country: watch('country') ?? 'Argentina',
+          postalCode: watch('zipCode') ?? '',
+          confidential: false,
+        }}
       />
     </View>
   );

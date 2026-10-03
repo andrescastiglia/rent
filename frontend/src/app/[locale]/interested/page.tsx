@@ -1,4 +1,5 @@
 "use client";
+import { GeoCard } from "@/components/contact-data/GeoCard";
 
 import React, {
   useCallback,
@@ -370,7 +371,8 @@ function ProfilesList({
                 </span>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {profile.phone}
+                {profile.contactData?.phones?.phone?.international ||
+                  profile.phone}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {t("operationsLabel", {
@@ -406,6 +408,9 @@ function ProfilesList({
               ) : null}
             </div>
 
+            {isSelected && (
+              <GeoCard location={{ type: "interested", id: profile.id }} />
+            )}
             {isSelected && (
               <ProfileExpandedDetail
                 error={detailError}

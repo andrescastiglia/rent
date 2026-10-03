@@ -21,39 +21,40 @@ type PaginatedResponse<T> = {
   limit: number;
 };
 
-type BackendTenantLike = {
-  id: string;
-  tenantEntityId?: string;
-  cuil?: string | null;
-  dateOfBirth?: string | null;
-  nationality?: string | null;
-  occupation?: string | null;
-  employer?: string | null;
-  monthlyIncome?: number | null;
-  employmentStatus?: NonNullable<Tenant["employmentStatus"]> | null;
-  emergencyContactName?: string | null;
-  emergencyContactPhone?: string | null;
-  emergencyContactRelationship?: string | null;
-  creditScore?: number | null;
-  notes?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  isActive?: boolean | null;
-  dni?: string | null;
-  contactConsent?: boolean | null;
-  preferredContactChannel?: "whatsapp" | "email" | "sms" | null;
-  createdAt?: string | Date;
-  updatedAt?: string | Date;
-  user?: {
+type BackendTenantLike =
+  import("../../../../shared/contact-data").ContactRecord & {
+    id: string;
+    tenantEntityId?: string;
+    cuil?: string | null;
+    dateOfBirth?: string | null;
+    nationality?: string | null;
+    occupation?: string | null;
+    employer?: string | null;
+    monthlyIncome?: number | null;
+    employmentStatus?: NonNullable<Tenant["employmentStatus"]> | null;
+    emergencyContactName?: string | null;
+    emergencyContactPhone?: string | null;
+    emergencyContactRelationship?: string | null;
+    creditScore?: number | null;
+    notes?: string | null;
     firstName?: string | null;
     lastName?: string | null;
     email?: string | null;
     phone?: string | null;
     isActive?: boolean | null;
-  } | null;
-};
+    dni?: string | null;
+    contactConsent?: boolean | null;
+    preferredContactChannel?: "whatsapp" | "email" | "sms" | null;
+    createdAt?: string | Date;
+    updatedAt?: string | Date;
+    user?: {
+      firstName?: string | null;
+      lastName?: string | null;
+      email?: string | null;
+      phone?: string | null;
+      isActive?: boolean | null;
+    } | null;
+  };
 
 type BackendTenantActivityLike = {
   id: string;
@@ -89,6 +90,10 @@ const mapBackendTenantToTenant = (raw: BackendTenantLike): Tenant => {
     typeof raw.dni === "string" && raw.dni.trim().length > 0 ? raw.dni : "";
 
   return {
+    contactAddress: raw.contactAddress,
+    contactData: raw.contactData,
+    latitude: raw.latitude,
+    longitude: raw.longitude,
     id: raw.id,
     tenantEntityId: raw.tenantEntityId,
     cuil: raw.cuil ?? undefined,
@@ -309,9 +314,12 @@ const mapBackendTenantActivity = (
   };
 };
 
-type BackendTenantPayload = Record<string, string | number | boolean>;
+type BackendTenantPayload = Record<string, unknown>;
 function serializeTenantPayload(data: UpdateTenantInput): BackendTenantPayload {
   const payload: BackendTenantPayload = {};
+  if (data.normalization) payload.normalization = data.normalization;
+  if (data.contactAddress !== undefined)
+    payload.contactAddress = data.contactAddress;
   const strings = [
     "firstName",
     "lastName",

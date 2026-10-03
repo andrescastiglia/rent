@@ -1,4 +1,6 @@
 "use client";
+import { ContactTools } from "@/components/contact-data/ContactTools";
+import type { ContactInput } from "@/lib/contact-types";
 
 import { SyntheticEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -61,6 +63,7 @@ export default function SettingsPage() {
   const tAuth = useTranslations("auth");
   const tMercadoLibre = useTranslations("mercadoLibre");
 
+  const [contactInput, setContactInput] = useState<ContactInput>({});
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
@@ -147,6 +150,7 @@ export default function SettingsPage() {
     setSavingProfile(true);
     try {
       const updated = await usersApi.updateMyProfile({
+        ...contactInput,
         email,
         firstName,
         lastName,
@@ -385,6 +389,11 @@ export default function SettingsPage() {
               />
             </label>
 
+            <ContactTools
+              value={contactInput}
+              onChange={setContactInput}
+              phones={{ phone: profileForm.phone }}
+            />
             <label className="text-sm text-gray-700 dark:text-gray-300">
               {t("avatarUrl")}
               <input

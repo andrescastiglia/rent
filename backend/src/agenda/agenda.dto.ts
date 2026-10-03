@@ -11,6 +11,11 @@ export const taskSchema = z
       .nullable()
       .optional(),
     personId: z.uuid().nullable().optional(),
+    locationType: z
+      .enum(['property', 'owner', 'tenant', 'interested'])
+      .nullable()
+      .optional(),
+    locationId: z.uuid().nullable().optional(),
     responsibleUserId: z.uuid().nullable().optional(),
     scheduledDate: z.iso.date().nullable().optional(),
     scheduledAt: z.iso.datetime({ offset: true }).nullable().optional(),
@@ -42,6 +47,8 @@ export class AgendaTaskDto {
   @Allow() personType?:
     'interested' | 'tenant' | 'owner' | 'buyer' | 'user' | null;
   @Allow() personId?: string | null;
+  @Allow() locationType?: 'property' | 'owner' | 'tenant' | 'interested' | null;
+  @Allow() locationId?: string | null;
   @Allow() responsibleUserId?: string | null;
   @Allow() scheduledDate?: string | null;
   @Allow() scheduledAt?: string | null;
@@ -88,6 +95,8 @@ export type AgendaEntry = {
   kind: string;
   personType: string | null;
   personId: string | null;
+  locationType?: 'property' | 'owner' | 'tenant' | 'interested' | null;
+  locationId?: string | null;
   personName: string | null;
   responsibleUserId: string | null;
   responsibleName: string | null;

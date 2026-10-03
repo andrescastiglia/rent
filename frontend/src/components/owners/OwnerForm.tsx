@@ -1,4 +1,6 @@
 "use client";
+import { ContactTools } from "../contact-data/ContactTools";
+import type { ContactInput } from "../../../../shared/contact-data";
 
 import React, { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -26,6 +28,7 @@ const emptyOwnerForm: CreateOwnerInput = {
 export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
   const t = useTranslations("properties");
   const tc = useTranslations("common");
+  const [contactInput, setContactInput] = useState<ContactInput>({});
   const router = useLocalizedRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<CreateOwnerInput>(
@@ -67,9 +70,9 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
       };
 
       if (isEditing && initialData) {
-        await ownersApi.update(initialData.id, payload);
+        await ownersApi.update(initialData.id, { ...payload, ...contactInput });
       } else {
-        await ownersApi.create(payload);
+        await ownersApi.create({ ...payload, ...contactInput });
       }
 
       router.push("/properties");
@@ -235,6 +238,26 @@ export function OwnerForm({ initialData, isEditing = false }: OwnerFormProps) {
           )}
         </button>
       </div>
+      <ContactTools
+        value={contactInput}
+        onChange={setContactInput}
+        phones={{ phone: form.phone ?? "" }}
+        editAddress
+        initialAddress={
+          initialData?.contactAddress ??
+          (initialData?.address
+            ? {
+                street: initialData.address,
+                number: "",
+                city: initialData.city ?? "",
+                state: initialData.state ?? "",
+                country: initialData.country ?? "Argentina",
+                postalCode: initialData.postalCode ?? "",
+                confidential: false,
+              }
+            : undefined)
+        }
+      />
     </form>
   );
 }

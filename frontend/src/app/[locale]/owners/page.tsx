@@ -1,4 +1,5 @@
 "use client";
+import { GeoCard } from "@/components/contact-data/GeoCard";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -411,6 +412,7 @@ function OwnerPropertyItem({
 
       {isExpanded ? (
         <div className="border-t border-gray-200 dark:border-gray-700 px-3 py-3 space-y-2">
+          <GeoCard location={{ type: "owner", id: owner.id }} />
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
             {t("recentMaintenanceTasks")}
           </p>
@@ -668,7 +670,9 @@ function OwnerListItem({
             {owner.email}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {owner.phone || "-"}
+            {owner.contactData?.phones?.phone?.international ||
+              owner.phone ||
+              "-"}
           </p>
         </button>
 

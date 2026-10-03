@@ -4,12 +4,179 @@ export type ClientOptions = {
   baseUrl: string;
 };
 
+export type GeoConfigDto = {
+  normalization: boolean;
+  maps: boolean;
+  proximity: boolean;
+  radius: number;
+  imminentRadius: number;
+  exitRadius: number;
+  limit: number;
+  scope?: {
+    userId: string;
+    companyId: string;
+  };
+};
+
+export type PhonePreviewDto = {
+  value: string;
+  country?: string;
+};
+
+export type PhonePreviewResultDto = {
+  original: string;
+  country: string;
+  possible: boolean;
+  valid: boolean;
+  e164: string | null;
+  international: string | null;
+  extension: string | null;
+};
+
+export type AddressSearchDto = {
+  address: {
+    street?: string;
+    number?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+    floor?: string;
+    apartment?: string;
+    confidential?: boolean;
+  };
+  publicAddress: boolean;
+};
+
+export type AddressCandidateDto = {
+  label: string;
+  precise: boolean;
+  token: string;
+};
+
+export type AddressSearchResultDto = {
+  candidates: Array<AddressCandidateDto>;
+  attribution: string;
+  attributionUrl: string;
+};
+
+export type PlaceSearchDto = {
+  search?: string;
+};
+
+export type RegisteredPlaceDto = {
+  type: 'property' | 'owner' | 'tenant' | 'interested';
+  id: string;
+  name: string;
+  address: string;
+};
+
+export type GeoDestinationDto = {
+  type: 'property' | 'owner' | 'tenant' | 'interested';
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  precise: boolean;
+};
+
+export type EtaDto = {
+  destination?: {
+    type: 'property' | 'owner' | 'tenant' | 'interested';
+    id: string;
+  };
+  origin?: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    timestamp: number;
+  };
+  mode?: 'driving' | 'walking' | 'cycling';
+};
+
+export type EtaResultDto = {
+  durationSeconds: number;
+  distanceMeters: number;
+  arrivesAt: string;
+  mode: 'driving' | 'walking' | 'cycling';
+  traffic: boolean;
+  attribution: string;
+};
+
+export type NearbyDto = {
+  origin?: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    timestamp: number;
+  };
+  radius?: number;
+  limit?: number;
+};
+
+export type NearbyContactDto = {
+  type: 'owner' | 'tenant' | 'interested';
+  id: string;
+  name: string;
+  relationship: string;
+};
+
+export type NearbyPlaceDto = {
+  type: 'property' | 'owner' | 'tenant' | 'interested';
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  precise: boolean;
+  distance: number;
+  contacts: Array<NearbyContactDto>;
+};
+
+export type NearbyResultDto = {
+  places: Array<NearbyPlaceDto>;
+  imminentRadius: number;
+  exitRadius: number;
+};
+
+export type ContactCommunicationDto = {
+  id: string;
+  channel: string;
+  direction: string;
+  summary: string;
+  createdAt: string;
+};
+
+export type ContactHistoryDto = {
+  communications: Array<ContactCommunicationDto>;
+  whatsappPhone: string | null;
+};
+
+export type ArrivalOpenedDto = {
+  event: 'arrival_whatsapp_opened';
+  sent: false;
+};
+
+export type FrontendMetricDto = {
+  type: 'web_vital' | 'client_error' | 'api_error';
+  name?: string;
+  value?: number;
+  path?: string;
+  method?: string;
+  endpoint?: string;
+  statusCode?: number;
+  errorType?: string;
+};
+
 export type AgendaTaskDto = {
   title: string;
   description?: string | null;
   kind?: 'call' | 'task' | 'visit';
-  personType?: 'owner' | 'tenant' | 'buyer' | 'interested' | 'user';
+  personType?: 'owner' | 'tenant' | 'interested' | 'user' | 'buyer';
   personId?: string | null;
+  locationType?: 'property' | 'owner' | 'tenant' | 'interested';
+  locationId?: string | null;
   responsibleUserId?: string | null;
   scheduledDate?: string | null;
   scheduledAt?: string | null;
@@ -25,8 +192,10 @@ export type UpdateAgendaTaskDto = {
   title?: string;
   description?: string | null;
   kind?: 'call' | 'task' | 'visit';
-  personType?: 'owner' | 'tenant' | 'buyer' | 'interested' | 'user';
+  personType?: 'owner' | 'tenant' | 'interested' | 'user' | 'buyer';
   personId?: string | null;
+  locationType?: 'property' | 'owner' | 'tenant' | 'interested';
+  locationId?: string | null;
   responsibleUserId?: string | null;
   scheduledDate?: string | null;
   scheduledAt?: string | null;
@@ -98,6 +267,9 @@ export type Company = {
 };
 
 export type User = {
+  contactData: {
+    [key: string]: unknown;
+  };
   id: string;
   companyId: string;
   company: Company;
@@ -134,6 +306,14 @@ export type User = {
 };
 
 export type Tenant = {
+  contactData: {
+    [key: string]: unknown;
+  };
+  contactAddress: {
+    [key: string]: unknown;
+  } | null;
+  latitude: number | null;
+  longitude: number | null;
   id: string;
   userId: string;
   user: User;
@@ -196,6 +376,14 @@ export type InterestedStageHistory = {
 };
 
 export type Owner = {
+  contactData: {
+    [key: string]: unknown;
+  };
+  contactAddress: {
+    [key: string]: unknown;
+  } | null;
+  latitude: number | null;
+  longitude: number | null;
   id: string;
   userId: string;
   user: User;
@@ -279,6 +467,9 @@ export type PropertyFeature = {
 };
 
 export type Property = {
+  contactData: {
+    [key: string]: unknown;
+  };
   id: string;
   companyId: string;
   company: Company;
@@ -363,6 +554,14 @@ export type InterestedPropertyMatch = {
 };
 
 export type InterestedProfile = {
+  contactData: {
+    [key: string]: unknown;
+  };
+  contactAddress: {
+    [key: string]: unknown;
+  } | null;
+  latitude: number | null;
+  longitude: number | null;
   id: string;
   companyId: string;
   company: Company;
@@ -492,7 +691,7 @@ export type LeaseAmendment = {
   approvedBy: string;
   approver: User;
   approvedAt: string;
-  applicationStatus: 'none' | 'error' | 'pending' | 'applied' | 'legacy_review';
+  applicationStatus: 'error' | 'none' | 'pending' | 'applied' | 'legacy_review';
   appliedAt: string | null;
   applicationError: string | null;
   lastApplicationAttemptAt: string | null;
@@ -990,6 +1189,26 @@ export type ReauthenticateDto = {
 };
 
 export type CreateUserDto = {
+  contactAddress?: {
+    street?: string;
+    number?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+    floor?: string;
+    apartment?: string;
+    confidential?: boolean;
+  } | null;
+  normalization?: {
+    addressToken?: string | null;
+    phones?: {
+      [key: string]: string;
+    };
+    phoneOriginals?: {
+      [key: string]: string;
+    };
+  };
   email: string;
   password: string;
   firstName: string;
@@ -1003,6 +1222,26 @@ export type CreateUserDto = {
 };
 
 export type UpdateProfileDto = {
+  contactAddress?: {
+    street?: string;
+    number?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+    floor?: string;
+    apartment?: string;
+    confidential?: boolean;
+  } | null;
+  normalization?: {
+    addressToken?: string | null;
+    phones?: {
+      [key: string]: string;
+    };
+    phoneOriginals?: {
+      [key: string]: string;
+    };
+  };
   email?: string;
   firstName?: string;
   lastName?: string;
@@ -1018,6 +1257,26 @@ export type ChangePasswordDto = {
 };
 
 export type UpdateUserDto = {
+  contactAddress?: {
+    street?: string;
+    number?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+    floor?: string;
+    apartment?: string;
+    confidential?: boolean;
+  } | null;
+  normalization?: {
+    addressToken?: string | null;
+    phones?: {
+      [key: string]: string;
+    };
+    phoneOriginals?: {
+      [key: string]: string;
+    };
+  };
   email?: string;
   firstName?: string;
   lastName?: string;
@@ -1041,6 +1300,26 @@ export type ResetUserPasswordDto = {
 };
 
 export type CreatePropertyDto = {
+  contactAddress?: {
+    street?: string;
+    number?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+    floor?: string;
+    apartment?: string;
+    confidential?: boolean;
+  } | null;
+  normalization?: {
+    addressToken?: string | null;
+    phones?: {
+      [key: string]: string;
+    };
+    phoneOriginals?: {
+      [key: string]: string;
+    };
+  };
   companyId?: string;
   ownerId?: string;
   name: string;
@@ -1131,7 +1410,7 @@ export type PropertyVisit = {
   propertyId: string;
   property: Property;
   kind: 'visit' | 'maintenance';
-  agendaScheduleKind: 'time' | 'date';
+  agendaScheduleKind: 'date' | 'time';
   visitedAt: string;
   interestedName: string;
   interestedProfileId: string;
@@ -1825,6 +2104,26 @@ export type UpdatePaymentDocumentTemplateDto = {
 };
 
 export type CreateTenantDto = {
+  contactAddress?: {
+    street?: string;
+    number?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+    floor?: string;
+    apartment?: string;
+    confidential?: boolean;
+  } | null;
+  normalization?: {
+    addressToken?: string | null;
+    phones?: {
+      [key: string]: string;
+    };
+    phoneOriginals?: {
+      [key: string]: string;
+    };
+  };
   companyId?: string;
   email?: string | null;
   password?: string;
@@ -1901,6 +2200,26 @@ export type OwnerPageDto = {
 };
 
 export type CreateOwnerDto = {
+  contactAddress?: {
+    street?: string;
+    number?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+    floor?: string;
+    apartment?: string;
+    confidential?: boolean;
+  } | null;
+  normalization?: {
+    addressToken?: string | null;
+    phones?: {
+      [key: string]: string;
+    };
+    phoneOriginals?: {
+      [key: string]: string;
+    };
+  };
   firstName: string;
   lastName: string;
   email?: string;
@@ -2163,7 +2482,7 @@ export type DashboardOperationsOverviewDto = {
 export type PersonActivityItemDto = {
   id: string;
   sourceType: 'owner' | 'interested' | 'communication' | 'pending_action';
-  personType: 'admin' | 'owner' | 'tenant' | 'staff' | 'buyer' | 'interested';
+  personType: 'owner' | 'tenant' | 'interested' | 'admin' | 'staff' | 'buyer';
   personId: string;
   personName: string;
   subject: string;
@@ -2217,6 +2536,26 @@ export type ReportJobsDto = {
 };
 
 export type CreateInterestedProfileDto = {
+  contactAddress?: {
+    street?: string;
+    number?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postalCode?: string;
+    floor?: string;
+    apartment?: string;
+    confidential?: boolean;
+  } | null;
+  normalization?: {
+    addressToken?: string | null;
+    phones?: {
+      [key: string]: string;
+    };
+    phoneOriginals?: {
+      [key: string]: string;
+    };
+  };
   firstName?: string;
   lastName?: string;
   phone: string;
@@ -2893,17 +3232,6 @@ export type UpdateNotificationPreferencesDto = {
   preferences: Array<NotificationPreferenceItemDto>;
 };
 
-export type FrontendMetricDto = {
-  type: 'web_vital' | 'client_error' | 'api_error';
-  name?: string;
-  value?: number;
-  path?: string;
-  method?: string;
-  endpoint?: string;
-  statusCode?: number;
-  errorType?: string;
-};
-
 export type CreateSandboxBankMovementDto = {
   externalId: string;
   direction: 'credit' | 'debit';
@@ -3193,6 +3521,204 @@ export type AppGetCapabilitiesData = {
 
 export type AppGetCapabilitiesResponses = {
   200: unknown;
+};
+
+export type ContactDataConfigData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/contact-data/config';
+};
+
+export type ContactDataConfigResponses = {
+  200: GeoConfigDto;
+};
+
+export type ContactDataConfigResponse =
+  ContactDataConfigResponses[keyof ContactDataConfigResponses];
+
+export type ContactDataPhoneData = {
+  body: PhonePreviewDto;
+  path?: never;
+  query?: never;
+  url: '/contact-data/phone-preview';
+};
+
+export type ContactDataPhoneResponses = {
+  200: PhonePreviewResultDto;
+};
+
+export type ContactDataPhoneResponse =
+  ContactDataPhoneResponses[keyof ContactDataPhoneResponses];
+
+export type ContactDataSearchData = {
+  body: AddressSearchDto;
+  path?: never;
+  query?: never;
+  url: '/contact-data/address-search';
+};
+
+export type ContactDataSearchResponses = {
+  200: AddressSearchResultDto;
+};
+
+export type ContactDataSearchResponse =
+  ContactDataSearchResponses[keyof ContactDataSearchResponses];
+
+export type ContactDataEntryData = {
+  body?: never;
+  path: {
+    entryId: string;
+  };
+  query?: never;
+  url: '/contact-data/entries/{entryId}/destination';
+};
+
+export type ContactDataEntryResponses = {
+  200:
+    | GeoDestinationDto
+    | {
+        [key: string]: unknown;
+      }
+    | null;
+};
+
+export type ContactDataEntryResponse =
+  ContactDataEntryResponses[keyof ContactDataEntryResponses];
+
+export type ContactDataPlacesData = {
+  body: PlaceSearchDto;
+  path?: never;
+  query?: never;
+  url: '/contact-data/places-search';
+};
+
+export type ContactDataPlacesResponses = {
+  200: Array<RegisteredPlaceDto>;
+};
+
+export type ContactDataPlacesResponse =
+  ContactDataPlacesResponses[keyof ContactDataPlacesResponses];
+
+export type ContactDataDestinationData = {
+  body?: never;
+  path: {
+    type: string;
+    id: string;
+  };
+  query?: never;
+  url: '/contact-data/locations/{type}/{id}';
+};
+
+export type ContactDataDestinationResponses = {
+  200: GeoDestinationDto;
+};
+
+export type ContactDataDestinationResponse =
+  ContactDataDestinationResponses[keyof ContactDataDestinationResponses];
+
+export type ContactDataImageData = {
+  body?: never;
+  path: {
+    type: string;
+    id: string;
+  };
+  query?: never;
+  url: '/contact-data/locations/{type}/{id}/image';
+};
+
+export type ContactDataImageResponses = {
+  200: Blob | File;
+};
+
+export type ContactDataImageResponse =
+  ContactDataImageResponses[keyof ContactDataImageResponses];
+
+export type ContactDataEtaData = {
+  body: EtaDto;
+  path?: never;
+  query?: never;
+  url: '/contact-data/eta';
+};
+
+export type ContactDataEtaResponses = {
+  200: EtaResultDto;
+};
+
+export type ContactDataEtaResponse =
+  ContactDataEtaResponses[keyof ContactDataEtaResponses];
+
+export type ContactDataNearbyData = {
+  body: NearbyDto;
+  path?: never;
+  query?: never;
+  url: '/contact-data/nearby';
+};
+
+export type ContactDataNearbyResponses = {
+  200: NearbyResultDto;
+};
+
+export type ContactDataNearbyResponse =
+  ContactDataNearbyResponses[keyof ContactDataNearbyResponses];
+
+export type ContactDataHistoryData = {
+  body?: never;
+  path: {
+    type: string;
+    id: string;
+  };
+  query?: never;
+  url: '/contact-data/people/{type}/{id}/history';
+};
+
+export type ContactDataHistoryResponses = {
+  200: ContactHistoryDto;
+};
+
+export type ContactDataHistoryResponse =
+  ContactDataHistoryResponses[keyof ContactDataHistoryResponses];
+
+export type ContactDataArrivalData = {
+  body?: never;
+  path: {
+    type: string;
+    id: string;
+  };
+  query?: never;
+  url: '/contact-data/people/{type}/{id}/arrival-opened';
+};
+
+export type ContactDataArrivalResponses = {
+  200: ArrivalOpenedDto;
+};
+
+export type ContactDataArrivalResponse =
+  ContactDataArrivalResponses[keyof ContactDataArrivalResponses];
+
+export type MetricsGetMetricsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/metrics';
+};
+
+export type MetricsGetMetricsResponses = {
+  200: string;
+};
+
+export type MetricsGetMetricsResponse =
+  MetricsGetMetricsResponses[keyof MetricsGetMetricsResponses];
+
+export type MetricsRecordFrontendMetricData = {
+  body: FrontendMetricDto;
+  path?: never;
+  query?: never;
+  url: '/frontend-metrics';
+};
+
+export type MetricsRecordFrontendMetricResponses = {
+  202: unknown;
 };
 
 export type AgendaConfigData = {
@@ -8021,8 +8547,13 @@ export type WebNotificationsDestinationData = {
 };
 
 export type WebNotificationsDestinationResponses = {
-  200: unknown;
+  200: {
+    [key: string]: unknown;
+  };
 };
+
+export type WebNotificationsDestinationResponse =
+  WebNotificationsDestinationResponses[keyof WebNotificationsDestinationResponses];
 
 export type WebNotificationsInternalProcessData = {
   body?: never;
@@ -8081,31 +8612,6 @@ export type NotificationsGetUserPreferencesResponses = {
 
 export type NotificationsGetUserPreferencesResponse =
   NotificationsGetUserPreferencesResponses[keyof NotificationsGetUserPreferencesResponses];
-
-export type MetricsGetMetricsData = {
-  body?: never;
-  path?: never;
-  query?: never;
-  url: '/metrics';
-};
-
-export type MetricsGetMetricsResponses = {
-  200: string;
-};
-
-export type MetricsGetMetricsResponse =
-  MetricsGetMetricsResponses[keyof MetricsGetMetricsResponses];
-
-export type MetricsRecordFrontendMetricData = {
-  body: FrontendMetricDto;
-  path?: never;
-  query?: never;
-  url: '/frontend-metrics';
-};
-
-export type MetricsRecordFrontendMetricResponses = {
-  202: unknown;
-};
 
 export type BankReconciliationIngestSandboxMovementData = {
   body: CreateSandboxBankMovementDto;

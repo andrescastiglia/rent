@@ -1,3 +1,4 @@
+import { GeoCard } from '@/components/geo-card';
 import { Text, View } from '@/components/themed-native';
 import { useConfirmationDialog } from '@/components/use-confirmation-dialog';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -332,6 +333,7 @@ export default function PropertyDetailScreen() {
         <Text>{t('properties.notFound')}</Text>
       ) : null}
 
+      {property && <GeoCard location={{ type: 'property', id: property.id }} />}
       {property ? (
         <PropertySummaryCard ownerName={ownerName} property={property} t={t} />
       ) : null}

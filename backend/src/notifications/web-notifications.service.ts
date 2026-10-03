@@ -92,6 +92,10 @@ export class WebNotificationsService {
         ? await this.agenda.person(actor, entry.personType, entry.personId)
         : null;
     return {
+      entryId: entry.id,
+      kind: entry.kind,
+      locationType: entry.locationType,
+      locationId: entry.locationId,
       path: person
         ? `/agenda/people/${entry.personType}/${entry.personId}?entry=${encodeURIComponent(entry.id)}`
         : `/agenda/entries/${encodeURIComponent(entry.id)}`,

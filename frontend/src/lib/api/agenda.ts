@@ -103,10 +103,13 @@ export const noticesApi = {
   read: (id: string) =>
     apiClient.post(`/notifications/web/${id}/read`, {}, token()),
   destination: (id: string) =>
-    apiClient.get<{ path: string }>(
-      `/notifications/web/${id}/destination`,
-      token(),
-    ),
+    apiClient.get<{
+      path: string;
+      entryId?: string;
+      kind?: string;
+      locationType?: string | null;
+      locationId?: string | null;
+    }>(`/notifications/web/${id}/destination`, token()),
   config: () =>
     apiClient.get<{ publicKey: string | null; enabled: boolean }>(
       "/notifications/web/config",

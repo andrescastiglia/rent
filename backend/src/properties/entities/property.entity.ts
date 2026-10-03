@@ -1,3 +1,4 @@
+import type { ContactData } from '../../contact-data/normalization';
 import {
   Entity,
   Column,
@@ -46,6 +47,9 @@ export enum PropertyOperationState {
 
 @Entity('properties')
 export class Property {
+  @Column({ name: 'contact_data', type: 'jsonb', default: {} })
+  contactData: ContactData;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

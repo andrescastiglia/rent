@@ -1,8 +1,10 @@
+import { ContactTools } from '@/components/contact-tools';
+import type { ContactInput } from '../../../shared/contact-data';
 import { Text, View } from '@/components/themed-native';
 import { useGuidanceBlocker } from '@/components/guidance';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
@@ -65,6 +67,7 @@ export function TenantForm({
   submitLabel,
   testIDPrefix = 'tenantForm',
 }: TenantFormProps) {
+  const [contactInput, setContactInput] = useState<ContactInput>({});
   const { t } = useTranslation();
 
   const defaults: FormValues = useMemo(
@@ -90,7 +93,7 @@ export function TenantForm({
     [initial],
   );
 
-  const { control, handleSubmit, formState } = useForm<FormValues>({
+  const { control, watch, handleSubmit, formState } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: defaults,
   });
@@ -102,6 +105,7 @@ export function TenantForm({
 
   const submit = handleSubmit(async (values) => {
     const payload: CreateTenantInput = {
+      ...contactInput,
       status: initial?.status ?? 'INACTIVE',
       firstName: values.firstName,
       lastName: values.lastName,
@@ -362,6 +366,16 @@ export function TenantForm({
         loading={submitting}
         disabled={submitting}
         testID={`${testIDPrefix}.submit`}
+      />
+      <ContactTools
+        value={contactInput}
+        onChange={setContactInput}
+        phones={{
+          phone: watch('phone') ?? '',
+          emergencyContactPhone: watch('emergencyContactPhone') ?? '',
+        }}
+        editAddress
+        initialAddress={initial?.contactAddress}
       />
     </View>
   );

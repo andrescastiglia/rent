@@ -1,3 +1,5 @@
+import { LocationPicker } from '@/components/location-picker';
+import type { LocationRef } from '@/api/contact-types';
 import { useEffect, useRef, useState } from 'react';
 import { Text, View } from '@/components/themed-native';
 import { AppButton, ChoiceGroup, Field, DateField } from '@/components/ui';
@@ -22,6 +24,11 @@ export function AgendaTaskForm({
   relatedEntryId?: string;
   onSaved: (id: string) => void;
 }) {
+  const [location, setLocation] = useState<LocationRef | null>(
+    entry?.locationType && entry.locationId
+      ? { type: entry.locationType, id: entry.locationId }
+      : null,
+  );
   const [title, setTitle] = useState(entry?.title ?? ''),
     [description, setDescription] = useState(entry?.description ?? ''),
     [kind, setKind] = useState(entry?.kind ?? 'task'),
@@ -151,6 +158,8 @@ export function AgendaTaskForm({
         title,
         description: description || null,
         kind,
+        locationType: kind === 'visit' ? (location?.type ?? null) : null,
+        locationId: kind === 'visit' ? (location?.id ?? null) : null,
         responsibleUserId: responsible || null,
         scheduledDate: mode === 'date' ? date : null,
         scheduledAt:
@@ -199,6 +208,9 @@ export function AgendaTaskForm({
         ]}
         onChange={setKind}
       />
+      {kind === 'visit' && (
+        <LocationPicker value={location} onChange={setLocation} />
+      )}
       <Field
         label="Descripción"
         value={description}

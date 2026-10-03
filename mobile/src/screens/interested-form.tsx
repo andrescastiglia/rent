@@ -1,3 +1,5 @@
+import { ContactTools } from '@/components/contact-tools';
+import type { ContactInput } from '../../../shared/contact-data';
 import { Pressable, Text, View } from '@/components/themed-native';
 import { useGuidanceBlocker } from '@/components/guidance';
 import { useEffect, useMemo, useState } from 'react';
@@ -138,6 +140,7 @@ export function InterestedForm({
   submitLabel,
   testIDPrefix = 'interestedForm',
 }: InterestedFormProps) {
+  const [contactInput, setContactInput] = useState<ContactInput>({});
   const { t } = useTranslation();
   const defaults = useMemo(() => profileToForm(initial), [initial]);
   const [form, setForm] = useState<FormValues>(defaults);
@@ -172,6 +175,7 @@ export function InterestedForm({
     const normalizedOperations = getNormalizedOperations(form);
 
     const payload: CreateInterestedProfileInput = {
+      ...contactInput,
       firstName: form.firstName.trim() || undefined,
       lastName: form.lastName.trim() || undefined,
       phone: form.phone.trim(),
@@ -361,6 +365,13 @@ export function InterestedForm({
         loading={submitting}
         disabled={submitting}
         testID={`${testIDPrefix}.submit`}
+      />
+      <ContactTools
+        value={contactInput}
+        onChange={setContactInput}
+        phones={{ phone: form.phone ?? '' }}
+        editAddress
+        initialAddress={initial?.contactAddress}
       />
     </View>
   );

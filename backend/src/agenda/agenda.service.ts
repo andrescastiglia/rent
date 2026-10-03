@@ -33,6 +33,8 @@ const fieldColumns: Record<string, string> = {
   kind: 'kind',
   personType: 'person_type',
   personId: 'person_id',
+  locationType: 'location_type',
+  locationId: 'location_id',
   responsibleUserId: 'responsible_user_id',
   scheduledDate: 'scheduled_date',
   scheduledAt: 'scheduled_at',
@@ -210,8 +212,9 @@ export class AgendaService {
  CASE WHEN s.entry_id IS NOT NULL THEN s.responsible_user_id ELSE e.responsible_user_id END AS "responsibleUserId",concat_ws(' ',u.first_name,u.last_name) AS "responsibleName",
  e.scheduled_date::text AS "scheduledDate",e.scheduled_at AS "scheduledAt",e.ends_at AS "endsAt",COALESCE(s.reminder_minutes,CASE WHEN e.editable THEN e.reminder_minutes ELSE (c.settings->'agenda'->>'reminderMinutes')::int END,15) AS "reminderMinutes",COALESCE(s.reminder_hour,CASE WHEN e.editable THEN e.reminder_hour ELSE (c.settings->'agenda'->>'reminderHour')::int END,9) AS "reminderHour",
  CASE WHEN e.scheduled_date IS NOT NULL THEN (e.scheduled_date+make_time(COALESCE(s.reminder_hour,CASE WHEN e.editable THEN e.reminder_hour ELSE (c.settings->'agenda'->>'reminderHour')::int END,9),0,0)) AT TIME ZONE COALESCE(c.settings->>'timezone','America/Argentina/Buenos_Aires') ELSE e.scheduled_at-make_interval(mins=>COALESCE(s.reminder_minutes,CASE WHEN e.editable THEN e.reminder_minutes ELSE (c.settings->'agenda'->>'reminderMinutes')::int END,15)) END AS "reminderAt",
- e.status,e.version||':'||COALESCE(s.version::text,'0') AS version,e.editable,e.source_type AS "sourceType",e.source_id AS "sourceId",e.related_entry_id AS "relatedEntryId",e.updated_at AS "updatedAt",COALESCE(c.settings->>'timezone','America/Argentina/Buenos_Aires') AS timezone
+ e.status,e.version||':'||COALESCE(s.version::text,'0') AS version,e.editable,e.source_type AS "sourceType",e.source_id AS "sourceId",e.related_entry_id AS "relatedEntryId",CASE WHEN e.entry_id LIKE 'visit:%' THEN 'property' ELSE t.location_type END AS "locationType",CASE WHEN e.entry_id LIKE 'visit:%' THEN e.source_id ELSE t.location_id END AS "locationId",e.updated_at AS "updatedAt",COALESCE(c.settings->>'timezone','America/Argentina/Buenos_Aires') AS timezone
  FROM agenda_entries e JOIN companies c ON c.id=e.company_id LEFT JOIN agenda_entry_settings s ON s.company_id=e.company_id AND s.entry_id=e.entry_id
+ LEFT JOIN agenda_tasks t ON e.entry_id='task:'||t.id::text AND t.company_id=e.company_id
  LEFT JOIN agenda_people p ON p.company_id=e.company_id AND p.person_type=e.person_type AND p.person_id=e.person_id
  LEFT JOIN users u ON u.id=CASE WHEN s.entry_id IS NOT NULL THEN s.responsible_user_id ELSE e.responsible_user_id END AND u.company_id=e.company_id AND u.deleted_at IS NULL`;
   }
@@ -278,6 +281,31 @@ export class AgendaService {
     actor: AgendaActor,
     data: TaskInput,
   ) {
+    if (Boolean(data.locationType) !== Boolean(data.locationId))
+      throw new BadRequestException('Ubicación incompleta');
+    if (data.locationId && data.locationType) {
+      if (data.kind !== 'visit')
+        throw new BadRequestException('La ubicación corresponde a una visita');
+      const locations = {
+        property: 'properties',
+        owner: 'owners',
+        tenant: 'tenants',
+        interested: 'interested_profiles',
+      };
+      if (
+        !this.canEdit(
+          actor,
+          data.locationType === 'property' ? 'properties' : data.locationType,
+        )
+      )
+        throw new ForbiddenException('Sin permiso para esta ubicación');
+      const [place] = await m.query(
+        `SELECT id FROM ${locations[data.locationType]} WHERE company_id=$1 AND deleted_at IS NULL AND ${data.locationType === 'tenant' ? '(id=$2::uuid OR user_id=$2::uuid)' : 'id=$2::uuid'}`,
+        [actor.companyId, data.locationId],
+      );
+      if (!place)
+        throw new BadRequestException('Ubicación no disponible en la empresa');
+    }
     if (Boolean(data.personType) !== Boolean(data.personId))
       throw new BadRequestException('Persona incompleta');
     if (data.scheduledDate && data.scheduledAt)

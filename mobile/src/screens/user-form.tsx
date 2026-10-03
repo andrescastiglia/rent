@@ -1,8 +1,10 @@
+import { ContactTools } from '@/components/contact-tools';
+import type { ContactInput } from '../../../shared/contact-data';
 import { Text, View } from '@/components/themed-native';
 import { useGuidanceBlocker } from '@/components/guidance';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
@@ -83,6 +85,7 @@ export function UserForm({
   submitLabel,
   testIDPrefix = 'userForm',
 }: UserFormProps) {
+  const [contactInput, setContactInput] = useState<ContactInput>({});
   const { t } = useTranslation();
 
   const defaults = useMemo(
@@ -101,7 +104,7 @@ export function UserForm({
     [initial],
   );
 
-  const { control, getValues, handleSubmit, formState, setValue } =
+  const { control, watch, getValues, handleSubmit, formState, setValue } =
     useForm<FormValues>({
       resolver: zodResolver(mode === 'create' ? createSchema : editSchema),
       defaultValues: defaults,
@@ -115,6 +118,7 @@ export function UserForm({
   const submit = handleSubmit(async (values) => {
     if (mode === 'create') {
       await onSubmit({
+        ...contactInput,
         email: values.email.trim().toLowerCase(),
         password: (values as CreateFormValues).password,
         firstName: values.firstName.trim(),
@@ -127,6 +131,7 @@ export function UserForm({
     }
 
     await onSubmit({
+      ...contactInput,
       email: values.email.trim().toLowerCase(),
       firstName: values.firstName.trim(),
       lastName: values.lastName.trim(),
@@ -269,6 +274,11 @@ export function UserForm({
         loading={submitting}
         disabled={submitting}
         testID={`${testIDPrefix}.submit`}
+      />
+      <ContactTools
+        value={contactInput}
+        onChange={setContactInput}
+        phones={{ phone: watch('phone') ?? '' }}
       />
     </View>
   );

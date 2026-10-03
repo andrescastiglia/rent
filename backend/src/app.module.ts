@@ -1,3 +1,4 @@
+import { ContactDataModule } from './contact-data/contact-data.module';
 import { AgendaModule } from './agenda/agenda.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -67,6 +68,7 @@ import * as path from 'node:path';
       useFactory: getDatabaseConfig,
       inject: [ConfigService],
     }),
+    ContactDataModule,
     AgendaModule,
     AuthModule,
     UsersModule,

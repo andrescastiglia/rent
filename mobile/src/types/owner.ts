@@ -1,8 +1,9 @@
+import type { ContactInput, ContactRecord } from '../../../shared/contact-data';
 import type { CreateOwnerDto } from '@/generated/openapi';
 export type PaymentMethod =
   'bank_transfer' | 'check' | 'cash' | 'digital_wallet';
 
-export interface Owner {
+export interface Owner extends ContactRecord {
   id: string;
   userId: string;
   companyId: string;
@@ -83,8 +84,9 @@ type OwnerDtoFields = {
   ]: CreateOwnerDto[Key];
 };
 
-export type CreateOwnerInput = Omit<OwnerDtoFields, 'paymentMethod'> & {
-  paymentMethod?: PaymentMethod;
-};
+export type CreateOwnerInput = ContactInput &
+  Omit<OwnerDtoFields, 'paymentMethod' | keyof ContactInput> & {
+    paymentMethod?: PaymentMethod;
+  };
 
 export type UpdateOwnerInput = Partial<CreateOwnerInput>;

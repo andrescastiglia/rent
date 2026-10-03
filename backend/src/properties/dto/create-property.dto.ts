@@ -1,4 +1,8 @@
 import {
+  ContactNormalizationDto,
+  contactInputShape,
+} from '../../contact-data/contact-data.dto';
+import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -22,6 +26,7 @@ import { z } from 'zod';
 
 export const createPropertyZodSchema = z
   .object({
+    ...contactInputShape,
     companyId: z.uuid().optional().describe('UUID of the company'),
     ownerId: z.uuid().optional().describe('UUID of the property owner'),
     name: z.string().min(1),
@@ -86,7 +91,7 @@ export const createPropertyZodSchema = z
   })
   .strict();
 
-export class CreatePropertyDto {
+export class CreatePropertyDto extends ContactNormalizationDto {
   static readonly zodSchema = createPropertyZodSchema;
 
   @IsUUID()

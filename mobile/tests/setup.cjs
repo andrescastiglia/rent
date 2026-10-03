@@ -115,6 +115,8 @@ jest.mock('expo-router/react-navigation', () => ({
   HeaderHeightContext: require('react').createContext(undefined),
 }));
 jest.mock('expo-secure-store', () => ({
+  AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 5,
+  WHEN_UNLOCKED: 0,
   getItemAsync: jest.fn(async () => null),
   setItemAsync: jest.fn(async () => undefined),
   deleteItemAsync: jest.fn(async () => undefined),
@@ -152,7 +154,12 @@ jest.mock('expo-localization', () => ({
 }));
 jest.mock('expo-constants', () => ({
   __esModule: true,
-  default: { expoConfig: { extra: {} }, manifest: { extra: {} } },
+  ExecutionEnvironment: { StoreClient: 'storeClient' },
+  default: {
+    executionEnvironment: 'storeClient',
+    expoConfig: { extra: {} },
+    manifest: { extra: {} },
+  },
 }));
 jest.mock('@/i18n', () => ({
   i18n: { language: 'es', t: (key) => key, changeLanguage: jest.fn() },
@@ -205,4 +212,25 @@ jest.mock('expo-file-system', () => ({
     }
     write() {}
   },
+}));
+
+jest.mock('expo-location', () => ({
+  Accuracy: { High: 4, Balanced: 3 },
+  requestForegroundPermissionsAsync: jest.fn(async () => ({
+    status: 'denied',
+  })),
+  getCurrentPositionAsync: jest.fn(),
+  hasStartedLocationUpdatesAsync: jest.fn(async () => false),
+  hasStartedGeofencingAsync: jest.fn(async () => false),
+  stopLocationUpdatesAsync: jest.fn(),
+  stopGeofencingAsync: jest.fn(),
+  startLocationUpdatesAsync: jest.fn(),
+  startGeofencingAsync: jest.fn(),
+  requestBackgroundPermissionsAsync: jest.fn(async () => ({
+    status: 'denied',
+  })),
+}));
+jest.mock('expo-task-manager', () => ({
+  defineTask: jest.fn(),
+  isAvailableAsync: jest.fn(async () => false),
 }));

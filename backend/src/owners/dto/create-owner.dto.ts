@@ -1,4 +1,8 @@
 import {
+  ContactNormalizationDto,
+  contactInputShape,
+} from '../../contact-data/contact-data.dto';
+import {
   IsEmail,
   IsEnum,
   IsNumber,
@@ -15,6 +19,7 @@ import { CommunicationChannel } from '../../communications/entities/communicatio
 
 export const createOwnerZodSchema = z
   .object({
+    ...contactInputShape,
     firstName: z.string().min(1).max(100),
     lastName: z.string().min(1).max(100),
     email: z
@@ -58,7 +63,7 @@ export const createOwnerZodSchema = z
   })
   .strict();
 
-export class CreateOwnerDto {
+export class CreateOwnerDto extends ContactNormalizationDto {
   static readonly zodSchema = createOwnerZodSchema;
 
   @IsString()

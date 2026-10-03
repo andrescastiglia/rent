@@ -1,4 +1,8 @@
 import {
+  ContactNormalizationDto,
+  contactInputShape,
+} from '../../contact-data/contact-data.dto';
+import {
   IsEmail,
   IsNotEmpty,
   IsOptional,
@@ -20,6 +24,7 @@ import { EmploymentStatus } from '../entities/tenant.entity';
 
 export const createTenantZodSchema = z
   .object({
+    ...contactInputShape,
     companyId: z
       .uuid()
       .optional()
@@ -54,7 +59,7 @@ export const createTenantZodSchema = z
   })
   .strict();
 
-export class CreateTenantDto {
+export class CreateTenantDto extends ContactNormalizationDto {
   static readonly zodSchema = createTenantZodSchema;
 
   // Company reference

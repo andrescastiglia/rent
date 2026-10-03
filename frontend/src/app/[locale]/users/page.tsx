@@ -1,4 +1,6 @@
 "use client";
+import { ContactTools } from "@/components/contact-data/ContactTools";
+import type { ContactInput } from "@/lib/contact-types";
 import { useAssistantRecord } from "@/hooks/useAssistantRecord";
 
 import { SyntheticEvent, useCallback, useEffect, useState } from "react";
@@ -13,7 +15,7 @@ import { Plus, RotateCcw, ShieldCheck, ShieldX, UserPen } from "lucide-react";
 import { Pagination, Dialog } from "@/components/ui";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
-type FormState = {
+type FormState = ContactInput & {
   email: string;
   firstName: string;
   lastName: string;
@@ -69,6 +71,7 @@ async function submitUserForm(
       firstName: form.firstName,
       lastName: form.lastName,
       phone: form.phone,
+      normalization: form.normalization,
       role: form.role,
       roles: form.roles,
       permissions: form.roles.includes("staff") ? form.permissions : {},
@@ -86,6 +89,7 @@ async function submitUserForm(
     firstName: form.firstName,
     lastName: form.lastName,
     phone: form.phone || undefined,
+    normalization: form.normalization,
     role: form.role,
     roles: form.roles,
     permissions: form.roles.includes("staff") ? form.permissions : {},
@@ -327,6 +331,13 @@ function UserFormPanel({
           {submitLabel}
         </button>
       </div>
+      <ContactTools
+        value={form}
+        onChange={(next) =>
+          setForm((prev) => ({ ...prev, normalization: next.normalization }))
+        }
+        phones={{ phone: form.phone }}
+      />
     </form>
   );
 }

@@ -199,6 +199,8 @@ export function getNavigationForUser(user: NavigationUser): NavItem[] {
 
 export function canUserAccessPath(user: NavigationUser, path: string): boolean {
   const userRoles = getUserRoles(user);
+  if (path.split('?')[0].split('/').includes('proximity'))
+    return isInternalUser(user);
   if (path.split('?')[0].split('/').includes('agenda'))
     return (
       userRoles.includes('admin') ||

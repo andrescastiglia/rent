@@ -1,3 +1,4 @@
+import type { ContactInput, ContactRecord } from "../contact-types";
 import {
   normalizePropertyImages,
   normalizePropertyImageUrl,
@@ -36,7 +37,7 @@ type BackendUnit = {
   baseRent?: number | null;
 };
 
-type BackendProperty = {
+type BackendProperty = ContactRecord & {
   id: string;
   name: string;
   description?: string | null;
@@ -82,7 +83,7 @@ type BackendPropertyVisit = {
   updatedAt?: string | Date;
 };
 
-type BackendCreatePropertyPayload = {
+type BackendCreatePropertyPayload = ContactInput & {
   companyId?: string;
   ownerId?: string;
   name: string;
@@ -234,6 +235,7 @@ const serializeCreatePayload = (
     ownerId,
     name: data.name,
     ownerWhatsapp: data.ownerWhatsapp,
+    normalization: data.normalization,
     propertyType: backendType,
     addressStreet: data.address.street,
     addressNumber: data.address.number,
@@ -261,6 +263,7 @@ const serializeUpdatePayload = (
   data: UpdatePropertyInput,
 ): BackendUpdatePropertyPayload => {
   const payload: BackendUpdatePropertyPayload = {};
+  if (data.normalization) payload.normalization = data.normalization;
   const setIfDefined = <K extends keyof BackendUpdatePropertyPayload>(
     key: K,
     value: BackendUpdatePropertyPayload[K] | undefined,
@@ -458,6 +461,9 @@ const mapBackendPropertyToProperty = (raw: BackendProperty): Property => {
     units: Array.isArray(raw.units) ? raw.units.map(mapBackendUnitToUnit) : [],
     images: normalizePropertyImages(raw.images),
     ownerId: raw.ownerId ?? "",
+    contactData: raw.contactData,
+    latitude: raw.latitude,
+    longitude: raw.longitude,
     ownerWhatsapp: raw.ownerWhatsapp ?? undefined,
     rentPrice: toOptionalNumber(raw.rentPrice),
     salePrice: toOptionalNumber(raw.salePrice),
