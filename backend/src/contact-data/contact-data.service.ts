@@ -152,11 +152,22 @@ export class ContactDataService {
   }
   private async providerJson(url: string, init?: RequestInit) {
     try {
+      const target = new URL(url);
+      if (
+        target.protocol !== 'https:' ||
+        target.port ||
+        target.username ||
+        target.password ||
+        (target.hostname !== 'nominatim.openstreetmap.org' &&
+          target.hostname !== 'routing.openstreetmap.de')
+      )
+        throw new Error('Proveedor geográfico no permitido');
       const response = await context.with(
         suppressTracing(context.active()),
         () =>
-          fetch(url, {
+          fetch(target, {
             ...init,
+            redirect: 'error',
             signal: AbortSignal.timeout(8000),
             headers: {
               'User-Agent':
@@ -439,6 +450,7 @@ export class ContactDataService {
         () =>
           fetch(url, {
             headers: { Authorization: `Bearer ${key}` },
+            redirect: 'error',
             signal: AbortSignal.timeout(8000),
           }),
       );

@@ -149,3 +149,34 @@ describe('accepted contact data', () => {
     ).toThrow();
   });
 });
+it('routes every optional address selection through validation and rejects an empty or malformed proof', () => {
+  process.env.CONTACT_DATA_SIGNING_SECRET = 'test-key';
+  try {
+    expect(verifyAddress(undefined, 'company-a', address)).toBeNull();
+    expect(verifyAddress(null, 'company-a', address)).toBeNull();
+    expect(() => verifyAddress('', 'company-a', address)).toThrow();
+    const entity = {
+      companyId: 'company-a',
+      contactAddress: address,
+      contactData: {} as ContactData,
+    };
+    expect(() =>
+      applyContactNormalization(
+        entity,
+        { normalization: { addressToken: '' } },
+        'interested',
+        {},
+      ),
+    ).toThrow();
+    expect(() =>
+      applyContactNormalization(
+        entity,
+        { normalization: { addressToken: 'malformed' } },
+        'interested',
+        {},
+      ),
+    ).toThrow();
+  } finally {
+    delete process.env.CONTACT_DATA_SIGNING_SECRET;
+  }
+});

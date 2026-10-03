@@ -173,7 +173,9 @@ describe('public geographic services', () => {
     });
     await service.eta(actor, input);
     expect(fetch).toHaveBeenCalledTimes(1);
-    expect((fetch as jest.Mock).mock.calls[0][0]).toContain('/routed-foot/');
+    expect((fetch as jest.Mock).mock.calls[0][0].toString()).toContain(
+      '/routed-foot/',
+    );
     expect(query.mock.calls.flat(2)).not.toContain(input.origin.latitude);
     await expect(
       service.eta(actor, {
@@ -193,5 +195,47 @@ describe('public geographic services', () => {
     query.mockResolvedValue([]);
     await expect(service.resolve(actor, ref)).rejects.toThrow();
     expect(query.mock.calls[0][1]).toEqual([actor.companyId, ref.id]);
+  });
+});
+describe('geographic provider request boundary', () => {
+  const previous = global.fetch;
+  afterEach(() => {
+    global.fetch = previous;
+  });
+  it.each([
+    'http://nominatim.openstreetmap.org/search',
+    'https://nominatim.openstreetmap.org:444/search',
+    'https://nominatim.openstreetmap.org@127.0.0.1/search',
+    'https://nominatim.openstreetmap.org.attacker.test/search',
+    'https://routing.openstreetmap.de@localhost/route',
+    'https://127.0.0.1/search',
+  ])('rejects untrusted endpoint %s before network access', async (url) => {
+    global.fetch = jest.fn();
+    const service = new ContactDataService({
+      query: jest.fn(),
+    } as unknown as DataSource);
+    const provider = service as unknown as {
+      providerJson: (url: string) => Promise<unknown>;
+    };
+    await expect(provider.providerJson(url)).rejects.toThrow(
+      'temporalmente no disponible',
+    );
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it('fails closed on provider redirects', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new TypeError('redirect'));
+    const service = new ContactDataService({
+      query: jest.fn(),
+    } as unknown as DataSource);
+    const provider = service as unknown as {
+      providerJson: (url: string) => Promise<unknown>;
+    };
+    await expect(
+      provider.providerJson('https://nominatim.openstreetmap.org/search'),
+    ).rejects.toThrow();
+    expect(fetch).toHaveBeenCalledWith(
+      expect.any(URL),
+      expect.objectContaining({ redirect: 'error' }),
+    );
   });
 });

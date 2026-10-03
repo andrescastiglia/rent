@@ -68,8 +68,20 @@ export function verifyAddress(
   token: string,
   companyId: string,
   address: ContactAddress,
-): NormalizedAddress {
+): NormalizedAddress;
+export function verifyAddress(
+  token: string | null | undefined,
+  companyId: string | undefined,
+  address: ContactAddress | null,
+): NormalizedAddress | null;
+export function verifyAddress(
+  token: string | null | undefined,
+  companyId: string | undefined,
+  address: ContactAddress | null,
+): NormalizedAddress | null {
+  if (token === null || token === undefined) return null;
   try {
+    if (!address || !companyId) throw new Error();
     const [payload, signature, extra] = token.split('.');
     if (!payload || !signature || extra) throw new Error();
     const expected = createHmac('sha256', secret()).update(payload).digest();
@@ -157,14 +169,12 @@ export function applyContactNormalization<T extends object>(
     record.latitude = null;
     record.longitude = null;
   }
-  if (input.normalization?.addressToken) {
-    if (!address || !record.companyId)
-      throw new BadRequestException('Dirección incompleta');
-    const selected = verifyAddress(
-      input.normalization.addressToken,
-      record.companyId,
-      address,
-    );
+  const selected = verifyAddress(
+    input.normalization?.addressToken,
+    record.companyId,
+    address,
+  );
+  if (selected && address) {
     data.address = {
       ...selected,
       original: address,
